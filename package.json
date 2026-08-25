@@ -4,8 +4,8 @@
   "description": "PickAmGo - Local Marketplace for Ghana",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "build:cloudflare": "npx opennextjs-cloudflare build",
+    "build": "node scripts/build.cjs",
+    "build:cloudflare": "node scripts/build.cjs",
     "start": "next start",
     "lint": "next lint",
     "preview": "wrangler dev",
