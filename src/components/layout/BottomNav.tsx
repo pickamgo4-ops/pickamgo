@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Plus, Heart, User, ShoppingCart, Store, Package, Bike, Shield } from 'lucide-react'
+import { Home, Search, Plus, Heart, User, ShoppingCart, Store, LocateFixed, Bike, Shield } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '../../lib/api'
 import { Cart } from '../../types'
@@ -10,7 +10,7 @@ import { Cart } from '../../types'
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/discover', label: 'Discover', icon: Search },
-  { href: '/orders', label: 'Orders', icon: Package },
+  { href: '/track', label: 'Tracker', icon: LocateFixed },
   { href: '/cart', label: 'Cart', icon: ShoppingCart },
   { href: '/favorites', label: 'Favorites', icon: Heart },
   { href: '/profile', label: 'Profile', icon: User },
@@ -53,7 +53,7 @@ export function BottomNav() {
 
   const currentNavItems = navItems.filter((item) => {
     if (item.href === '/cart') return false
-    if (!user && (item.href === '/orders' || item.href === '/favorites')) return false
+    if (!user && item.href === '/favorites') return false
     return true
   })
 

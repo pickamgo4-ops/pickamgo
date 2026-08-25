@@ -78,9 +78,9 @@ export function Header() {
               <span className="text-sm font-medium text-warm-900">{location}</span>
             </button>
             <button
-              onClick={() => router.push('/orders')}
+              onClick={() => router.push('/track')}
               className="p-2.5 rounded-xl hover:bg-warm-100 transition-colors"
-              title="Track Orders"
+              title="Order Tracker"
             >
               <LocateFixed size={20} className="text-warm-800" />
             </button>
@@ -150,9 +150,9 @@ export function Header() {
           {/* Mobile Actions */}
           <div className="flex md:hidden items-center gap-1 justify-self-end">
             <button
-              onClick={() => router.push('/orders')}
+              onClick={() => router.push('/track')}
               className="p-2.5 rounded-xl hover:bg-warm-100 transition-colors"
-              title="Track Orders"
+              title="Order Tracker"
             >
               <LocateFixed size={22} className="text-warm-800" />
             </button>
