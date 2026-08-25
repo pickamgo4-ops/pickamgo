@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "pickamgo" generated at 2026-08-25T17:04:34.817Z.

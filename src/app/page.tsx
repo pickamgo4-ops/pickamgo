@@ -38,24 +38,37 @@ export default function HomePage() {
     async function loadData() {
       setLoading(true)
       try {
-        const [productsRes, servicesRes, shopsRes, categoriesRes] = await Promise.all([
+        const results = await Promise.allSettled([
           api.get<{ products: any[] }>('/products?limit=20'),
           api.get<{ services: any[] }>('/services?limit=10'),
           api.get<{ shops: any[] }>('/shops?limit=6'),
           api.get<{ data: any[] }>('/categories'),
         ])
 
-        if (productsRes.success && productsRes.data) {
-          setProducts((productsRes.data.products || []).map(mapApiProductToFrontend))
+        const [productsRes, servicesRes, shopsRes, categoriesRes] = results
+
+        if (productsRes.status === 'fulfilled' && productsRes.value.success && productsRes.value.data) {
+          setProducts((productsRes.value.data.products || []).map(mapApiProductToFrontend))
+        } else if (productsRes.status === 'rejected') {
+          console.error('Products API error:', productsRes.reason)
         }
-        if (servicesRes.success && servicesRes.data) {
-          setBeautyServices((servicesRes.data.services || []).map(mapApiServiceToFrontend))
+
+        if (servicesRes.status === 'fulfilled' && servicesRes.value.success && servicesRes.value.data) {
+          setBeautyServices((servicesRes.value.data.services || []).map(mapApiServiceToFrontend))
+        } else if (servicesRes.status === 'rejected') {
+          console.error('Services API error:', servicesRes.reason)
         }
-        if (shopsRes.success && shopsRes.data) {
-          setShops((shopsRes.data.shops || []).map(mapApiShopToFrontend))
+
+        if (shopsRes.status === 'fulfilled' && shopsRes.value.success && shopsRes.value.data) {
+          setShops((shopsRes.value.data.shops || []).map(mapApiShopToFrontend))
+        } else if (shopsRes.status === 'rejected') {
+          console.error('Shops API error:', shopsRes.reason)
         }
-        if (categoriesRes.success && Array.isArray(categoriesRes.data)) {
-          setCategories(categoriesRes.data.map(mapApiCategoryToFrontend))
+
+        if (categoriesRes.status === 'fulfilled' && categoriesRes.value.success && Array.isArray(categoriesRes.value.data)) {
+          setCategories(categoriesRes.value.data.map(mapApiCategoryToFrontend))
+        } else if (categoriesRes.status === 'rejected') {
+          console.error('Categories API error:', categoriesRes.reason)
         }
       } catch (error) {
         console.error('Failed to load data:', error)

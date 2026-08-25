@@ -43,12 +43,35 @@ const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
   .map(origin => origin.trim())
   .filter(Boolean)
 
+console.log('Allowed CORS origins:', allowedOrigins)
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true)
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.some(allowed => {
+      const originNormalized = origin.toLowerCase()
+      const allowedNormalized = allowed.toLowerCase()
+      return originNormalized === allowedNormalized || 
+             originNormalized === `${allowedNormalized}/` || 
+             allowedNormalized === `${originNormalized}/`
+    })) {
+      return callback(null, true)
+    }
+    
+    // In development, allow localhost origins
+    if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+      return callback(null, true)
+    }
+    
+    console.warn(`CORS rejection for origin: ${origin}`)
     return callback(new Error('Origin not allowed'))
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '100kb' }))
