@@ -1,0 +1,6 @@
+{
+  "name": "pickamgo",
+  "main": ".open-next/worker.js",
+  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2025-01-01"
+}
