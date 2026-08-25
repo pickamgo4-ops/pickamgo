@@ -1,0 +1,63 @@
+'use client'
+
+import React, { useState } from 'react'
+import Link from 'next/link'
+import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Button } from '../../../components/ui/Button'
+import { Input } from '../../../components/ui/Input'
+
+export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState('')
+  const [sent, setSent] = useState(false)
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link href="/auth/login" className="inline-flex items-center gap-2 text-warm-800/60 hover:text-warm-900 mb-6">
+            <ArrowLeft size={18} />
+            Back to login
+          </Link>
+          <h1 className="font-display text-3xl font-bold text-warm-900 mb-2">
+            Reset password
+          </h1>
+          <p className="text-warm-800/60">
+            Enter your email and we'll send you a reset link
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+          {!sent ? (
+            <form onSubmit={(e) => { e.preventDefault(); setSent(true) }} className="space-y-4">
+              <Input
+                type="email"
+                placeholder="Email address"
+                value={email}
+                onValueChange={setEmail}
+                icon={<Mail size={20} />}
+              />
+              <Button fullWidth type="submit">
+                Send Reset Link
+              </Button>
+            </form>
+          ) : (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle size={32} className="text-green-600" />
+              </div>
+              <h2 className="font-display text-xl font-bold text-warm-900 mb-2">
+                Check your email
+              </h2>
+              <p className="text-warm-800/60 mb-6">
+                We sent a password reset link to {email}
+              </p>
+              <Link href="/auth/login">
+                <Button fullWidth>Back to Login</Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

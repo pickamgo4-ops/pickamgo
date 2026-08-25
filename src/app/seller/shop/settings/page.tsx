@@ -1,0 +1,285 @@
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Store, Upload, MapPin, Truck, Settings } from 'lucide-react'
+import { Header } from '../../../../components/layout/Header'
+import { BottomNav } from '../../../../components/layout/BottomNav'
+import { Button } from '../../../../components/ui/Button'
+import { Input } from '../../../../components/ui/Input'
+import { Card } from '../../../../components/ui/Card'
+import { api } from '../../../../lib/api'
+
+export default function ShopSettingsPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [shop, setShop] = useState<any>(null)
+
+  const [form, setForm] = useState({
+    logo: '',
+    banner: '',
+    location: '',
+    area: '',
+    campus: '',
+    latitude: '',
+    longitude: '',
+    openingHours: '9:00 AM - 6:00 PM',
+    deliveryAvailable: true,
+    pickupAvailable: true,
+    deliveryFee: '0',
+  })
+
+  useEffect(() => {
+    loadShop()
+  }, [])
+
+  const loadShop = async () => {
+    try {
+      const response = await api.get<any>('/shops?limit=1')
+      if (response.success && response.data && response.data.shops && response.data.shops.length > 0) {
+        const shopData = response.data.shops[0]
+        setShop(shopData)
+        setForm({
+          logo: shopData.logo || '',
+          banner: shopData.banner || '',
+          location: shopData.location || '',
+          area: shopData.area || '',
+          campus: shopData.campus || '',
+          latitude: shopData.latitude?.toString() || '',
+          longitude: shopData.longitude?.toString() || '',
+          openingHours: shopData.openingHours || '9:00 AM - 6:00 PM',
+          deliveryAvailable: shopData.deliveryAvailable ?? true,
+          pickupAvailable: shopData.pickupAvailable ?? true,
+          deliveryFee: shopData.deliveryFee?.toString() || '0',
+        })
+      } else {
+        router.push('/seller/shop/create')
+      }
+    } catch (err) {
+      router.push('/seller/shop/create')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateField = (field: string, value: any) => {
+    setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!shop) return
+
+    setSaving(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await api.patch<any>(`/shops/${shop.id}`, {
+        ...form,
+        latitude: form.latitude ? parseFloat(form.latitude) : null,
+        longitude: form.longitude ? parseFloat(form.longitude) : null,
+        deliveryFee: parseFloat(form.deliveryFee) || 0,
+      })
+
+      if (response.success && response.data) {
+        setShop(response.data)
+        setSuccess('Settings saved successfully!')
+        setTimeout(() => router.push('/seller/onboarding'), 1000)
+      } else {
+        setError(response.error || 'Failed to save settings')
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pb-20 md:pb-0">
+        <Header />
+        <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-warm-800/60">Loading shop...</p>
+            </div>
+          </div>
+        </main>
+        <BottomNav />
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen pb-20 md:pb-0">
+      <Header />
+
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+            <Settings size={20} className="text-primary" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
+              Shop Settings
+            </h1>
+            <p className="text-warm-800/60 text-sm">Update your shop information</p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
+            {success}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Photo Section */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Upload size={18} className="text-primary" />
+              <h3 className="font-semibold text-warm-900">Shop Photos</h3>
+            </div>
+            <div className="space-y-4">
+              <Input
+                label="Logo URL"
+                placeholder="https://example.com/logo.png"
+                value={form.logo}
+                onChange={(e) => updateField('logo', e.target.value)}
+              />
+              {form.logo && (
+                <div className="w-20 h-20 rounded-xl overflow-hidden bg-warm-200">
+                  <img src={form.logo} alt="Logo preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <Input
+                label="Cover Image URL"
+                placeholder="https://example.com/cover.jpg"
+                value={form.banner}
+                onChange={(e) => updateField('banner', e.target.value)}
+              />
+              {form.banner && (
+                <div className="w-full h-32 rounded-xl overflow-hidden bg-warm-200">
+                  <img src={form.banner} alt="Cover preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Location Section */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin size={18} className="text-primary" />
+              <h3 className="font-semibold text-warm-900">Location</h3>
+            </div>
+            <div className="space-y-4">
+              <Input
+                label="Address"
+                placeholder="e.g., Legon, Accra"
+                value={form.location}
+                onChange={(e) => updateField('location', e.target.value)}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Area"
+                  placeholder="e.g., Legon"
+                  value={form.area}
+                  onChange={(e) => updateField('area', e.target.value)}
+                />
+                <Input
+                  label="Campus"
+                  placeholder="e.g., UG"
+                  value={form.campus}
+                  onChange={(e) => updateField('campus', e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Latitude"
+                  type="number"
+                  step="any"
+                  placeholder="5.6577"
+                  value={form.latitude}
+                  onChange={(e) => updateField('latitude', e.target.value)}
+                />
+                <Input
+                  label="Longitude"
+                  type="number"
+                  step="any"
+                  placeholder="-0.1870"
+                  value={form.longitude}
+                  onChange={(e) => updateField('longitude', e.target.value)}
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Delivery Section */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Truck size={18} className="text-primary" />
+              <h3 className="font-semibold text-warm-900">Delivery Options</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="deliveryAvailable"
+                  checked={form.deliveryAvailable}
+                  onChange={(e) => updateField('deliveryAvailable', e.target.checked)}
+                  className="w-5 h-5 rounded border-warm-200 text-primary focus:ring-primary"
+                />
+                <label htmlFor="deliveryAvailable" className="text-sm text-warm-900">
+                  Enable Delivery
+                </label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="pickupAvailable"
+                  checked={form.pickupAvailable}
+                  onChange={(e) => updateField('pickupAvailable', e.target.checked)}
+                  className="w-5 h-5 rounded border-warm-200 text-primary focus:ring-primary"
+                />
+                <label htmlFor="pickupAvailable" className="text-sm text-warm-900">
+                  Enable Pickup
+                </label>
+              </div>
+              <Input
+                label="Delivery Fee (GH₵)"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={form.deliveryFee}
+                onChange={(e) => updateField('deliveryFee', e.target.value)}
+              />
+              <Input
+                label="Opening Hours"
+                placeholder="9:00 AM - 6:00 PM"
+                value={form.openingHours}
+                onChange={(e) => updateField('openingHours', e.target.value)}
+              />
+            </div>
+          </Card>
+
+          <Button type="submit" fullWidth disabled={saving}>
+            {saving ? 'Saving...' : 'Save Settings'}
+          </Button>
+        </form>
+      </main>
+
+      <BottomNav />
+    </div>
+  )
+}

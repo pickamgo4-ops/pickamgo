@@ -1,0 +1,29 @@
+{
+  "name": "find-it-near-me",
+  "version": "1.0.0",
+  "description": "Find It Near Me - Local Marketplace for Ghana",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "autoprefixer": "^10.5.4",
+    "lucide-react": "^1.33.0",
+    "next": "^14.2.35",
+    "postcss": "^8.5.26",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.19"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,208 @@
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { MessageSquare, Send } from 'lucide-react'
+import { SellerSidebar } from '@/components/SellerSidebar'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
+import { Avatar } from '@/components/ui/Avatar'
+import { api } from '@/lib/api'
+
+interface Conversation {
+  id: string
+  participant1: { id: string; name: string; avatar: string }
+  participant2: { id: string; name: string; avatar: string }
+  messages: { id: string; senderId: string; content: string; isRead: boolean; createdAt: string }[]
+}
+
+export default function SellerMessagesPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    loadConversations()
+  }, [])
+
+  const loadConversations = async () => {
+    setLoading(true)
+    try {
+      const response = await api.get<Conversation[]>('/messages/conversations')
+      if (response.success && response.data) {
+        setConversations(response.data)
+      }
+    } catch {
+      setError('Failed to load conversations')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadConversation = async (userId: string) => {
+    try {
+      const response = await api.get<{ conversation: Conversation; messages: any[] }>(`/messages/conversations/${userId}`)
+      if (response.success && response.data) {
+        setSelectedConversation(response.data.conversation)
+      }
+    } catch {
+      setError('Failed to load conversation')
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || !selectedConversation) return
+    try {
+      const otherUserId = selectedConversation.participant1.id === selectedConversation.participant2.id 
+        ? selectedConversation.participant2.id 
+        : selectedConversation.participant1.id
+      
+      const response = await api.post(`/messages/conversations/${otherUserId}/messages`, { content: message })
+      if (response.success) {
+        setMessage('')
+        loadConversations()
+        loadConversation(otherUserId)
+      }
+    } catch {
+      setError('Failed to send message')
+    }
+  }
+
+  const otherUser = selectedConversation 
+    ? (selectedConversation.participant1.id === selectedConversation.participant2.id ? selectedConversation.participant2 : selectedConversation.participant1)
+    : null
+
+  if (loading) {
+    return (
+      <SellerSidebar>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-warm-800/60">Loading messages...</p>
+          </div>
+        </div>
+      </SellerSidebar>
+    )
+  }
+
+  return (
+    <SellerSidebar>
+      <div className="space-y-6">
+        <div>
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Messages</h1>
+          <p className="text-warm-800/60 mt-1">Communicate with customers</p>
+        </div>
+
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Conversations List */}
+          <div className="md:col-span-1 space-y-2">
+            {conversations.length === 0 ? (
+              <Card className="p-6 text-center">
+                <MessageSquare size={32} className="mx-auto text-warm-800/30 mb-2" />
+                <p className="text-sm text-warm-800/60">No conversations yet</p>
+              </Card>
+            ) : (
+              conversations.map((conv) => {
+                const other = conv.participant1.id === conv.participant2.id ? conv.participant2 : conv.participant1
+                const lastMessage = conv.messages?.[0]
+                const unreadCount = conv.messages?.filter((m) => !m.isRead && m.senderId !== other.id).length || 0
+
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => {
+                      setSelectedConversation(conv)
+                      loadConversation(other.id)
+                    }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
+                      selectedConversation?.id === conv.id ? 'bg-primary/10' : 'hover:bg-warm-100'
+                    }`}
+                  >
+                    <Avatar src={other.avatar} fallback={other.name?.[0]} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-warm-900 truncate">{other.name}</p>
+                      <p className="text-xs text-warm-800/60 truncate">
+                        {lastMessage?.content || 'No messages'}
+                      </p>
+                    </div>
+                    {unreadCount > 0 && (
+                      <span className="bg-primary text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+                )
+              })
+            )}
+          </div>
+
+          {/* Chat Area */}
+          <div className="md:col-span-2">
+            {!selectedConversation ? (
+              <Card className="p-12 text-center h-96 flex items-center justify-center">
+                <div>
+                  <MessageSquare size={48} className="mx-auto text-warm-800/30 mb-4" />
+                  <h3 className="font-semibold text-warm-900 mb-2">Select a conversation</h3>
+                  <p className="text-sm text-warm-800/60">Choose a conversation from the list to view messages</p>
+                </div>
+              </Card>
+            ) : (
+              <Card className="p-6 h-96 flex flex-col">
+                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-warm-200">
+                  <Avatar src={otherUser?.avatar} fallback={otherUser?.name?.[0]} size="md" />
+                  <div>
+                    <p className="font-medium text-warm-900">{otherUser?.name}</p>
+                    <p className="text-xs text-warm-800/60">Online</p>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+                  {selectedConversation.messages?.length === 0 ? (
+                    <p className="text-center text-warm-800/60 text-sm py-8">No messages yet. Start the conversation!</p>
+                  ) : (
+                    selectedConversation.messages?.map((msg) => {
+                      const isMe = msg.senderId === selectedConversation.participant1.id
+                      return (
+                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[70%] p-3 rounded-xl ${
+                            isMe ? 'bg-primary text-white' : 'bg-warm-100 text-warm-900'
+                          }`}>
+                            <p className="text-sm">{msg.content}</p>
+                            <p className={`text-xs mt-1 ${isMe ? 'text-white/70' : 'text-warm-800/50'}`}>
+                              {new Date(msg.createdAt).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Type a message..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleSendMessage} icon={<Send size={18} />}>Send</Button>
+                </div>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </SellerSidebar>
+  )
+}
