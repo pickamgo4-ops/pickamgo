@@ -36,6 +36,7 @@ import adminRoutes from './routes/admin'
 
 const app = express()
 
+app.set('trust proxy', 1)
 app.use(helmet())
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
   .split(',')
