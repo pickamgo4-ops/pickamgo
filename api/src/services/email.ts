@@ -1,12 +1,12 @@
 import { Resend } from 'resend'
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
+const RESEND_API_KEY = process.env.RESEND_API_KEY
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@pickamgo.com'
 const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || 'PickAmGo'
 const APP_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'
 const ADMIN_NOTIFICATION_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || ''
 
-const resend = new Resend(RESEND_API_KEY)
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null
 
 type SendEmailOptions = {
   to: string
@@ -23,7 +23,7 @@ type SendEmailResult = {
 }
 
 async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
-  if (!RESEND_API_KEY) {
+  if (!RESEND_API_KEY || !resend) {
     return { success: false, error: 'RESEND_API_KEY is not configured' }
   }
 
