@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "preview": "wrangler dev",
-    "deploy": "npx opennextjs-cloudflare deploy"
+    "deploy": "npm run build:cloudflare && npx wrangler deploy"
   },
   "keywords": [],
   "author": "",
