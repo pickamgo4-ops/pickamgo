@@ -38,10 +38,15 @@ const app = express()
 
 app.set('trust proxy', 1)
 app.use(helmet())
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
-  .split(',')
-  .map(origin => origin.trim())
-  .filter(Boolean)
+const allowedOrigins = Array.from(new Set([
+  ...(process.env.FRONTEND_URL || 'http://localhost:3000')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean),
+  'https://pickamgo.com',
+  'https://www.pickamgo.com',
+  'https://pickamgo.pickamgo4.workers.dev',
+]))
 
 console.log('Allowed CORS origins:', allowedOrigins)
 
