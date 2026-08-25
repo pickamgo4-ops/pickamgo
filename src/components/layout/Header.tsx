@@ -14,14 +14,13 @@ export function Header() {
   const router = useRouter()
   const location = 'Accra'
   const [cartCount, setCartCount] = useState(0)
-  const { user, loading } = useRole()
+  const { user, loading, authInitialized } = useRole()
   const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
+    if (!authInitialized || loading) return
     const loadCartCount = async () => {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-        if (!token) return
         const response = await api.get<Cart>('/cart')
         if (response.success && response.data) {
           setCartCount(response.data.items?.length || 0)
@@ -40,20 +39,20 @@ export function Header() {
     return () => {
       window.removeEventListener('cart-updated', handleCartUpdated)
     }
-  }, [])
+  }, [authInitialized, loading])
 
   const userRole = user?.role
 
   return (
     <header className="sticky top-0 z-50 bg-warm-50/80 backdrop-blur-md border-b border-warm-200/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-[auto_1fr_auto] items-center h-16 md:h-20 gap-4">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center h-16 md:h-20 gap-4">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Find It Near Me logo" className="h-10 w-10 rounded-xl object-contain shadow-sm" />
+            <img src="/logo.png" alt="PickAmGo logo" className="h-10 w-10 rounded-xl object-contain shadow-sm" />
             <div className="block">
               <h1 className="font-display font-bold text-lg sm:text-xl text-warm-900 leading-tight">
-                Find It Near Me
+                PickAmGo
               </h1>
             </div>
           </div>
@@ -148,7 +147,7 @@ export function Header() {
           </div>
 
           {/* Mobile Actions */}
-          <div className="flex md:hidden items-center gap-1">
+          <div className="flex md:hidden items-center gap-1 justify-self-end">
             <button
               onClick={() => router.push('/orders')}
               className="p-2.5 rounded-xl hover:bg-warm-100 transition-colors"
@@ -159,8 +158,22 @@ export function Header() {
             <button
               onClick={() => router.push('/notifications')}
               className="p-2.5 rounded-xl hover:bg-warm-100 transition-colors"
+              title="Notifications"
             >
               <Bell size={22} className="text-warm-800" />
+            </button>
+            <button
+              onClick={() => router.push('/cart')}
+              className="relative p-2.5 rounded-xl hover:bg-warm-100 transition-colors"
+              title="Cart"
+              aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ''}`}
+            >
+              <ShoppingCart size={22} className="text-warm-800" />
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-primary text-white text-[10px] leading-4 text-center">
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
+              )}
             </button>
           </div>
         </div>

@@ -19,13 +19,12 @@ const navItems = [
 export function BottomNav() {
   const pathname = usePathname()
   const [cartCount, setCartCount] = useState(0)
-  const { user, loading } = useRole()
+  const { user, loading, authInitialized } = useRole()
 
   useEffect(() => {
+    if (!authInitialized || loading) return
     const loadCartCount = async () => {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-        if (!token) return
         const response = await api.get<Cart>('/cart')
         if (response.success && response.data) {
           setCartCount(response.data.items?.length || 0)
@@ -44,7 +43,7 @@ export function BottomNav() {
     return () => {
       window.removeEventListener('cart-updated', handleCartUpdated)
     }
-  }, [pathname])
+  }, [authInitialized, loading, pathname])
 
   // Show dashboard-specific bottom navs in their respective layout components
   // This bottom nav is only for the customer experience
@@ -52,7 +51,11 @@ export function BottomNav() {
     return null
   }
 
-  const currentNavItems = navItems
+  const currentNavItems = navItems.filter((item) => {
+    if (item.href === '/cart') return false
+    if (!user && (item.href === '/orders' || item.href === '/favorites')) return false
+    return true
+  })
 
   return (
     <nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-lg border-t border-warm-200/50 md:hidden">
