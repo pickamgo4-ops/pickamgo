@@ -464,10 +464,46 @@ async function main() {
       },
     })
 
+    // Image map for different product categories
+    const imageMap: Record<string, string> = {
+      'demo-prod-01-01': 'https://images.unsplash.com/photo-1595844687982-eab6dbb1b85c?w=400&h=400&fit=crop', // Kente Blazer
+      'demo-prod-01-02': 'https://images.unsplash.com/photo-1515962998253-e0d3bde3129a?w=400&h=400&fit=crop', // Ankara Dress
+      'demo-prod-01-03': 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop', // Ghana Flag Tee
+      'demo-prod-02-01': 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop', // Wireless Earbuds
+      'demo-prod-02-02': 'https://images.unsplash.com/photo-1625948515291-69613efd103f?w=400&h=400&fit=crop', // Fast Charger
+      'demo-prod-03-01': 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400&h=400&fit=crop', // Vitamin C Serum
+      'demo-prod-03-02': 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&h=400&fit=crop', // Matte Lipstick
+      'demo-prod-03-03': 'https://images.unsplash.com/photo-1556228720-4fb4e2db1942?w=400&h=400&fit=crop', // Shea Butter
+      'demo-prod-04-01': 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop', // Jollof Rice
+      'demo-prod-04-02': 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop', // Waakye
+      'demo-prod-05-01': 'https://images.unsplash.com/photo-1528148343865-c218cba7f30d?w=400&h=400&fit=crop', // Screen Protector
+      'demo-prod-05-02': 'https://images.unsplash.com/photo-1625948515291-69613efd103f?w=400&h=400&fit=crop', // USB-C Cable
+      'demo-prod-06-01': 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=400&fit=crop', // L-Shape Sofa
+      'demo-prod-06-02': 'https://images.unsplash.com/photo-1533090161392-a8255ba84a81?w=400&h=400&fit=crop', // Oak Dining Table
+      'demo-prod-07-01': 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop', // Sneakers
+      'demo-prod-07-02': 'https://images.unsplash.com/photo-1543163521-9733539c63e2?w=400&h=400&fit=crop', // Leather Loafer
+      'demo-prod-08-01': 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400&h=400&fit=crop', // Vegetables
+      'demo-prod-08-02': 'https://images.unsplash.com/photo-1584622614875-2953067881c7?w=400&h=400&fit=crop', // Fruits
+      'demo-prod-09-01': 'https://images.unsplash.com/photo-1584345604476-c2b3b5a24236?w=400&h=400&fit=crop', // Engine Oil
+      'demo-prod-09-02': 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=400&h=400&fit=crop', // Brake Pads
+      'demo-prod-10-01': 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&h=400&fit=crop', // Custom Necklace
+      'demo-prod-10-02': 'https://images.unsplash.com/photo-1534356272178-f86b281ce137?w=400&h=400&fit=crop', // Scented Candles
+      'demo-prod-10-03': 'https://images.unsplash.com/photo-1507842217343-583f20270057?w=400&h=400&fit=crop', // Notebook
+    }
+
     for (const productDef of def.products) {
+      const imageUrl = imageMap[productDef.id] || 'https://images.unsplash.com/photo-1604654894610-df63bc536371?w=400&h=400&fit=crop'
+      
       await prisma.product.upsert({
         where: { id: productDef.id },
-        update: {},
+        update: {
+          images: {
+            deleteMany: {},
+            create: [
+              { url: imageUrl, sortOrder: 0 },
+            ],
+          },
+        },
         create: {
           ...productDef,
           shopId: shop.id,
@@ -478,7 +514,7 @@ async function main() {
           status: 'ACTIVE',
           images: {
             create: [
-              { url: `https://images.unsplash.com/photo-1604654894610-df63bc536371?w=400&h=400&fit=crop&sig=${productDef.id}`, sortOrder: 0 },
+              { url: imageUrl, sortOrder: 0 },
             ],
           },
         },
