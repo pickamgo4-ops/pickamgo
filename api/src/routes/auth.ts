@@ -1,9 +1,11 @@
 import { Router } from 'express'
 import bcrypt from 'bcrypt'
+import crypto from 'crypto'
 import { z } from 'zod'
 import prisma from '../utils/prisma'
 import { authMiddleware, generateToken } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
+import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/email'
 
 const router = Router()
 
@@ -12,7 +14,7 @@ const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.literal('buyer').default('buyer'),
+  role: z.enum(['buyer', 'seller', 'rider']).default('buyer'),
 })
 
 const loginSchema = z.object({
@@ -41,7 +43,10 @@ router.post('/register', validateBody(registerSchema), async (req: Authenticated
 
     const passwordHash = await bcrypt.hash(password, 10)
 
-    const defaultRole = await prisma.role.findUnique({ where: { name: 'USER' } })
+    const isSeller = role === 'seller'
+    const isRider = role === 'rider'
+
+    const userRole = await prisma.role.findUnique({ where: { name: role === 'buyer' ? 'USER' : role.toUpperCase() } })
 
     const user = await prisma.user.create({
       data: {
@@ -50,14 +55,22 @@ router.post('/register', validateBody(registerSchema), async (req: Authenticated
         phone,
         passwordHash,
         location: '',
-        isSeller: false,
-        isRider: false,
+        isSeller,
+        isRider,
         isAdmin: false,
         roles: {
           create: [
-            { roleId: defaultRole!.id },
+            { roleId: userRole!.id },
           ],
         },
+        ...(isRider ? {
+          riderProfile: {
+            create: {
+              isOnline: false,
+              isAvailable: false,
+            },
+          },
+        } : {}),
       },
       include: {
         roles: {
@@ -69,6 +82,8 @@ router.post('/register', validateBody(registerSchema), async (req: Authenticated
     const token = generateToken(user)
 
     const { passwordHash: _, ...userWithoutPassword } = user
+
+    sendWelcomeEmail(user.email, user.name).catch(err => console.error('Failed to send welcome email:', err))
 
     return successResponse(res, { user: userWithoutPassword, token }, 201, 'Registration successful')
   } catch (error) {
@@ -111,7 +126,7 @@ router.post('/login', validateBody(loginSchema), async (req: AuthenticatedReques
 
 router.get('/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = (req.user as any)?.userId || req.user?.id
+    const userId = req.user!.id
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -140,25 +155,63 @@ router.post('/forgot-password', validateBody(forgotPasswordSchema), async (req: 
 
     const user = await prisma.user.findUnique({ where: { email } })
     if (user) {
-      // Reset token generation would happen here with a dedicated table/email service
+      const rawToken = crypto.randomBytes(32).toString('hex')
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex')
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          token: tokenHash,
+          expiresAt,
+        },
+      })
+
+      const emailResult = await sendPasswordResetEmail(user.email, rawToken)
+      if (!emailResult.success) {
+        console.error('Failed to send password reset email:', emailResult.error)
+      }
     }
 
     return successResponse(res, null, 200, 'If an account exists with that email, a reset link has been sent')
   } catch (error) {
+    console.error('Forgot password error:', error)
     return successResponse(res, null, 200, 'If an account exists with that email, a reset link has been sent')
   }
 })
 
-router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res) => {
-  res.clearCookie('token')
-  return successResponse(res, null, 200, 'Logged out successfully')
-})
-
 router.post('/reset-password', validateBody(resetPasswordSchema), async (req: AuthenticatedRequest, res) => {
   try {
-    return errorResponse(res, 'Invalid or expired reset token', 400)
+    const { token, newPassword } = req.body
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token: tokenHash },
+      include: { user: true },
+    })
+
+    if (!resetToken || resetToken.used || resetToken.expiresAt < new Date()) {
+      return errorResponse(res, 'Invalid or expired reset token', 400)
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: resetToken.userId },
+        data: { passwordHash: hashedPassword },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { used: true },
+      }),
+    ])
+
+    return successResponse(res, null, 200, 'Password reset successfully')
   } catch (error) {
-    return errorResponse(res, 'Password reset failed', 500)
+    console.error('Reset password error:', error)
+    return errorResponse(res, 'Invalid or expired reset token', 400)
   }
 })
 

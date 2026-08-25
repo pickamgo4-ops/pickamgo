@@ -9,18 +9,28 @@ import { Button } from '../../components/ui/Button'
 import { api } from '../../lib/api'
 import { Order } from '../../types'
 import { mapApiOrderToFrontend } from '../../lib/api-mappers'
+import { useRole } from '../../contexts/RoleContext'
 
 export default function OrdersPage() {
   const router = useRouter()
+  const { user, loading, authInitialized } = useRole()
   const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
+  const [ordersLoading, setOrdersLoading] = useState(true)
 
   useEffect(() => {
+    if (!authInitialized) return
+    if (!user) {
+      router.push('/auth/login')
+    }
+  }, [user, authInitialized, router])
+
+  useEffect(() => {
+    if (!user) return
     loadOrders()
-  }, [])
+  }, [user])
 
   const loadOrders = async () => {
-    setLoading(true)
+    setOrdersLoading(true)
     try {
       const response = await api.get<{ orders: any[] }>('/orders')
       if (response.success && response.data) {
@@ -30,7 +40,7 @@ export default function OrdersPage() {
     } catch (err) {
       console.error('Failed to load orders:', err)
     } finally {
-      setLoading(false)
+      setOrdersLoading(false)
     }
   }
 
@@ -65,7 +75,7 @@ export default function OrdersPage() {
           My Orders
         </h1>
 
-        {loading ? (
+        {ordersLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />

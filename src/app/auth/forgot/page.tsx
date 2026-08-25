@@ -5,10 +5,32 @@ import Link from 'next/link'
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
+import { api } from '../../../lib/api'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await api.post('/auth/forgot-password', { email })
+      if (response.success || response.error?.includes('If an account exists')) {
+        setSent(true)
+      } else {
+        setError(response.error || 'Failed to send reset link')
+      }
+    } catch {
+      setError('An error occurred. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
@@ -28,16 +50,22 @@ export default function ForgotPasswordPage() {
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
           {!sent ? (
-            <form onSubmit={(e) => { e.preventDefault(); setSent(true) }} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
               <Input
                 type="email"
                 placeholder="Email address"
                 value={email}
                 onValueChange={setEmail}
                 icon={<Mail size={20} />}
+                required
               />
-              <Button fullWidth type="submit">
-                Send Reset Link
+              <Button fullWidth type="submit" disabled={loading}>
+                {loading ? 'Sending...' : 'Send Reset Link'}
               </Button>
             </form>
           ) : (

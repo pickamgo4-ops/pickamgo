@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, MapPin, Bell, User, Plus, Menu, ShoppingCart, Store, Bike, LocateFixed, Moon, SunMedium } from 'lucide-react'
 import { Input } from '../../components/ui/Input'
@@ -48,14 +49,14 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center h-16 md:h-20 gap-4">
           {/* Logo */}
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2" aria-label="Go to PickAmGo home">
             <img src="/logo.png" alt="PickAmGo logo" className="h-10 w-10 rounded-xl object-contain shadow-sm" />
             <div className="block">
               <h1 className="font-display font-bold text-lg sm:text-xl text-warm-900 leading-tight">
                 PickAmGo
               </h1>
             </div>
-          </div>
+          </Link>
 
           {/* Desktop Search */}
           <div className="hidden md:flex max-w-xl">

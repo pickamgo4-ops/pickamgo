@@ -9,10 +9,12 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { api } from '../../lib/api'
 import { SellerVerification } from '../../types'
+import { useRole } from '../../contexts/RoleContext'
 
 export default function AdminDashboardPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
+  const { user, loading, authInitialized } = useRole()
+  const [adminLoading, setAdminLoading] = useState(true)
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalShops: 0,
@@ -27,22 +29,14 @@ export default function AdminDashboardPage() {
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
+    if (!authInitialized) return
     checkAdminAndLoadData()
-  }, [])
+  }, [authInitialized])
 
   const checkAdminAndLoadData = async () => {
-    setLoading(true)
+    setAdminLoading(true)
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-
-      if (!token || !userData) {
-        router.push('/auth/login')
-        return
-      }
-
-      const user = JSON.parse(userData)
-      if (user.role !== 'admin' && !user.isAdmin) {
+      if (!user || (!user.isAdmin && user.role !== 'admin')) {
         router.push('/')
         return
       }
@@ -82,7 +76,7 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error('Failed to load admin dashboard:', err)
     } finally {
-      setLoading(false)
+      setAdminLoading(false)
     }
   }
 
@@ -98,7 +92,7 @@ export default function AdminDashboardPage() {
     }
   }
 
-  if (!isAdmin && !loading) {
+  if (!isAdmin && !adminLoading && !loading) {
     return null
   }
 
@@ -119,7 +113,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {loading ? (
+        {adminLoading || loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />

@@ -9,6 +9,7 @@ import { Button } from '../../../components/ui/Button'
 import { Card } from '../../../components/ui/Card'
 import { api } from '../../../lib/api'
 import { NotificationPreferences } from '../../../types'
+import { useRole } from '../../../contexts/RoleContext'
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   orderUpdates: true,
@@ -28,24 +29,27 @@ const PREFERENCE_OPTIONS = [
 
 export default function NotificationPreferencesPage() {
   const router = useRouter()
+  const { user, loading, authInitialized } = useRole()
   const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_PREFERENCES)
-  const [loading, setLoading] = useState(true)
+  const [prefsLoading, setPrefsLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
+    if (!authInitialized) return
+    if (!user) {
+      router.push('/auth/login')
+    }
+  }, [user, authInitialized, router])
+
+  useEffect(() => {
+    if (!user) return
     loadPreferences()
-  }, [])
+  }, [user])
 
   const loadPreferences = async () => {
-    setLoading(true)
+    setPrefsLoading(true)
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      if (!token) {
-        router.push('/auth/login')
-        return
-      }
-
       const response = await api.get<NotificationPreferences>('/notifications/preferences')
       if (response.success && response.data) {
         setPreferences(response.data)
@@ -53,7 +57,7 @@ export default function NotificationPreferencesPage() {
     } catch (err) {
       console.error('Failed to load preferences:', err)
     } finally {
-      setLoading(false)
+      setPrefsLoading(false)
     }
   }
 
@@ -77,7 +81,7 @@ export default function NotificationPreferencesPage() {
     }
   }
 
-  if (loading) {
+  if (prefsLoading || loading || !authInitialized || !user) {
     return (
       <div className="min-h-screen pb-20 md:pb-0">
         <Header />

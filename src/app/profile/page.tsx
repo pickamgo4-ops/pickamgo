@@ -8,42 +8,32 @@ import { BottomNav } from '../../components/layout/BottomNav'
 import { Avatar } from '../../components/ui/Avatar'
 import { Button } from '../../components/ui/Button'
 import { api } from '../../lib/api'
+import { useRole } from '../../contexts/RoleContext'
 
 export default function ProfilePage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, loading, authInitialized, clearAuth } = useRole()
+  const [localLoading, setLocalLoading] = useState(true)
 
   useEffect(() => {
-    loadUser()
-  }, [])
-
-  const loadUser = async () => {
-    try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-
-      if (!token || !userData) {
-        router.push('/auth/login')
-        return
-      }
-
-      const user = JSON.parse(userData)
-      setUser(user)
-    } catch {
+    if (!authInitialized) return
+    if (!user) {
       router.push('/auth/login')
-    } finally {
-      setLoading(false)
     }
-  }
+    setLocalLoading(false)
+  }, [user, authInitialized, router])
 
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout', {})
+    } catch {
+      // ignore
+    }
+    clearAuth()
     router.push('/auth/login')
   }
 
-  if (loading) {
+  if (loading || localLoading || !authInitialized) {
     return (
       <div className="min-h-screen pb-20 md:pb-0">
         <Header />
@@ -58,6 +48,10 @@ export default function ProfilePage() {
         <BottomNav />
       </div>
     )
+  }
+
+  if (!user) {
+    return null
   }
 
   const menuItems = [

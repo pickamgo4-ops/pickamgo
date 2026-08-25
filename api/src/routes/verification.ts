@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
+import { sendEmailDirect } from '../services/email'
 
 const router = Router()
 
@@ -135,6 +136,16 @@ router.patch('/:id/status', authMiddleware, requireRole(['ADMIN']), async (req: 
           data: JSON.stringify({ verificationId: id }),
         },
       })
+
+      const userEmail = updated.user?.email
+      if (userEmail) {
+        sendEmailDirect({
+          to: userEmail,
+          subject: 'Your PickAmGo seller verification has been approved',
+          html: `<p>Congratulations ${updated.user.name || ''}!</p><p>Your seller verification has been approved. You can now start selling on PickAmGo.</p><p>Visit your seller dashboard to get started.</p>`,
+          text: `Congratulations! Your seller verification has been approved. Visit your seller dashboard to get started.`,
+        }).catch((err: any) => console.error('Failed to send verification approved email:', err))
+      }
     } else if (status === 'REJECTED') {
       await prisma.notification.create({
         data: {
@@ -145,6 +156,16 @@ router.patch('/:id/status', authMiddleware, requireRole(['ADMIN']), async (req: 
           data: JSON.stringify({ verificationId: id }),
         },
       })
+
+      const userEmail = updated.user?.email
+      if (userEmail) {
+        sendEmailDirect({
+          to: userEmail,
+          subject: 'Your PickAmGo seller verification was not approved',
+          html: `<p>Hello ${updated.user.name || ''},</p><p>Your seller verification was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}</p><p>Please review our requirements and try again.</p>`,
+          text: `Your seller verification was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''} Please review our requirements and try again.`,
+        }).catch((err: any) => console.error('Failed to send verification rejected email:', err))
+      }
     }
 
     return successResponse(res, updated, undefined, `Verification ${status.toLowerCase()}`)

@@ -9,10 +9,10 @@ const customerPaths = ['/', '/discover', '/cart', '/favorites', '/orders', '/not
 export function RoleRedirector() {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, loading } = useRole()
+  const { user, loading, authInitialized } = useRole()
 
   useEffect(() => {
-    if (loading) return
+    if (loading || !authInitialized) return
 
     const isCustomerPath = customerPaths.some(p => p === '/' ? pathname === '/' : pathname.startsWith(p + '/') || pathname === p)
     const isAuthPath = pathname.startsWith('/auth/')
@@ -46,7 +46,7 @@ export function RoleRedirector() {
         router.push('/')
       }
     }
-  }, [user, loading, pathname, router])
+  }, [user, loading, authInitialized, pathname, router])
 
   return null
 }

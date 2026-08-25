@@ -101,7 +101,7 @@ export default function DeliverySettingsPage() {
                 <div className="flex items-center gap-2">
                   <Truck size={20} className="text-primary" />
                   <div>
-                    <p className="font-medium text-warm-900">Find It Near Me Delivery</p>
+                    <p className="font-medium text-warm-900">PickAmGo Delivery</p>
                     <p className="text-xs text-warm-800/60">Use platform riders for delivery</p>
                   </div>
                 </div>

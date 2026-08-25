@@ -3,9 +3,15 @@ import jwt from 'jsonwebtoken'
 import { User, UserRole } from '@prisma/client'
 import prisma from '../utils/prisma'
 
-const JWT_SECRET: string = process.env.JWT_SECRET || ''
-if (!JWT_SECRET || (process.env.NODE_ENV === 'production' && JWT_SECRET.includes('change-in-production'))) {
-  throw new Error('JWT_SECRET must be configured with a unique production secret')
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required')
+  }
+  if (process.env.NODE_ENV === 'production' && secret.includes('change-in-production')) {
+    throw new Error('JWT_SECRET must be configured with a unique production secret')
+  }
+  return secret
 }
 
 export interface TokenPayload {
@@ -30,11 +36,11 @@ export function generateToken(user: User & { roles?: UserRole[] }): string {
     isRider: user.isRider,
     isAdmin: user.isAdmin,
   }
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' })
 }
 
 export function verifyToken(token: string): TokenPayload {
-  return jwt.verify(token, JWT_SECRET) as TokenPayload
+  return jwt.verify(token, getJwtSecret()) as TokenPayload
 }
 
 export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {

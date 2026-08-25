@@ -47,12 +47,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="Find It Near Me logo" className="h-16 w-16 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4" />
+          <img src="/logo.png" alt="PickAmGo logo" className="h-16 w-16 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4" />
           <h1 className="font-display text-3xl font-bold text-warm-900 mb-2">
             Welcome back
           </h1>
           <p className="text-warm-800/60">
-            Sign in to your Find It Near Me account
+            Sign in to your PickAmGo account
           </p>
         </div>
 

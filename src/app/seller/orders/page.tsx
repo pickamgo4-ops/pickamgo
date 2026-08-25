@@ -142,8 +142,8 @@ export default function SellerOrdersPage() {
                   </div>
 
                   <div className="mb-4 rounded-xl bg-warm-50 border border-warm-200 px-3 py-2 text-sm">
-                      <p className="font-medium text-warm-900">{order.fulfillmentMethod === 'SELLER_OWN_DELIVERY' ? 'Seller delivery' : order.fulfillmentMethod === 'CUSTOMER_PICKUP' ? 'Customer pickup' : 'Find It Near Me delivery'}</p>
-                      {order.fulfillmentMethod === 'FIND_IT_NEAR_ME_RIDER' && <p className="text-warm-800/60 mt-1">Delivery is being handled by a Find It Near Me rider{order.rider?.name ? `: ${order.rider.name}` : ''}. Rider status: {order.delivery?.status || order.deliveryStatus || 'Awaiting rider'}.</p>}
+                      <p className="font-medium text-warm-900">{order.fulfillmentMethod === 'SELLER_OWN_DELIVERY' ? 'Seller delivery' : order.fulfillmentMethod === 'CUSTOMER_PICKUP' ? 'Customer pickup' : 'PickAmGo delivery'}</p>
+                      {order.fulfillmentMethod === 'FIND_IT_NEAR_ME_RIDER' && <p className="text-warm-800/60 mt-1">Delivery is being handled by a PickAmGo rider{order.rider?.name ? `: ${order.rider.name}` : ''}. Rider status: {order.delivery?.status || order.deliveryStatus || 'Awaiting rider'}.</p>}
                     {order.fulfillmentMethod === 'CUSTOMER_PICKUP' && <p className="text-warm-800/60 mt-1">Confirm completion after the customer collects the order.</p>}
                   </div>
 

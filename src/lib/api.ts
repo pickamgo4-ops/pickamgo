@@ -60,6 +60,19 @@ async function request<T>(
       }
     }
     const data = await response.json()
+
+    if (response.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        window.dispatchEvent(new Event('auth-changed'))
+      }
+      return {
+        success: false,
+        error: 'Session expired. Please log in again.',
+      }
+    }
+
     return response.ok ? data : { ...data, success: false }
   } catch (error) {
     return {

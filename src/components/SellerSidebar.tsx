@@ -80,6 +80,7 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
     }
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    window.dispatchEvent(new Event('auth-changed'))
     router.push('/auth/login')
   }
 

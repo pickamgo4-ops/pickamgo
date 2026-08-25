@@ -7,24 +7,29 @@ import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
 import { Button } from '../../components/ui/Button'
 import { api } from '../../lib/api'
+import { useRole } from '../../contexts/RoleContext'
 
 export default function NotificationsPage() {
   const router = useRouter()
+  const { user, loading, authInitialized } = useRole()
   const [notifications, setNotifications] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [notificationsLoading, setNotificationsLoading] = useState(true)
 
   useEffect(() => {
+    if (!authInitialized) return
+    if (!user) {
+      router.push('/auth/login')
+    }
+  }, [user, authInitialized, router])
+
+  useEffect(() => {
+    if (!user) return
     loadNotifications()
-  }, [])
+  }, [user])
 
   const loadNotifications = async () => {
+    setNotificationsLoading(true)
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      if (!token) {
-        router.push('/auth/login')
-        return
-      }
-
       const response = await api.get<any[]>('/notifications')
       if (response.success && response.data) {
         setNotifications(Array.isArray(response.data) ? response.data : [])
@@ -32,7 +37,7 @@ export default function NotificationsPage() {
     } catch (err) {
       console.error('Failed to load notifications:', err)
     } finally {
-      setLoading(false)
+      setNotificationsLoading(false)
     }
   }
 
@@ -58,6 +63,23 @@ export default function NotificationsPage() {
     }
   }
 
+  if (loading || !authInitialized || !user) {
+    return (
+      <div className="min-h-screen pb-20 md:pb-0">
+        <Header />
+        <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-warm-800/60">Loading notifications...</p>
+            </div>
+          </div>
+        </main>
+        <BottomNav />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen pb-20 md:pb-0">
       <Header />
@@ -67,7 +89,7 @@ export default function NotificationsPage() {
           Notifications
         </h1>
 
-        {loading ? (
+        {notificationsLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />

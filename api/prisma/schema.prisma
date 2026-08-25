@@ -54,6 +54,7 @@ model User {
   sellerEarnings         SellerEarnings[]
   riderEarnings          RiderEarnings[]
   ledgerEntries          FinancialLedger[]
+  passwordResetTokens    PasswordResetToken[]
 }
 
 model Role {
@@ -72,6 +73,20 @@ model UserRole {
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@id([userId, roleId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
 }
 
 model Address {

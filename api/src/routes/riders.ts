@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import { authMiddleware, requireRole } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
+import { sendRiderNotification } from '../services/email'
 
 const router = Router()
 
@@ -43,7 +44,10 @@ router.get('/deliveries', authMiddleware, requireRole(['RIDER']), async (req: Au
 })
 
 router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']), async (req: AuthenticatedRequest, res) => {
-  const rider = await prisma.rider.findUnique({ where: { userId: req.user!.id } })
+  const rider = await prisma.rider.findUnique({
+    where: { userId: req.user!.id },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  })
   if (!rider) return errorResponse(res, 'Rider profile not found', 404)
   if (!rider.isOnline) return errorResponse(res, 'You must be online to accept deliveries', 400)
 
@@ -56,7 +60,12 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
 
   const order = await prisma.order.findUnique({
     where: { id: req.params.orderId },
-    include: { delivery: true, shop: true, customer: true },
+    include: {
+      delivery: true,
+      shop: { include: { owner: { select: { id: true, name: true, email: true } } } },
+      customer: { select: { id: true, name: true, email: true, location: true } },
+      items: true,
+    },
   })
 
   if (!order) return errorResponse(res, 'Order not found', 404)
@@ -116,6 +125,18 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
 
     return newDelivery
   })
+
+  const riderEmail = rider.user?.email
+  if (riderEmail) {
+    sendRiderNotification(riderEmail, {
+      orderNumber: order.orderNumber,
+      pickupAddress: order.shop.location,
+      deliveryAddress: order.deliveryAddress,
+      customerName: order.customer?.name || 'Guest',
+      customerPhone: order.customer?.location,
+      items: order.items.map(i => i.name).join(', '),
+    }).catch(err => console.error('Failed to send rider notification email:', err))
+  }
 
   return successResponse(res, delivery, 201, 'Delivery accepted')
 })

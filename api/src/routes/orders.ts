@@ -4,6 +4,7 @@ import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
+import { sendOrderStatusEmail } from '../services/email'
 
 const router = Router()
 
@@ -313,10 +314,12 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
     data: updateData,
     include: {
       items: true,
-      customer: { select: { id: true, name: true, avatar: true } },
-      shop: { include: { owner: { select: { id: true, name: true, avatar: true } } } },
+      customer: { select: { id: true, name: true, email: true, avatar: true } },
+      shop: { include: { owner: { select: { id: true, name: true, email: true, avatar: true } } } },
     },
   })
+
+  const previousStatus = order.status
 
   if (status === 'DELIVERED') {
     await prisma.sellerEarnings.updateMany({
@@ -348,6 +351,15 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
           data: JSON.stringify({ orderId: order.id, status }),
         },
       })
+
+      const customerEmail = updated.customer?.email
+      if (customerEmail) {
+        sendOrderStatusEmail(customerEmail, {
+          orderNumber: updated.orderNumber,
+          status: status.replace(/_/g, ' ').toLowerCase(),
+          previousStatus: previousStatus ? previousStatus.replace(/_/g, ' ').toLowerCase() : undefined,
+        }).catch(err => console.error('Failed to send order status email:', err))
+      }
     }
   }
 

@@ -280,6 +280,7 @@ export default function CheckoutPage() {
       if (response.success && response.data) {
         localStorage.setItem('token', response.data.token)
         localStorage.setItem('user', JSON.stringify(response.data.user))
+        window.dispatchEvent(new Event('auth-changed'))
         router.push('/')
       } else {
         setSignupError(response.error || response.message || 'Registration failed')

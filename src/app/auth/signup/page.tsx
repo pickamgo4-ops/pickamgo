@@ -3,10 +3,12 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Mail, Lock, Eye, EyeOff, Phone, User } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Phone, User, Store, Bike } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { api } from '../../../lib/api'
+
+type UserRole = 'buyer' | 'seller' | 'rider'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -15,6 +17,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState<UserRole>('buyer')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -29,7 +32,7 @@ export default function SignupPage() {
         email,
         phone,
         password,
-        role: 'buyer',
+        role,
       })
 
       if (response.success && response.data) {
@@ -47,16 +50,22 @@ export default function SignupPage() {
     }
   }
 
+  const roleOptions = [
+    { value: 'buyer' as UserRole, label: 'Buyer', description: 'Shop and discover products', icon: User },
+    { value: 'seller' as UserRole, label: 'Seller', description: 'Sell products and services', icon: Store },
+    { value: 'rider' as UserRole, label: 'Rider', description: 'Deliver orders and earn', icon: Bike },
+  ]
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="Find It Near Me logo" className="h-16 w-16 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4" />
+          <img src="/logo.png" alt="PickAmGo logo" className="h-16 w-16 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4" />
           <h1 className="font-display text-3xl font-bold text-warm-900 mb-2">
             Create account
           </h1>
           <p className="text-warm-800/60">
-            Join Find It Near Me and discover local gems
+            Join PickAmGo and discover local gems
           </p>
         </div>
 
@@ -111,6 +120,32 @@ export default function SignupPage() {
               }
               required
             />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-warm-900">I want to</label>
+              <div className="grid grid-cols-3 gap-2">
+                {roleOptions.map((option) => {
+                  const Icon = option.icon
+                  const isSelected = role === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setRole(option.value)}
+                      className={`p-3 rounded-xl border-2 text-center transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : 'border-warm-200 hover:border-warm-300'
+                      }`}
+                    >
+                      <Icon size={20} className={`mx-auto mb-1 ${isSelected ? 'text-primary' : 'text-warm-800/50'}`} />
+                      <span className="text-xs font-medium text-warm-900 block">{option.label}</span>
+                      <span className="text-[10px] text-warm-800/60 hidden md:block">{option.description}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
 
             <label className="flex items-start gap-2 cursor-pointer">
               <input type="checkbox" className="mt-1 rounded border-warm-200 text-primary focus:ring-primary" required />

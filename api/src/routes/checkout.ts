@@ -5,6 +5,7 @@ import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
 import { verifyTransaction } from '../services/paystack'
+import { sendOrderConfirmationEmail, sendSellerOrderNotification } from '../services/email'
 
 const router = Router()
 
@@ -297,9 +298,9 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       where: { id: { in: orders.map(o => o.id) } },
       include: {
         items: true,
-        shop: { include: { owner: { select: { id: true, name: true, avatar: true } } } },
+        shop: { include: { owner: { select: { id: true, name: true, email: true, avatar: true } } } },
         payment: true,
-        customer: { select: { id: true, name: true, avatar: true } },
+        customer: { select: { id: true, name: true, email: true, avatar: true } },
         sellerEarnings: true,
         riderEarnings: true,
       },
@@ -308,6 +309,39 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
     const userCart = await prisma.cart.findUnique({ where: { userId: req.user!.id } })
     if (userCart) {
       await prisma.cartItem.deleteMany({ where: { cartId: userCart.id } })
+    }
+
+    for (const order of fullOrders) {
+      const customerEmail = order.customer?.email
+      if (customerEmail) {
+        const items = order.items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: Number(item.price),
+        }))
+        sendOrderConfirmationEmail(customerEmail, {
+          orderNumber: order.orderNumber,
+          items,
+          total: Number(order.total),
+          deliveryMethod: order.fulfillmentMethod,
+          paymentMethod: order.payment?.method,
+          createdAt: order.createdAt.toISOString(),
+        }).catch(err => console.error('Failed to send order confirmation email:', err))
+      }
+
+      const sellerEmail = order.shop?.owner?.email
+      if (sellerEmail) {
+        const items = order.items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+        }))
+        sendSellerOrderNotification(sellerEmail, {
+          orderNumber: order.orderNumber,
+          items,
+          buyerName: order.customer?.name || 'Guest',
+          deliveryAddress: order.deliveryAddress,
+        }).catch(err => console.error('Failed to send seller notification email:', err))
+      }
     }
 
   if (addressId) {

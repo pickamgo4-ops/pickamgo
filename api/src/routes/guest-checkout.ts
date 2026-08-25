@@ -4,6 +4,7 @@ import { authMiddleware, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
+import { sendOrderConfirmationEmail, sendSellerOrderNotification } from '../services/email'
 
 const router = Router()
 
@@ -254,12 +255,44 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
     where: { id: { in: orders.map(o => o.id) } },
     include: {
       items: true,
-      shop: { include: { owner: { select: { id: true, name: true, avatar: true } } } },
+      shop: { include: { owner: { select: { id: true, name: true, email: true, avatar: true } } } },
       payment: true,
       sellerEarnings: true,
       riderEarnings: true,
     },
   })
+
+  for (const order of fullOrders) {
+    if (guestEmail) {
+      const items = order.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: Number(item.price),
+      }))
+      sendOrderConfirmationEmail(guestEmail, {
+        orderNumber: order.orderNumber,
+        items,
+        total: Number(order.total),
+        deliveryMethod: order.fulfillmentMethod,
+        paymentMethod: order.payment?.method,
+        createdAt: order.createdAt.toISOString(),
+      }).catch(err => console.error('Failed to send guest order confirmation email:', err))
+    }
+
+    const sellerEmail = order.shop?.owner?.email
+    if (sellerEmail) {
+      const items = order.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+      }))
+      sendSellerOrderNotification(sellerEmail, {
+        orderNumber: order.orderNumber,
+        items,
+        buyerName: guestName || 'Guest',
+        deliveryAddress,
+      }).catch(err => console.error('Failed to send seller notification email:', err))
+    }
+  }
 
   return successResponse(res, { orders: fullOrders }, 201, 'Guest orders created successfully')
 })
