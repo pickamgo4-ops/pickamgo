@@ -2,8 +2,27 @@ import { Router } from 'express'
 import prisma from '../utils/prisma'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse } from '../types/express'
+import { testR2Connection } from '../services/storage'
 
 const router = Router()
+
+router.get('/r2-test', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
+  try {
+    const result = await testR2Connection()
+    return successResponse(res, {
+      r2Connected: true,
+      bucket: result.bucket,
+      message: 'Cloudflare R2 connection, upload, read and delete all work successfully.',
+    })
+  } catch (error: any) {
+    console.error('R2 connection test failed:', error)
+    return res.status(500).json({
+      success: false,
+      r2Connected: false,
+      error: error?.message || 'Cloudflare R2 connection test failed.',
+    })
+  }
+})
 
 router.get('/dashboard', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {

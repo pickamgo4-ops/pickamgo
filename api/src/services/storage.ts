@@ -50,6 +50,46 @@ export function isR2Enabled(): boolean {
   return USE_R2 && r2Bucket !== null
 }
 
+export async function testR2Connection(): Promise<{ bucket: string; key: string }> {
+  if (!isR2Enabled() || !r2Client || !r2Bucket) {
+    throw new Error('R2 is not fully configured. Required account ID, access key, secret key, and bucket name are missing or invalid.')
+  }
+
+  const { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3')
+  const bucket = process.env.R2_BUCKET_NAME as string
+  const key = 'pickamgo-r2-test.txt'
+  const content = 'PickAmGo R2 connection test'
+  let uploaded = false
+
+  try {
+    await r2Client.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: Buffer.from(content, 'utf8'),
+      ContentType: 'text/plain; charset=utf-8',
+    }))
+    uploaded = true
+
+    const result = await r2Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+    const body = result.Body && typeof result.Body.transformToString === 'function'
+      ? await result.Body.transformToString()
+      : ''
+    if (body !== content) throw new Error('R2 test object was uploaded but could not be read back correctly.')
+
+    await r2Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
+    uploaded = false
+    return { bucket, key }
+  } finally {
+    if (uploaded) {
+      try {
+        await r2Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
+      } catch (cleanupError) {
+        console.error('Failed to clean up R2 test object:', cleanupError)
+      }
+    }
+  }
+}
+
 export function getStorageProvider(): multer.StorageEngine {
   if (isR2Enabled()) {
     return {
