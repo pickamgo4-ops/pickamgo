@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { useTheme } from '../theme/ThemeProvider'
 
 interface MapboxLocationPickerProps {
   value?: { address?: string; latitude?: number; longitude?: number } | null
@@ -17,6 +18,8 @@ declare global {
   }
 }
 
+const GHANA_CENTER: [number, number] = [-0.187, 5.6037]
+
 export default function MapboxLocationPicker({
   value,
   onChange,
@@ -24,6 +27,7 @@ export default function MapboxLocationPicker({
   height = '320px',
   GhanaCentric = true,
 }: MapboxLocationPickerProps) {
+  const { theme } = useTheme()
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
@@ -32,9 +36,13 @@ export default function MapboxLocationPicker({
   const [searchValue, setSearchValue] = useState(value?.address || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [suggestions, setSuggestions] = useState<any[]>([])
+  const suggestionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const defaultCenter = GhanaCentric ? [ -0.187, 5.6037 ] : [ -0.187, 5.6037 ]
+  const defaultCenter = GHANA_CENTER
   const defaultZoom = GhanaCentric ? 12 : 13
+  const themeRef = useRef(theme)
+  themeRef.current = theme
 
   const initMap = useCallback(() => {
     if (!mapContainer.current || typeof window === 'undefined' || !window.mapboxgl) return
@@ -49,7 +57,7 @@ export default function MapboxLocationPicker({
 
     const map = new window.mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
+      style: themeRef.current === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v12',
       center: value?.longitude && value?.latitude ? [value.longitude, value.latitude] : defaultCenter,
       zoom: value?.longitude && value?.latitude ? 15 : defaultZoom,
     })
@@ -67,7 +75,7 @@ export default function MapboxLocationPicker({
     })
 
     mapRef.current = map
-  }, [defaultCenter, defaultZoom, value])
+  }, [defaultCenter, defaultZoom])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -78,7 +86,8 @@ export default function MapboxLocationPicker({
 
       try {
         if (!window.mapboxgl) {
-          await import('mapbox-gl')
+          const mapbox = await import('mapbox-gl')
+          window.mapboxgl = mapbox.default
           await import('@mapbox/mapbox-gl-geocoder')
         }
 
@@ -110,6 +119,7 @@ export default function MapboxLocationPicker({
     loadMapbox()
 
     return () => {
+      if (suggestionTimerRef.current) clearTimeout(suggestionTimerRef.current)
       if (mapRef.current) {
         mapRef.current.remove()
         mapRef.current = null
@@ -190,6 +200,36 @@ export default function MapboxLocationPicker({
     }
   }
 
+  const selectSuggestion = (place: any) => {
+    const [lng, lat] = place.center
+    const address = place.place_name || place.text
+    setSearchValue(address)
+    setSuggestions([])
+    onChange({ address, latitude: lat, longitude: lng })
+    mapRef.current?.flyTo({ center: [lng, lat], zoom: 15 })
+    placeMarker(lat, lng)
+    setError('')
+  }
+
+  const handleSearchChange = (query: string) => {
+    setSearchValue(query)
+    setSuggestions([])
+    if (suggestionTimerRef.current) clearTimeout(suggestionTimerRef.current)
+    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+    if (!token || query.trim().length < 3) return
+    suggestionTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=5&country=gh&proximity=${defaultCenter[0]},${defaultCenter[1]}`
+        )
+        const data = await res.json()
+        setSuggestions(data.features || [])
+      } catch {
+        setSuggestions([])
+      }
+    }, 300)
+  }
+
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by your browser.')
@@ -226,16 +266,22 @@ export default function MapboxLocationPicker({
     }
   }, [value, mapReady])
 
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.setStyle(theme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v12')
+    }
+  }, [theme])
+
   return (
     <div className="w-full space-y-3">
-      <div className="flex gap-2">
+      <div className="relative flex gap-2">
         <input
           type="text"
           value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && forwardGeocode(searchValue)}
           placeholder={placeholder}
-          className="flex-1 bg-white border border-warm-200 rounded-xl py-3 px-4 text-sm text-warm-900 placeholder:text-warm-800/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="flex-1 bg-white dark:bg-warm-900 border border-warm-200 dark:border-warm-700 rounded-xl py-3 px-4 text-sm text-warm-900 dark:text-white placeholder:text-warm-800/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
         />
         <button
           type="button"
@@ -245,6 +291,15 @@ export default function MapboxLocationPicker({
         >
           {loading ? 'Searching...' : 'Search'}
         </button>
+        {suggestions.length > 0 && (
+          <div className="absolute left-0 right-20 top-full z-20 mt-1 overflow-hidden rounded-xl border border-warm-200 bg-white shadow-lg dark:border-warm-700 dark:bg-warm-900">
+            {suggestions.map((place) => (
+              <button key={place.id} type="button" onClick={() => selectSuggestion(place)} className="block w-full px-4 py-3 text-left text-sm text-warm-900 hover:bg-warm-100 dark:text-white dark:hover:bg-warm-800">
+                {place.place_name || place.text}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between">

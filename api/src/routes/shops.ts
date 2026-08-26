@@ -161,7 +161,7 @@ const listShopsQuerySchema = z.object({
 
 router.get('/', async (req, res) => {
   const query = listShopsQuerySchema.parse(req.query)
-  const where: any = { isVerified: true }
+  const where: any = { status: 'ACTIVE' }
 
   if (query.search) {
     where.OR = [
@@ -201,7 +201,7 @@ router.get('/', async (req, res) => {
 })
 
 router.get('/:slug', async (req, res) => {
-  const shop = await prisma.shop.findUnique({
+  const shop = await prisma.shop.findFirst({
     where: { slug: req.params.slug },
     include: {
       owner: {
@@ -233,6 +233,7 @@ router.get('/:slug', async (req, res) => {
   })
 
   if (!shop) return errorResponse(res, 'Shop not found', 404)
+  if (shop.status !== 'ACTIVE') return errorResponse(res, 'Shop not found', 404)
 
   const shopResponse = {
     ...shop,
@@ -255,6 +256,8 @@ const createShopSchema = z.object({
   logo: z.string().url(),
   banner: z.string().url().optional(),
   location: z.string().min(2),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   area: z.string().optional(),
   campus: z.string().optional(),
   openingHours: z.string().min(3),
@@ -289,6 +292,8 @@ const updateShopSchema = z.object({
   logo: z.string().url().optional(),
   banner: z.string().url().optional(),
   location: z.string().min(2).optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   area: z.string().optional(),
   campus: z.string().optional(),
   openingHours: z.string().min(3).optional(),
@@ -381,6 +386,7 @@ router.get('/:id/delivery-settings', async (req, res) => {
       where: { id: req.params.id },
       select: {
         id: true,
+        name: true,
         deliveryAvailable: true,
         pickupAvailable: true,
         sellerDeliveryAvailable: true,
@@ -388,6 +394,9 @@ router.get('/:id/delivery-settings', async (req, res) => {
         sellerDeliveryFee: true,
         pickupInstructions: true,
         deliveryZones: true,
+        location: true,
+        latitude: true,
+        longitude: true,
       },
     })
 

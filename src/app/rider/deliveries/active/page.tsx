@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { api } from '@/lib/api'
+import MapboxMap from '@/components/map/MapboxMap'
 
 interface Delivery {
   id: string
@@ -17,6 +18,10 @@ interface Delivery {
   status: string
   pickupAddress: string
   dropoffAddress: string
+  pickupLatitude?: number | null
+  pickupLongitude?: number | null
+  dropoffLatitude?: number | null
+  dropoffLongitude?: number | null
   riderEarnings: number
   distance?: string
   createdAt: string
@@ -28,6 +33,13 @@ export default function RiderActiveDeliveryPage() {
   const [loading, setLoading] = useState(true)
   const [delivery, setDelivery] = useState<Delivery | null>(null)
   const [error, setError] = useState('')
+  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null)
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+
+  const handleCurrentLocation = async (location: { latitude: number; longitude: number }) => {
+    setCurrentLocation(location)
+    await api.patch('/riders/me/location', location)
+  }
 
   useEffect(() => {
     loadActiveDelivery()
@@ -110,6 +122,17 @@ export default function RiderActiveDeliveryPage() {
   }
 
   const nextAction = getNextAction(delivery.status)
+  const pickup = delivery.pickupLatitude != null && delivery.pickupLongitude != null
+    ? { latitude: delivery.pickupLatitude, longitude: delivery.pickupLongitude }
+    : null
+  const dropoff = delivery.dropoffLatitude != null && delivery.dropoffLongitude != null
+    ? { latitude: delivery.dropoffLatitude, longitude: delivery.dropoffLongitude }
+    : null
+  const mapMarkers = [
+    pickup && { ...pickup, label: `PICKUP - ${delivery.pickupAddress}`, color: '#16a34a' },
+    dropoff && { ...dropoff, label: `DELIVERY - ${delivery.dropoffAddress}`, color: '#dc2626' },
+    currentLocation && { ...currentLocation, label: 'Rider current location', color: '#2563eb' },
+  ].filter(Boolean) as { latitude: number; longitude: number; label: string; color: string }[]
 
   return (
     <RiderSidebar>
@@ -123,6 +146,27 @@ export default function RiderActiveDeliveryPage() {
           <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
             {error}
           </div>
+        )}
+
+        {pickup && dropoff ? (
+          <Card className="p-4 sm:p-6">
+            <h2 className="font-semibold text-warm-900 mb-1">Delivery route</h2>
+            <p className="text-sm text-warm-800/60 mb-4">Pickup to customer delivery route</p>
+            <MapboxMap
+              markers={mapMarkers}
+              route={{ from: pickup, to: dropoff }}
+              height="320px"
+              showCurrentLocation
+              onCurrentLocation={handleCurrentLocation}
+              onRouteInfo={setRouteInfo}
+            />
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="rounded-xl bg-warm-50 p-3"><p className="text-xs text-warm-800/60">Distance</p><p className="font-semibold text-warm-900">{routeInfo?.distance || 'Calculating...'}</p></div>
+              <div className="rounded-xl bg-warm-50 p-3"><p className="text-xs text-warm-800/60">ETA</p><p className="font-semibold text-warm-900">{routeInfo?.duration || 'Calculating...'}</p></div>
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-4"><p className="text-sm text-warm-800/60">Map unavailable because pickup or delivery coordinates are missing.</p></Card>
         )}
 
           <Card className="p-4 sm:p-6">

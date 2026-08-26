@@ -12,6 +12,7 @@ import { api } from '../../../lib/api'
 import { Shop, Product, BeautyService } from '../../../types'
 import { mapApiShopToFrontend, mapApiProductToFrontend, mapApiServiceToFrontend } from '../../../lib/api-mappers'
 import { defaultShopCustomization, readableTextColor, themeClass } from '../../../lib/shop-themes'
+import MapboxMap from '../../../components/map/MapboxMap'
 
 export default function ShopPage() {
   const params = useParams()
@@ -249,6 +250,23 @@ export default function ShopPage() {
           )}
         </div>
       </div>
+
+      <section className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 mt-8">
+        <div className="rounded-2xl p-4 sm:p-6 border border-black/10 bg-[var(--shop-secondary)]">
+          <h2 className="font-display text-xl font-bold mb-1" style={{ color: surfaceTextColor }}>Find us</h2>
+          <p className="text-sm opacity-75 mb-4">{shop.location}</p>
+          {shop.latitude != null && shop.longitude != null ? (
+            <MapboxMap
+              markers={[{ latitude: shop.latitude, longitude: shop.longitude, label: `${shop.name} - ${shop.location}` }]}
+              height="280px"
+            />
+          ) : (
+            <div className="rounded-xl border border-black/10 bg-black/5 p-4 text-sm opacity-75">
+              Location map unavailable. Please use the shop address above.
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Products */}
       {featuredProduct && customization.showFeatured && (

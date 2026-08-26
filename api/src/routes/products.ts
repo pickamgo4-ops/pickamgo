@@ -3,6 +3,7 @@ import { z } from 'zod'
 import prisma from '../utils/prisma'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody, validateQuery } from '../types/express'
+import { distanceInKm } from '../utils/geo'
 
 const router = Router()
 const imageUrl = z.string().refine(value => value.startsWith('/') || /^https?:\/\//.test(value), 'Invalid image URL')
@@ -19,6 +20,9 @@ const listProductsQuerySchema = z.object({
   campus: z.string().optional(),
   sort: z.enum(['relevance', 'price-asc', 'price-desc', 'rating', 'newest']).default('relevance'),
   type: z.enum(['product', 'service']).optional(),
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
+  radius: z.coerce.number().positive().max(100).default(25),
 })
 
 const createProductSchema = z.object({
@@ -73,14 +77,19 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
       area,
       campus,
       sort,
+      latitude,
+      longitude,
+      radius,
     } = req.query as z.infer<typeof listProductsQuerySchema>
 
-    const where: any = { status: 'ACTIVE' }
+    const where: any = { status: 'ACTIVE', stock: { gt: 0 }, shop: { status: 'ACTIVE' } }
 
     if (search) {
       where.OR = [
         { name: { contains: search } },
         { description: { contains: search } },
+        { shop: { name: { contains: search, mode: 'insensitive' } } },
+        { category: { name: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
@@ -96,7 +105,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
     }
 
     if (location) {
-      where.location = { contains: location }
+      where.AND = [...(where.AND || []), { OR: [{ location: { contains: location, mode: 'insensitive' } }, { shop: { location: { contains: location, mode: 'insensitive' } } }] }]
     }
     if (area) {
       where.area = { contains: area }
@@ -151,9 +160,21 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
       prisma.product.count({ where }),
     ])
 
-    const totalPages = Math.ceil(total / limit)
+    const productsWithDistance: any[] = latitude !== undefined && longitude !== undefined
+      ? products
+        .map(product => {
+          const distance = product.shop.latitude != null && product.shop.longitude != null
+            ? distanceInKm({ latitude, longitude }, { latitude: product.shop.latitude, longitude: product.shop.longitude })
+            : null
+          return { ...product, distanceKm: distance }
+        })
+        .sort((a, b) => (a.distanceKm ?? Number.POSITIVE_INFINITY) - (b.distanceKm ?? Number.POSITIVE_INFINITY))
+      : products
+    const nearbyProducts: any[] = latitude !== undefined && longitude !== undefined
+      ? productsWithDistance.filter(product => product.distanceKm === null || product.distanceKm <= radius)
+      : productsWithDistance
 
-    return successResponse(res, { products }, 200, undefined)
+    return successResponse(res, { products: nearbyProducts.length >= 3 ? nearbyProducts : productsWithDistance }, 200, undefined)
   } catch (error) {
     return errorResponse(res, 'Failed to fetch products', 500)
   }

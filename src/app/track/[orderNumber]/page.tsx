@@ -163,7 +163,7 @@ export default function TrackOrderPage() {
           <div className="flex gap-2">
             <div className="flex-1">
               <Input
-                placeholder="Enter order number (e.g., #FIN-12345)"
+                placeholder="Enter order number (e.g., PICK A1B2C3)"
                 value={orderNumber}
                 onValueChange={setOrderNumber}
                 icon={<Search size={20} />}

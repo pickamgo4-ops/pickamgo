@@ -48,7 +48,7 @@ export default function TrackPage() {
 
           <form onSubmit={handleSubmit}>
             <Input
-              placeholder="Enter order number (e.g., #FIN-12345)"
+              placeholder="Enter order number (e.g., PICK A1B2C3)"
               value={orderNumber}
               onValueChange={setOrderNumber}
               icon={<Search size={20} />}
@@ -69,7 +69,7 @@ export default function TrackPage() {
           <ul className="space-y-2 text-sm text-warm-800/70">
             <li>Check your order confirmation email</li>
             <li>Look in your order history under "My Orders"</li>
-            <li>The order number starts with #FIN-</li>
+            <li>The order number starts with PICK</li>
           </ul>
         </Card>
       </main>

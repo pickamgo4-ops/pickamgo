@@ -11,10 +11,11 @@ import { Button } from '../../components/ui/Button'
 import { api } from '../../lib/api'
 import { Product, BeautyService, Category } from '../../types'
 import { mapApiProductToFrontend, mapApiServiceToFrontend, mapApiCategoryToFrontend } from '../../lib/api-mappers'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function DiscoverPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
@@ -45,20 +46,35 @@ export default function DiscoverPage() {
   ]
 
   useEffect(() => {
-    loadData()
-  }, [])
+    const initialSearch = searchParams.get('search') || ''
+    const initialCategory = searchParams.get('category') || null
+    setSearchQuery(initialSearch)
+    setSelectedCategory(initialCategory)
+    loadData(initialSearch, initialCategory)
+  }, [searchParams])
 
-  const loadData = async () => {
+  const loadData = async (requestedSearch = searchQuery, requestedCategory = selectedCategory) => {
     setLoading(true)
     try {
+      const savedLocation = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('pickamgo-location') || 'null') : null
+      const params = new URLSearchParams({ q: requestedSearch || (requestedCategory || 'products'), type: 'products', limit: '50' })
+      if (requestedCategory) params.set('category', requestedCategory)
+      if (savedLocation?.latitude != null && savedLocation?.longitude != null) {
+        params.set('latitude', String(savedLocation.latitude))
+        params.set('longitude', String(savedLocation.longitude))
+        params.set('radius', '25')
+      }
       const [productsRes, servicesRes, categoriesRes] = await Promise.all([
-        api.get<{ products: any[] }>('/products?limit=50'),
+        requestedSearch || requestedCategory
+          ? api.get<any>(`/search?${params.toString()}`)
+          : api.get<{ products: any[] }>('/products?limit=50'),
         api.get<{ services: any[] }>('/services?limit=50'),
         api.get<any[]>('/categories'),
       ])
 
       if (productsRes.success && productsRes.data) {
-        const mapped = (productsRes.data.products || []).map(mapApiProductToFrontend)
+        const rawProducts = requestedSearch || requestedCategory ? productsRes.data.products?.items || [] : productsRes.data.products || []
+        const mapped = rawProducts.map(mapApiProductToFrontend)
         setProducts(mapped)
       }
       if (servicesRes.success && servicesRes.data) {
@@ -77,14 +93,12 @@ export default function DiscoverPage() {
 
   const filteredProducts = products.filter(p => {
     if (selectedCategory && p.category !== selectedCategory) return false
-    if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
     if (priceRange[1] > 0 && p.price > priceRange[1]) return false
     return true
   })
 
   const filteredServices = services.filter(s => {
     if (selectedCategory && s.category !== selectedCategory) return false
-    if (searchQuery && !s.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
   })
 

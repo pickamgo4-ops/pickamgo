@@ -596,6 +596,9 @@ model Rider {
   vehicleType     String?
   licenseNumber   String?
   isVerified      Boolean  @default(false)
+  currentLatitude Float?
+  currentLongitude Float?
+  locationUpdatedAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

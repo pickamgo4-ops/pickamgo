@@ -7,3 +7,6 @@ ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS "pickupLatitude" REAL;
 ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS "pickupLongitude" REAL;
 ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS "dropoffLatitude" REAL;
 ALTER TABLE "Delivery" ADD COLUMN IF NOT EXISTS "dropoffLongitude" REAL;
+ALTER TABLE "Rider" ADD COLUMN IF NOT EXISTS "currentLatitude" REAL;
+ALTER TABLE "Rider" ADD COLUMN IF NOT EXISTS "currentLongitude" REAL;
+ALTER TABLE "Rider" ADD COLUMN IF NOT EXISTS "locationUpdatedAt" TIMESTAMP(3);

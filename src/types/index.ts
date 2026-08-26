@@ -73,6 +73,8 @@ export interface Shop {
   deliveryAvailable?: boolean;
   pickupAvailable?: boolean;
   sellerDeliveryAvailable?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
   platformDeliveryFee?: number;
   sellerDeliveryFee?: number;
   pickupInstructions?: string;
@@ -401,6 +403,7 @@ export interface PayoutBalances {
 
 export interface DeliverySettings {
   id: string;
+  name?: string;
   deliveryAvailable: boolean;
   pickupAvailable: boolean;
   sellerDeliveryAvailable: boolean;
@@ -408,6 +411,9 @@ export interface DeliverySettings {
   sellerDeliveryFee: number;
   pickupInstructions?: string;
   deliveryZones?: string;
+  location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface SellerEarnings {

@@ -13,10 +13,13 @@ import { api } from '../lib/api'
 import { Product, BeautyService, Shop, Category } from '../types'
 import { mapApiProductToFrontend, mapApiServiceToFrontend, mapApiShopToFrontend, mapApiCategoryToFrontend } from '../lib/api-mappers'
 import { useRouter } from 'next/navigation'
+import MapboxLocationPicker from '../components/map/MapboxLocationPicker'
 
 export default function HomePage() {
   const router = useRouter()
-  const [location, setLocation] = useState('Legon, Accra')
+  const [location, setLocation] = useState('Choose an area (optional)')
+  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [locationQuery, setLocationQuery] = useState('')
   const [isLocationOpen, setIsLocationOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [products, setProducts] = useState<Product[]>([])
@@ -25,21 +28,14 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
 
-  const locations = [
-    'Legon, Accra',
-    'Madina, Accra',
-    'Osu, Accra',
-    'Adenta, Accra',
-    'Kumasi',
-    'Takoradi',
-  ]
+  const locations = ['Accra', 'Kumasi', 'Takoradi', 'Tema', 'Cape Coast']
 
   useEffect(() => {
     async function loadData() {
       setLoading(true)
       try {
         const results = await Promise.allSettled([
-          api.get<{ products: any[] }>('/products?limit=20'),
+          api.get<{ products: any[] }>(`/products?limit=20${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=25` : locationQuery ? `&location=${encodeURIComponent(locationQuery)}` : ''}`),
           api.get<{ services: any[] }>('/services?limit=10'),
           api.get<{ shops: any[] }>('/shops?limit=6'),
           api.get<{ data: any[] }>('/categories'),
@@ -78,7 +74,23 @@ export default function HomePage() {
     }
 
     loadData()
-  }, [])
+  }, [coordinates, locationQuery])
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(position => {
+      const next = { latitude: position.coords.latitude, longitude: position.coords.longitude }
+      setCoordinates(next)
+      setLocation('Your current location')
+      localStorage.setItem('pickamgo-location', JSON.stringify(next))
+      setIsLocationOpen(false)
+    }, () => setLocation('Location unavailable - browse all'))
+  }
+
+  const handleSearch = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (searchQuery.trim()) router.push(`/discover?search=${encodeURIComponent(searchQuery.trim())}`)
+  }
 
   const trendingProducts = products.filter(p => p.isTrending)
   const beautyProducts = products.filter(p => p.category === 'beauty')
@@ -86,6 +98,7 @@ export default function HomePage() {
   const fashionProducts = products.filter(p => p.category === 'fashion')
   const newProducts = products.filter(p => p.isNew)
   const affordableProducts = products.filter(p => p.price < 50)
+  const nearbyProducts = coordinates ? products.slice(0, 4) : []
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
@@ -116,12 +129,27 @@ export default function HomePage() {
               </button>
 
               {isLocationOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-warm-200 py-2 z-20 animate-fade-in">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-warm-200 p-3 z-20 animate-fade-in">
+                  <button onClick={useCurrentLocation} className="w-full text-left px-3 py-2.5 text-primary font-medium hover:bg-warm-100 rounded-lg">Use my current location</button>
+                  <MapboxLocationPicker
+                    value={coordinates ? { address: location, ...coordinates } : null}
+                    onChange={(result) => {
+                      const next = { latitude: result.latitude, longitude: result.longitude }
+                      setCoordinates(next)
+                      setLocation(result.address)
+                      localStorage.setItem('pickamgo-location', JSON.stringify(next))
+                      setIsLocationOpen(false)
+                    }}
+                    placeholder="Search a neighborhood, town, or city"
+                    height="180px"
+                  />
                   {locations.map((loc) => (
                     <button
                       key={loc}
                       onClick={() => {
                         setLocation(loc)
+                        setCoordinates(null)
+                        setLocationQuery(loc)
                         setIsLocationOpen(false)
                       }}
                       className={`w-full text-left px-4 py-2.5 hover:bg-warm-100 transition-colors ${
@@ -136,7 +164,7 @@ export default function HomePage() {
             </div>
 
             {/* Search Bar */}
-            <div className="relative">
+            <form onSubmit={handleSearch} className="relative">
               <input
                 type="text"
                 placeholder="Search beauty, food, sneakers, phones..."
@@ -145,7 +173,7 @@ export default function HomePage() {
                 className="w-full bg-white border border-warm-200 rounded-2xl py-4 pl-14 pr-4 text-warm-900 placeholder:text-warm-800/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
               />
               <MapPin size={22} className="absolute left-5 top-1/2 -translate-y-1/2 text-warm-800/40" />
-            </div>
+            </form>
           </div>
         </section>
 
@@ -163,6 +191,14 @@ export default function HomePage() {
           </div>
         ) : (
           <>
+            {nearbyProducts.length > 0 && (
+              <section className="mb-10">
+                <SectionHeader title="Products Near You" emoji="📍" subtitle={`Closest finds around ${location}`} link="/discover" />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {nearbyProducts.map(product => <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />)}
+                </div>
+              </section>
+            )}
             {/* Trending Near You */}
             {trendingProducts.length > 0 && (
               <section className="mb-10">
@@ -212,13 +248,13 @@ export default function HomePage() {
               )}
             </section>
 
-            {/* Campus Cravings */}
+            {/* Local Food */}
             {foodProducts.length > 0 && (
               <section className="mb-10">
                 <SectionHeader
-                  title="Campus Cravings"
+                  title="Local Food"
                   emoji="🍔"
-                  subtitle="Food around your campus"
+                  subtitle="Food and treats near you"
                   link="/discover?category=food"
                 />
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

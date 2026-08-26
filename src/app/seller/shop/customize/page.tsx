@@ -13,7 +13,7 @@ const layouts: Array<{ id: ShopLayout; name: string; description: string }> = [
   { id: 'GRID', name: 'Grid', description: 'Shop header followed by a large product grid' },
   { id: 'FEATURED', name: 'Featured', description: 'Put one real product in the spotlight' },
   { id: 'BEAUTY', name: 'Beauty', description: 'Services, products and reviews together' },
-  { id: 'CAMPUS', name: 'Campus', description: 'Quick categories, popular items and deals' },
+  { id: 'CAMPUS', name: 'Quick Picks', description: 'Quick categories, popular items and deals' },
 ]
 
 export default function SellerCustomizeShopPage() {

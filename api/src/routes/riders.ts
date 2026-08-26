@@ -126,6 +126,10 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
         dropoffLocation: order.deliveryAddress,
         pickupAddress: order.shop.location,
         dropoffAddress: order.deliveryAddress,
+        pickupLatitude: order.shop.latitude,
+        pickupLongitude: order.shop.longitude,
+        dropoffLatitude: (order as any).deliveryLatitude ?? (order as any).delivery?.dropoffLatitude,
+        dropoffLongitude: (order as any).deliveryLongitude ?? (order as any).delivery?.dropoffLongitude,
         status: 'ACCEPTED',
         fee: 15,
         riderEarnings: 12,
@@ -237,6 +241,23 @@ router.patch('/me/status', authMiddleware, requireRole(['RIDER']), async (req: A
     return successResponse(res, updated, undefined, 'Rider status updated')
   } catch (error) {
     return errorResponse(res, 'Failed to update rider status', 500)
+  }
+})
+
+router.patch('/me/location', authMiddleware, requireRole(['RIDER']), validateBody(z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+})), async (req: AuthenticatedRequest, res) => {
+  try {
+    const riderModel = prisma.rider as any
+    const updated = await riderModel.update({
+      where: { userId: req.user!.id },
+      data: { currentLatitude: req.body.latitude, currentLongitude: req.body.longitude, locationUpdatedAt: new Date() },
+      select: { currentLatitude: true, currentLongitude: true, locationUpdatedAt: true },
+    })
+    return successResponse(res, updated)
+  } catch {
+    return errorResponse(res, 'Failed to update rider location', 500)
   }
 })
 

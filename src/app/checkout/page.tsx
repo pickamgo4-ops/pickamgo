@@ -14,6 +14,7 @@ import { mapApiCartToFrontend, mapApiAddressToFrontend } from '../../lib/api-map
 import { PaymentSafetyNotice } from '../../components/ui/PaymentSafetyNotice'
 import { useRole } from '../../contexts/RoleContext'
 import MapboxLocationPicker from '../../components/map/MapboxLocationPicker'
+import MapboxMap from '../../components/map/MapboxMap'
 
 type CheckoutMode = 'checking' | 'guest' | 'logged-in'
 type FulfillmentMethod = 'FIND_IT_NEAR_ME_RIDER' | 'SELLER_OWN_DELIVERY' | 'CUSTOMER_PICKUP'
@@ -42,6 +43,8 @@ function CheckoutContent() {
     country: 'Ghana',
     phone: '',
     instructions: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
   })
   const [guestInfo, setGuestInfo] = useState({
     name: '',
@@ -170,7 +173,13 @@ function CheckoutContent() {
   const handleAddAddress = async () => {
     try {
       const response = await api.post<Address>('/addresses', {
-        ...newAddress,
+        label: newAddress.label,
+        address: newAddress.street,
+        city: newAddress.city,
+        area: newAddress.region,
+        phone: newAddress.phone,
+        latitude: newAddress.latitude ?? undefined,
+        longitude: newAddress.longitude ?? undefined,
         isDefault: addresses.length === 0,
       })
       if (response.success && response.data) {
@@ -186,6 +195,8 @@ function CheckoutContent() {
           country: 'Ghana',
           phone: '',
           instructions: '',
+          latitude: null,
+          longitude: null,
         })
       }
     } catch (err) {
@@ -216,7 +227,10 @@ function CheckoutContent() {
 
       const response = await api.post<CheckoutOrder>('/checkout/guest', {
         items,
-        ...guestInfo,
+        guestName: guestInfo.name,
+        guestPhone: guestInfo.phone,
+        guestEmail: guestInfo.email,
+        deliveryAddress: deliveryType === 'delivery' ? guestInfo.deliveryAddress : undefined,
         deliveryType,
         paymentMethod,
         notes: orderNotes,
@@ -261,6 +275,9 @@ function CheckoutContent() {
       const response = await api.post<CheckoutOrder>('/checkout', {
         items,
         addressId: selectedAddressId,
+        deliveryAddress: selectedAddress?.street || '',
+        deliveryLatitude: selectedAddress?.latitude ?? undefined,
+        deliveryLongitude: selectedAddress?.longitude ?? undefined,
         deliveryType,
         paymentMethod,
         notes: orderNotes,
@@ -475,6 +492,12 @@ function CheckoutContent() {
   const deliveryFee = deliveryType === 'delivery' ? (subtotal > 100 ? 0 : 15) : 0
   const total = subtotal + deliveryFee
   const selectedAddress = addresses.find(a => a.id === selectedAddressId)
+  const pickupMarkers = cartShopIds.map(shopId => {
+    const settings = shopSettings[shopId!]
+    return settings?.latitude != null && settings.longitude != null
+      ? { latitude: settings.latitude, longitude: settings.longitude, label: `${settings.name || 'Shop'} - ${settings.location || 'Pickup location'}`, color: '#16a34a' }
+      : null
+  }).filter(Boolean) as { latitude: number; longitude: number; label: string; color: string }[]
   const fulfillmentMethod = getFulfillmentMethod()
 
   if (mode === 'guest') {
@@ -529,18 +552,32 @@ function CheckoutContent() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                <MapPin size={20} className="text-primary" />
-                Delivery Address
-              </h3>
-              <MapboxLocationPicker
-                value={{ address: guestInfo.deliveryAddress, latitude: guestInfo.deliveryLatitude ?? undefined, longitude: guestInfo.deliveryLongitude ?? undefined }}
-                onChange={(result) => setGuestInfo(prev => ({ ...prev, deliveryAddress: result.address, deliveryLatitude: result.latitude, deliveryLongitude: result.longitude }))}
-                placeholder="Search your delivery address in Ghana"
-                height="280px"
-              />
-            </div>
+            {deliveryType === 'pickup' && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+                <h3 className="font-semibold text-warm-900 mb-2">Pickup location</h3>
+                <p className="text-sm text-warm-800/60 mb-4">Collect your order from the shop location below.</p>
+                {pickupMarkers.length > 0 ? (
+                  <MapboxMap markers={pickupMarkers} height="260px" />
+                ) : (
+                  <p className="text-sm text-warm-800/60">Shop location is not available yet. Please check the shop address.</p>
+                )}
+              </div>
+            )}
+
+            {deliveryType === 'delivery' && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+                <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+                  <MapPin size={20} className="text-primary" />
+                  Delivery Address
+                </h3>
+                <MapboxLocationPicker
+                  value={{ address: guestInfo.deliveryAddress, latitude: guestInfo.deliveryLatitude ?? undefined, longitude: guestInfo.deliveryLongitude ?? undefined }}
+                  onChange={(result) => setGuestInfo(prev => ({ ...prev, deliveryAddress: result.address, deliveryLatitude: result.latitude, deliveryLongitude: result.longitude }))}
+                  placeholder="Search your delivery address in Ghana"
+                  height="280px"
+                />
+              </div>
+            )}
 
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
               <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
@@ -709,6 +746,18 @@ function CheckoutContent() {
             </div>
           </div>
 
+          {deliveryType === 'pickup' && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+              <h3 className="font-semibold text-warm-900 mb-2">Pickup location</h3>
+              <p className="text-sm text-warm-800/60 mb-4">Collect your order from the shop location below.</p>
+              {pickupMarkers.length > 0 ? (
+                <MapboxMap markers={pickupMarkers} height="260px" />
+              ) : (
+                <p className="text-sm text-warm-800/60">Shop location is not available yet. Please check the shop address.</p>
+              )}
+            </div>
+          )}
+
           {/* Address Selection */}
           {deliveryType === 'delivery' && (
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
@@ -775,6 +824,12 @@ function CheckoutContent() {
                       value={newAddress.street}
                       onValueChange={(v) => setNewAddress({ ...newAddress, street: v })}
                     />
+                    <MapboxLocationPicker
+                      value={{ address: newAddress.street, latitude: newAddress.latitude ?? undefined, longitude: newAddress.longitude ?? undefined }}
+                      onChange={(result) => setNewAddress(prev => ({ ...prev, street: result.address, latitude: result.latitude, longitude: result.longitude }))}
+                      placeholder="Search and confirm delivery location in Ghana"
+                      height="240px"
+                    />
                     <div className="grid grid-cols-2 gap-3">
                       <Input
                         placeholder="City"
@@ -806,6 +861,27 @@ function CheckoutContent() {
                       </Button>
                     </div>
                   </div>
+                </div>
+              )}
+              {selectedAddress && !showAddressForm && (
+                <div className="mt-4 border-t border-warm-200 pt-4">
+                  <p className="text-sm font-medium text-warm-900 mb-2">Confirm delivery location</p>
+                  <MapboxLocationPicker
+                    value={{ address: selectedAddress.street, latitude: selectedAddress.latitude ?? undefined, longitude: selectedAddress.longitude ?? undefined }}
+                    onChange={async (result) => {
+                      const response = await api.patch<Address>(`/addresses/${selectedAddress.id}`, {
+                        address: result.address,
+                        latitude: result.latitude,
+                        longitude: result.longitude,
+                      })
+                      if (response.success && response.data) {
+                        const mapped = mapApiAddressToFrontend(response.data)
+                        setAddresses(prev => prev.map(address => address.id === mapped.id ? mapped : address))
+                      }
+                    }}
+                    placeholder="Search or adjust this delivery location"
+                    height="240px"
+                  />
                 </div>
               )}
             </div>

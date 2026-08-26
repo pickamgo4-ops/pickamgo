@@ -19,7 +19,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: 'PickAmGo - Discover Products, Beauty & Services Around You',
-  description: 'Find products, beauty services, food, fashion and local businesses near you in Ghana. Your local marketplace for campus life, beauty, and more.',
+  description: 'Find products, beauty services, food, fashion and local businesses near you in Ghana.',
 }
 
 export default function RootLayout({

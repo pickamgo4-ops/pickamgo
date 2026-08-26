@@ -23,7 +23,9 @@ const guestCheckoutSchema = z.object({
   guestName: z.string().min(2).optional(),
   guestPhone: z.string().min(10).optional(),
   guestEmail: z.string().email().optional(),
-  deliveryAddress: z.string().min(5),
+  deliveryAddress: z.string().min(5).optional(),
+  deliveryLatitude: z.number().optional(),
+  deliveryLongitude: z.number().optional(),
   deliveryType: z.preprocess(value => normalizeDeliveryType(String(value)), z.enum(['DELIVERY', 'PICKUP'])).default('DELIVERY'),
   deliveryFee: z.number().min(0).default(0),
   notes: z.string().optional(),
@@ -63,8 +65,9 @@ router.post('/guest/verify-payment', validateBody(z.object({ orderId: z.string()
 })
 
 router.post('/guest', validateBody(guestCheckoutSchema), async (req: AuthenticatedRequest, res) => {
-  const { items, guestName, guestPhone, guestEmail, deliveryAddress, deliveryType, deliveryFee, notes, paymentMethod, fulfillmentMethod } = req.body
+  const { items, guestName, guestPhone, guestEmail, deliveryAddress: inputDeliveryAddress, deliveryLatitude, deliveryLongitude, deliveryType, deliveryFee, notes, paymentMethod, fulfillmentMethod } = req.body
   const resolvedFulfillmentMethod = deliveryType === 'PICKUP' ? 'CUSTOMER_PICKUP' : normalizeFulfillmentMethod(fulfillmentMethod)
+  const deliveryAddress = deliveryType === 'PICKUP' ? 'Pickup from shop' : inputDeliveryAddress
 
   if (!guestName || !guestPhone) {
     return errorResponse(res, 'Guest name and phone are required', 400)
@@ -72,6 +75,9 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
 
   if (items.length === 0) {
     return errorResponse(res, 'Order must contain at least one item', 400)
+  }
+  if (deliveryType === 'DELIVERY' && !deliveryAddress) {
+    return errorResponse(res, 'A delivery address is required', 400)
   }
 
   const orderItems: any[] = []
@@ -263,8 +269,12 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
             riderId: null,
             pickupLocation: 'Shop',
             dropoffLocation: deliveryAddress,
-            pickupAddress: 'Shop',
+            pickupAddress: (await tx.shop.findUnique({ where: { id: group.shopId }, select: { location: true } }))?.location || 'Shop',
             dropoffAddress: deliveryAddress,
+            pickupLatitude: (await tx.shop.findUnique({ where: { id: group.shopId }, select: { latitude: true } }))?.latitude ?? null,
+            pickupLongitude: (await tx.shop.findUnique({ where: { id: group.shopId }, select: { longitude: true } }))?.longitude ?? null,
+            dropoffLatitude: deliveryLatitude ?? null,
+            dropoffLongitude: deliveryLongitude ?? null,
             status: 'PENDING',
             fee: deliveryFee,
           },

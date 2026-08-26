@@ -20,7 +20,7 @@ const checkoutSchema = z.object({
     variantId: z.string().optional(),
     quantity: z.number().min(1).default(1),
   })).min(1),
-  deliveryAddress: z.string().min(5),
+  deliveryAddress: z.string().min(5).optional(),
   deliveryType: z.preprocess(value => normalizeDeliveryType(String(value)), z.enum(['DELIVERY', 'PICKUP'])).default('DELIVERY'),
   deliveryFee: z.number().min(0).optional(),
   addressId: z.string().optional(),
@@ -121,8 +121,21 @@ router.post('/paystack/initialize', authMiddleware, requireRole(['USER']), valid
 })
 
 router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSchema), async (req: AuthenticatedRequest, res) => {
-  const { items, deliveryAddress, deliveryType, addressId, notes, paymentMethod, fulfillmentMethod } = req.body
+  const { items, deliveryType, addressId, notes, paymentMethod, fulfillmentMethod } = req.body
   const resolvedFulfillmentMethod = deliveryType === 'PICKUP' ? 'CUSTOMER_PICKUP' : normalizeFulfillmentMethod(fulfillmentMethod)
+
+  const selectedAddress = addressId
+    ? await prisma.address.findFirst({ where: { id: addressId, userId: req.user!.id } })
+    : null
+  if (deliveryType === 'DELIVERY' && !selectedAddress && !req.body.deliveryAddress) {
+    return errorResponse(res, 'A delivery address is required', 400)
+  }
+  if (addressId && !selectedAddress) return errorResponse(res, 'Selected address was not found', 404)
+  const deliveryAddress = deliveryType === 'PICKUP'
+    ? 'Pickup from shop'
+    : selectedAddress?.address || req.body.deliveryAddress
+  const deliveryLatitude = selectedAddress?.latitude ?? req.body.deliveryLatitude ?? null
+  const deliveryLongitude = selectedAddress?.longitude ?? req.body.deliveryLongitude ?? null
 
   if (items.length === 0) {
     return errorResponse(res, 'Order must contain at least one item', 400)
@@ -248,8 +261,8 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
           total: shopTotal,
           status: 'PENDING_PAYMENT',
           deliveryAddress,
-          deliveryLatitude: (req.body as any).deliveryLatitude ?? null,
-          deliveryLongitude: (req.body as any).deliveryLongitude ?? null,
+          deliveryLatitude,
+          deliveryLongitude,
           deliveryFee: group.deliveryFee,
           deliveryStatus: 'PENDING',
           fulfillmentMethod: resolvedFulfillmentMethod,
@@ -330,8 +343,12 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
             riderId: null,
             pickupLocation: 'Shop',
             dropoffLocation: deliveryAddress,
-            pickupAddress: 'Shop',
+            pickupAddress: (await tx.shop.findUnique({ where: { id: group.shopId }, select: { location: true } }))?.location || 'Shop',
             dropoffAddress: deliveryAddress,
+            pickupLatitude: (await tx.shop.findUnique({ where: { id: group.shopId }, select: { latitude: true } }))?.latitude ?? null,
+            pickupLongitude: (await tx.shop.findUnique({ where: { id: group.shopId }, select: { longitude: true } }))?.longitude ?? null,
+            dropoffLatitude: deliveryLatitude,
+            dropoffLongitude: deliveryLongitude,
             status: 'PENDING',
             fee: deliveryFee,
           },

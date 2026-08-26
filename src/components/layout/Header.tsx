@@ -13,10 +13,15 @@ import { useTheme } from '@/components/theme/ThemeProvider'
 
 export function Header() {
   const router = useRouter()
-  const location = 'Accra'
+  const [location, setLocation] = useState('Near you')
   const [cartCount, setCartCount] = useState(0)
   const { user, loading, authInitialized } = useRole()
   const { theme, toggleTheme } = useTheme()
+
+  useEffect(() => {
+    const saved = localStorage.getItem('pickamgo-location')
+    if (saved) setLocation('Selected location')
+  }, [])
 
   useEffect(() => {
     if (!authInitialized || loading) return
