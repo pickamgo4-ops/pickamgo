@@ -34,6 +34,7 @@ import payoutRoutes from './routes/payouts'
 import deliverySettingsRoutes from './routes/delivery-settings'
 import adminRoutes from './routes/admin'
 import emailTestRoutes from './routes/email-test'
+import prisma from './utils/prisma'
 
 const app = express()
 
@@ -53,10 +54,8 @@ console.log('Allowed CORS origins:', allowedOrigins)
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true)
     
-    // Check if origin is in allowed list
     if (allowedOrigins.some(allowed => {
       const originNormalized = origin.toLowerCase()
       const allowedNormalized = allowed.toLowerCase()
@@ -67,7 +66,6 @@ app.use(cors({
       return callback(null, true)
     }
     
-    // In development, allow localhost origins
     if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
       return callback(null, true)
     }
@@ -135,19 +133,49 @@ if (process.env.NODE_ENV !== 'production') {
   app.use('/api/dev', emailTestRoutes)
 }
 
-app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'PickAmGo API is running' })
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    let productCount = 0
+    let shopCount = 0
+    try {
+      productCount = await prisma.product.count()
+      shopCount = await prisma.shop.count()
+    } catch (countError) {
+      console.error('Health check product/shop count error:', countError)
+    }
+    res.json({ success: true, message: 'PickAmGo API is running', database: 'connected', productCount, shopCount })
+  } catch (error) {
+    console.error('Health check database error:', error)
+    res.status(500).json({ success: false, message: 'PickAmGo API is running', database: 'disconnected', error: 'Database connection failed' })
+  }
 })
 
 app.get('/health', (req, res) => {
   res.json({ success: true, status: 'ok' })
 })
 
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason)
+})
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error)
+  process.exit(1)
+})
+
 app.use(errorHandler)
 
 const PORT = process.env.PORT || 4000
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 PickAmGo API running on port ${PORT}`)
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
+  
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    console.log('✅ Database connection verified')
+  } catch (error) {
+    console.error('❌ Database connection failed:', error)
+  }
 })
