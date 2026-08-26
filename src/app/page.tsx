@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { MapPin, ChevronDown, Heart, Flame, Sparkles, Utensils, Shirt, PackageOpen, Tag, Store, Star } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { BottomNav } from '../components/layout/BottomNav'
@@ -27,6 +27,8 @@ export default function HomePage() {
   const [shops, setShops] = useState<Shop[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const generationRef = useRef(0)
 
   const locations = ['Accra', 'Kumasi', 'Takoradi', 'Tema', 'Cape Coast']
 
@@ -42,50 +44,63 @@ export default function HomePage() {
     }
   }, [])
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true)
-      try {
-        const results = await Promise.allSettled([
-          api.get<{ products: any[] }>(`/products?limit=20${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=25` : locationQuery ? `&location=${encodeURIComponent(locationQuery)}` : ''}`),
-          api.get<{ services: any[] }>('/services?limit=10'),
-          api.get<{ shops: any[] }>(`/shops?limit=6${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=5` : ''}`),
-          api.get<{ data: any[] }>('/categories'),
-        ])
+  const loadData = async () => {
+    const currentGeneration = ++generationRef.current
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const results = await Promise.allSettled([
+        api.get<{ products: any[] }>(`/products?limit=20${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=25` : locationQuery ? `&location=${encodeURIComponent(locationQuery)}` : ''}`),
+        api.get<{ services: any[] }>('/services?limit=10'),
+        api.get<{ shops: any[] }>(`/shops?limit=6${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=5` : ''}`),
+        api.get<{ data: any[] }>('/categories'),
+      ])
 
-        const [productsRes, servicesRes, shopsRes, categoriesRes] = results
+      if (currentGeneration !== generationRef.current) return
 
-        if (productsRes.status === 'fulfilled' && productsRes.value.success && productsRes.value.data) {
-          setProducts((productsRes.value.data.products || []).map(mapApiProductToFrontend))
-        } else if (productsRes.status === 'rejected') {
-          console.error('Products API error:', productsRes.reason)
-        }
+      const [productsRes, servicesRes, shopsRes, categoriesRes] = results
 
-        if (servicesRes.status === 'fulfilled' && servicesRes.value.success && servicesRes.value.data) {
-          setBeautyServices((servicesRes.value.data.services || []).map(mapApiServiceToFrontend))
-        } else if (servicesRes.status === 'rejected') {
-          console.error('Services API error:', servicesRes.reason)
-        }
+      if (productsRes.status === 'fulfilled' && productsRes.value.success && productsRes.value.data) {
+        setProducts((productsRes.value.data.products || []).map(mapApiProductToFrontend))
+      } else if (productsRes.status === 'rejected') {
+        console.error('Products API error:', productsRes.reason)
+        setLoadError('Unable to load products. Please try again.')
+      } else if (!productsRes.value.success) {
+        setLoadError(productsRes.value.error || 'Unable to load products. Please try again.')
+      }
 
-        if (shopsRes.status === 'fulfilled' && shopsRes.value.success && shopsRes.value.data) {
-          setShops((shopsRes.value.data.shops || []).map(mapApiShopToFrontend))
-        } else if (shopsRes.status === 'rejected') {
-          console.error('Shops API error:', shopsRes.reason)
-        }
+      if (servicesRes.status === 'fulfilled' && servicesRes.value.success && servicesRes.value.data) {
+        setBeautyServices((servicesRes.value.data.services || []).map(mapApiServiceToFrontend))
+      } else if (servicesRes.status === 'rejected') {
+        console.error('Services API error:', servicesRes.reason)
+      }
 
-        if (categoriesRes.status === 'fulfilled' && categoriesRes.value.success && Array.isArray(categoriesRes.value.data)) {
-          setCategories(categoriesRes.value.data.map(mapApiCategoryToFrontend))
-        } else if (categoriesRes.status === 'rejected') {
-          console.error('Categories API error:', categoriesRes.reason)
-        }
-      } catch (error) {
-        console.error('Failed to load data:', error)
-      } finally {
+      if (shopsRes.status === 'fulfilled' && shopsRes.value.success && shopsRes.value.data) {
+        setShops((shopsRes.value.data.shops || []).map(mapApiShopToFrontend))
+      } else if (shopsRes.status === 'rejected') {
+        console.error('Shops API error:', shopsRes.reason)
+      }
+
+      if (categoriesRes.status === 'fulfilled' && categoriesRes.value.success && Array.isArray(categoriesRes.value.data)) {
+        setCategories(categoriesRes.value.data.map(mapApiCategoryToFrontend))
+      } else if (categoriesRes.status === 'rejected') {
+        console.error('Categories API error:', categoriesRes.reason)
+      }
+    } catch (error) {
+      console.error('Failed to load data:', error)
+      setLoadError('Something went wrong. Please try again.')
+    } finally {
+      if (currentGeneration === generationRef.current) {
         setLoading(false)
       }
     }
+  }
 
+  useEffect(() => {
     loadData()
+    return () => {
+      generationRef.current += 1
+    }
   }, [coordinates, locationQuery])
 
   const useCurrentLocation = () => {
@@ -200,6 +215,11 @@ export default function HomePage() {
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
               <p className="text-warm-800/60">Loading...</p>
             </div>
+          </div>
+        ) : loadError ? (
+          <div className="text-center py-16">
+            <p className="text-warm-800/60 text-lg">{loadError}</p>
+            <Button className="mt-4" onClick={() => loadData()}>Try Again</Button>
           </div>
         ) : (
           <>

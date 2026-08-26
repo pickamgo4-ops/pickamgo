@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useState, useEffect } from 'react'
+import React, { Suspense, useState, useEffect, useRef } from 'react'
 import { Search, SlidersHorizontal, MapPin, X } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
@@ -27,6 +27,8 @@ function DiscoverContent() {
   const [services, setServices] = useState<BeautyService[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const generationRef = useRef(0)
 
   const sortOptions = [
     { value: 'relevance', label: 'Relevance' },
@@ -51,10 +53,15 @@ function DiscoverContent() {
     setSearchQuery(initialSearch)
     setSelectedCategory(initialCategory)
     loadData(initialSearch, initialCategory)
+    return () => {
+      generationRef.current += 1
+    }
   }, [searchParams])
 
   const loadData = async (requestedSearch = searchQuery, requestedCategory = selectedCategory) => {
+    const currentGeneration = ++generationRef.current
     setLoading(true)
+    setLoadError(null)
     try {
       const savedLocation = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('pickamgo-location') || 'null') : null
       const params = new URLSearchParams({ q: requestedSearch || (requestedCategory || 'products'), type: 'products', limit: '50' })
@@ -72,22 +79,31 @@ function DiscoverContent() {
         api.get<any[]>('/categories'),
       ])
 
+      if (currentGeneration !== generationRef.current) return
+
       if (productsRes.success && productsRes.data) {
         const rawProducts = requestedSearch || requestedCategory ? productsRes.data.products?.items || [] : productsRes.data.products || []
         const mapped = rawProducts.map(mapApiProductToFrontend)
         setProducts(mapped)
+      } else if (!productsRes.success) {
+        setLoadError(productsRes.error || 'Unable to load products. Please try again.')
       }
+
       if (servicesRes.success && servicesRes.data) {
         const mapped = (servicesRes.data.services || []).map(mapApiServiceToFrontend)
         setServices(mapped)
       }
+
       if (categoriesRes.success && Array.isArray(categoriesRes.data)) {
         setCategories(categoriesRes.data.map(mapApiCategoryToFrontend))
       }
     } catch (err) {
       console.error('Failed to load discover data:', err)
+      setLoadError('Something went wrong. Please try again.')
     } finally {
-      setLoading(false)
+      if (currentGeneration === generationRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -271,6 +287,11 @@ function DiscoverContent() {
                 <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                 <p className="text-warm-800/60">Loading...</p>
               </div>
+            </div>
+          ) : loadError ? (
+            <div className="text-center py-16">
+              <p className="text-warm-800/60 text-lg">{loadError}</p>
+              <Button className="mt-4" onClick={() => loadData(searchQuery, selectedCategory)}>Try Again</Button>
             </div>
           ) : !showServices ? (
             <>
