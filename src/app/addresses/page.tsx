@@ -52,10 +52,16 @@ export default function AddressesPage() {
       const endpoint = isEdit ? `/addresses/${editingId}` : '/addresses'
       const method = isEdit ? api.patch : api.post
 
-      const response = await method<Address>(endpoint, {
-        ...formData,
+      const payload = {
+        label: formData.label,
+        address: formData.street,
+        city: formData.city,
+        area: formData.city,
+        campus: formData.city,
         isDefault: addresses.length === 0 ? true : formData.isDefault,
-      })
+      }
+
+      const response = await method<Address>(endpoint, payload)
 
       if (response.success && response.data) {
         const mapped = mapApiAddressToFrontend(response.data)
@@ -65,6 +71,8 @@ export default function AddressesPage() {
           setAddresses(prev => [...prev, mapped])
         }
         resetForm()
+      } else {
+        console.error('Address save failed:', response.error)
       }
     } catch (err) {
       console.error('Failed to save address:', err)

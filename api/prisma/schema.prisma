@@ -97,6 +97,10 @@ model Address {
   city      String
   area      String?
   campus    String?
+  region    String?
+  country   String?
+  phone     String?
+  instructions String?
   latitude  Float?
   longitude Float?
   isDefault Boolean  @default(false)

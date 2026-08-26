@@ -24,14 +24,18 @@ async function resolveAccess(currentUserId: string, otherUserId: string, orderId
     return { shopId: undefined, orderId: order.id, closedAt: ['CANCELLED', 'DELIVERED', 'FAILED'].includes(order.status) ? new Date() : undefined }
   }
 
-  const shop = await prisma.shop.findFirst({ where: { ownerId: otherUserId, status: { not: 'SUSPENDED' } } })
+  const shop = await prisma.shop.findFirst({ where: { ownerId: otherUserId } })
   if (shop) {
     return { shopId: shop.id, orderId: undefined, closedAt: undefined }
   }
 
+  const customerOrder = await prisma.order.findFirst({ where: { customerId: currentUserId, sellerId: otherUserId } })
+  if (customerOrder) return { shopId: customerOrder.shopId, orderId: undefined, closedAt: undefined }
+
   const sellerOrder = await prisma.order.findFirst({ where: { sellerId: currentUserId, customerId: otherUserId } })
   if (sellerOrder) return { shopId: sellerOrder.shopId, orderId: undefined, closedAt: undefined }
-  return null
+
+  return { shopId: undefined, orderId: undefined, closedAt: undefined }
 }
 
 function otherParticipant(conversation: any, userId: string) {
@@ -161,7 +165,7 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
 
     let conversation = await prisma.conversation.findFirst({
       where: {
-        ...(orderId ? { orderId } : { shopId: access.shopId }),
+        ...(orderId ? { orderId } : access.shopId ? { shopId: access.shopId } : {}),
         OR: [{ participant1Id: currentUserId, participant2Id: otherUserId }, { participant1Id: otherUserId, participant2Id: currentUserId }],
       },
     })
