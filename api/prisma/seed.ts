@@ -470,17 +470,17 @@ async function main() {
       'demo-prod-01-02': 'https://images.unsplash.com/photo-1515962998253-e0d3bde3129a?w=400&h=400&fit=crop', // Ankara Dress
       'demo-prod-01-03': 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop', // Ghana Flag Tee
       'demo-prod-02-01': 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop', // Wireless Earbuds
-      'demo-prod-02-02': 'https://images.unsplash.com/photo-1625948515291-69613efd103f?w=400&h=400&fit=crop', // Fast Charger
+      'demo-prod-02-02': 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=400&h=400&fit=crop', // Fast Charger
       'demo-prod-03-01': 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400&h=400&fit=crop', // Vitamin C Serum
       'demo-prod-03-02': 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&h=400&fit=crop', // Matte Lipstick
       'demo-prod-03-03': 'https://images.unsplash.com/photo-1556228720-4fb4e2db1942?w=400&h=400&fit=crop', // Shea Butter
-      'demo-prod-04-01': 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop', // Jollof Rice
-      'demo-prod-04-02': 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop', // Waakye
+      'demo-prod-04-01': 'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=400&h=400&fit=crop', // Jollof Rice
+      'demo-prod-04-02': 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&h=400&fit=crop', // Waakye
       'demo-prod-05-01': 'https://images.unsplash.com/photo-1528148343865-c218cba7f30d?w=400&h=400&fit=crop', // Screen Protector
-      'demo-prod-05-02': 'https://images.unsplash.com/photo-1625948515291-69613efd103f?w=400&h=400&fit=crop', // USB-C Cable
-      'demo-prod-06-01': 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=400&fit=crop', // L-Shape Sofa
+      'demo-prod-05-02': 'https://images.unsplash.com/photo-1595225476474-87563907a212?w=400&h=400&fit=crop', // USB-C Cable
+      'demo-prod-06-01': 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&h=400&fit=crop', // L-Shape Sofa
       'demo-prod-06-02': 'https://images.unsplash.com/photo-1533090161392-a8255ba84a81?w=400&h=400&fit=crop', // Oak Dining Table
-      'demo-prod-07-01': 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop', // Sneakers
+      'demo-prod-07-01': 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=400&h=400&fit=crop', // Sneakers
       'demo-prod-07-02': 'https://images.unsplash.com/photo-1543163521-9733539c63e2?w=400&h=400&fit=crop', // Leather Loafer
       'demo-prod-08-01': 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400&h=400&fit=crop', // Vegetables
       'demo-prod-08-02': 'https://images.unsplash.com/photo-1584622614875-2953067881c7?w=400&h=400&fit=crop', // Fruits
