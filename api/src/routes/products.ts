@@ -82,12 +82,19 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
       radius,
     } = req.query as z.infer<typeof listProductsQuerySchema>
 
-    const where: any = { status: 'ACTIVE', stock: { gt: 0 }, shop: { status: 'ACTIVE' } }
+    const where: any = { status: 'ACTIVE', stock: { gt: 0 } }
+
+    const shopStatusOk = await prisma.shop.count({ where: { status: 'ACTIVE' } })
+    if (shopStatusOk === 0) {
+      return successResponse(res, { products: [], total: 0, page, limit, totalPages: 0 })
+    }
+
+    where.shop = { status: 'ACTIVE' }
 
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
         { shop: { name: { contains: search, mode: 'insensitive' } } },
         { category: { name: { contains: search, mode: 'insensitive' } } },
       ]
@@ -163,7 +170,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
     const productsWithDistance: any[] = latitude !== undefined && longitude !== undefined
       ? products
         .map(product => {
-          const distance = product.shop.latitude != null && product.shop.longitude != null
+          const distance = product.shop?.latitude != null && product.shop?.longitude != null
             ? distanceInKm({ latitude, longitude }, { latitude: product.shop.latitude, longitude: product.shop.longitude })
             : null
           return { ...product, distanceKm: distance }
@@ -176,6 +183,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
 
     return successResponse(res, { products: nearbyProducts.length >= 3 ? nearbyProducts : productsWithDistance }, 200, undefined)
   } catch (error) {
+    console.error('Products list error:', error)
     return errorResponse(res, 'Failed to fetch products', 500)
   }
 })
