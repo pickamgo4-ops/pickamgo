@@ -22,6 +22,13 @@ export default function MessagesPage() {
     loadConversations()
   }, [])
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshConversations()
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
   const loadConversations = async () => {
     setLoading(true)
     try {
@@ -41,6 +48,25 @@ export default function MessagesPage() {
       console.error('Failed to load conversations:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const refreshConversations = async () => {
+    try {
+      const response = await api.get<any>('/messages/conversations')
+      if (response.success && response.data) {
+        const mapped = (response.data.conversations || response.data || []).map((conv: any) => ({
+          userId: conv.userId || conv.id,
+          userName: conv.userName || conv.name || 'Unknown User',
+          userAvatar: conv.userAvatar || conv.avatar || '',
+          lastMessage: conv.lastMessage || conv.lastMessageText || '',
+          lastMessageAt: conv.lastMessageAt || conv.updatedAt || new Date().toISOString(),
+          unreadCount: conv.unreadCount || 0,
+        }))
+        setConversations(mapped)
+      }
+    } catch (err) {
+      console.error('Failed to refresh conversations:', err)
     }
   }
 

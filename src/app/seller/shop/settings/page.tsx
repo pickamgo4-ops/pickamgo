@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Store, Upload, MapPin, Truck, Settings } from 'lucide-react'
+import { Store, Upload, MapPin, Truck, Settings, Copy, ExternalLink } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -167,6 +167,47 @@ export default function ShopSettingsPage() {
           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
             {success}
           </div>
+        )}
+
+        {shop && shop.slug && (
+          <Card className="p-4 mb-6">
+            <p className="text-xs text-warm-800/60 mb-1">Your public shop URL</p>
+            <p className="text-sm font-medium text-warm-900 break-all">
+              {typeof window !== 'undefined'
+                ? `${window.location.protocol}//${shop.slug}.${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`
+                : `https://${shop.slug}.pickamgo.com`}
+            </p>
+            <div className="flex gap-2 mt-3">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const url = typeof window !== 'undefined'
+                    ? `${window.location.protocol}//${shop.slug}.${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`
+                    : `https://${shop.slug}.pickamgo.com`
+                  navigator.clipboard.writeText(url)
+                }}
+                icon={<Copy size={15} />}
+              >
+                Copy URL
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  const url = typeof window !== 'undefined'
+                    ? `${window.location.protocol}//${shop.slug}.${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`
+                    : `https://${shop.slug}.pickamgo.com`
+                  window.open(url, '_blank', 'noopener,noreferrer')
+                }}
+                icon={<ExternalLink size={15} />}
+              >
+                Open
+              </Button>
+            </div>
+          </Card>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">

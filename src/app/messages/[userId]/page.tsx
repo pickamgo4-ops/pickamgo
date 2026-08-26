@@ -32,6 +32,14 @@ export default function ConversationPage() {
   }, [userId])
 
   useEffect(() => {
+    if (!userId) return
+    const interval = setInterval(() => {
+      refreshConversation()
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [userId])
+
+  useEffect(() => {
     scrollToBottom()
   }, [messages])
 
@@ -74,6 +82,25 @@ export default function ConversationPage() {
     }
   }
 
+  const refreshConversation = async () => {
+    try {
+      const response = await api.get<any>(`/messages/conversations/${userId}${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`)
+      if (response.success && response.data) {
+        const msgs = response.data.messages || response.data || []
+        setMessages(msgs.map((msg: any) => ({
+          id: msg.id,
+          senderId: msg.senderId,
+          receiverId: msg.receiverId,
+          content: msg.content,
+          read: msg.isRead || msg.read || false,
+          createdAt: msg.createdAt,
+        })))
+      }
+    } catch (err) {
+      console.error('Failed to refresh conversation:', err)
+    }
+  }
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newMessage.trim() || sending) return
@@ -99,7 +126,7 @@ export default function ConversationPage() {
 
       if (response.success && response.data) {
         setMessages(prev => prev.map(msg =>
-          msg.id === tempMessage.id ? { ...(response.data as any), read: true } : msg
+          msg.id === tempMessage.id ? { ...(response.data as any), read: false } : msg
         ))
       } else {
         setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id))
