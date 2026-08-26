@@ -37,9 +37,14 @@ export const defaultShopCustomization: ShopCustomization = {
 
 export function themeClass(theme: ShopTheme) {
   return {
-    CLEAN: 'bg-white', MIDNIGHT: 'bg-[#17202A]', SOFT: 'bg-[#FAF5F2]',
-    LUXURY: 'bg-[#171614]', FRESH: 'bg-[#EAF7F5]', CAMPUS: 'bg-[#F4F2FF]',
-    STREET: 'bg-[#171717]', BEAUTY: 'bg-[#FFF8F5]',
+    CLEAN: 'theme-CLEAN',
+    MIDNIGHT: 'theme-MIDNIGHT',
+    SOFT: 'theme-SOFT',
+    LUXURY: 'theme-LUXURY',
+    FRESH: 'theme-FRESH',
+    CAMPUS: 'theme-CAMPUS',
+    STREET: 'theme-STREET',
+    BEAUTY: 'theme-BEAUTY',
   }[theme]
 }
 

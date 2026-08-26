@@ -355,4 +355,44 @@ router.get('/reports', authMiddleware, requireRole(['ADMIN']), async (req: Authe
   }
 })
 
+router.post('/shops/backfill-slugs', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const shops = await prisma.shop.findMany({
+      where: { slug: null },
+      select: { id: true, name: true },
+    })
+
+    let updated = 0
+    for (const shop of shops) {
+      const baseSlug = shop.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'shop'
+
+      let slug = baseSlug
+      let attempt = 1
+
+      while (attempt < 10) {
+        const existing = await prisma.shop.findFirst({
+          where: { slug, id: { not: shop.id } },
+        })
+        if (!existing) break
+        slug = `${baseSlug}-${attempt + 1}`
+        attempt++
+      }
+
+      await prisma.shop.update({
+        where: { id: shop.id },
+        data: { slug },
+      })
+
+      updated++
+    }
+
+    return successResponse(res, { updated, total: shops.length }, 200, `Backfilled ${updated} shop slugs`)
+  } catch (error) {
+    return errorResponse(res, 'Failed to backfill shop slugs', 500)
+  }
+})
+
 export default router

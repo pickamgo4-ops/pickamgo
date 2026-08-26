@@ -302,9 +302,23 @@ router.patch('/:id', authMiddleware, validateBody(updateShopSchema), async (req:
     return errorResponse(res, 'Not authorized to update this shop', 403)
   }
 
+  const data: any = { ...req.body }
+  if (data.name && (!shop.slug || shop.slug === '')) {
+    const baseSlug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
+    let slug = baseSlug
+    let attempt = 1
+    while (attempt < 10) {
+      const existing = await prisma.shop.findFirst({ where: { slug, id: { not: shop.id } } })
+      if (!existing) break
+      slug = `${baseSlug}-${attempt + 1}`
+      attempt++
+    }
+    data.slug = slug
+  }
+
   const updated = await prisma.shop.update({
     where: { id: req.params.id },
-    data: req.body,
+    data,
     include: { owner: { select: { id: true, name: true, avatar: true } } },
   })
 

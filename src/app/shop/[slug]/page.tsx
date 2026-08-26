@@ -114,13 +114,11 @@ export default function ShopPage() {
   const featuredProduct = shop.products.find(product => product.id === customization.featuredProductId)
   const surfaceTextColor = readableTextColor(customization.secondaryColor)
   const primaryTextColor = readableTextColor(customization.primaryColor)
-  const shopSurfaceStyle = { backgroundColor: customization.secondaryColor, color: surfaceTextColor }
-  const shopTextStyle = { color: surfaceTextColor }
 
   return (
-    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...shopSurfaceStyle, '--shop-primary': customization.primaryColor, '--shop-secondary': customization.secondaryColor } as React.CSSProperties}>
+    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ '--shop-primary': customization.primaryColor, '--shop-secondary': customization.secondaryColor, '--shop-accent': customization.accentColor, color: surfaceTextColor } as React.CSSProperties}>
       {/* Banner */}
-      <div className="relative h-40 sm:h-48 md:h-64" style={{ backgroundColor: customization.secondaryColor }}>
+      <div className="relative h-40 sm:h-48 md:h-64 bg-[var(--shop-secondary)]">
         {(customization.coverImage || shop.banner) && (
           <img
             src={customization.coverImage || shop.banner}
@@ -142,7 +140,7 @@ export default function ShopPage() {
 
       {/* Shop Info */}
       <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 -mt-10 sm:-mt-12 relative z-10">
-        <div className="rounded-2xl p-4 sm:p-6 shadow-sm border border-black/10" style={shopSurfaceStyle}>
+        <div className="rounded-2xl p-4 sm:p-6 shadow-sm border border-black/10 bg-[var(--shop-secondary)]">
           <div className="flex items-start gap-3 sm:gap-4 mb-4">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-warm-100 -mt-12 sm:-mt-16 flex-shrink-0">
               <img
@@ -153,7 +151,7 @@ export default function ShopPage() {
             </div>
             <div className="flex-1 min-w-0 pt-1 sm:pt-2">
               <div className="flex items-start gap-2 mb-1">
-                <h1 className="font-display text-lg sm:text-xl font-bold break-words" style={shopTextStyle}>{shop.name}</h1>
+                <h1 className="font-display text-lg sm:text-xl font-bold break-words" style={{ color: surfaceTextColor }}>{shop.name}</h1>
                 {shop.isVerified && <span className="text-lg">✅</span>}
               </div>
               <div className="flex items-center gap-1 text-sm opacity-70">
@@ -165,20 +163,20 @@ export default function ShopPage() {
 
           <p className="mb-4 opacity-75">{customization.description || shop.description}</p>
 
-          {customization.announcement && <div className="mb-4 rounded-xl px-4 py-3 text-sm font-medium" style={{ backgroundColor: customization.primaryColor, color: primaryTextColor }}>{customization.announcement}</div>}
+          {customization.announcement && <div className="mb-4 rounded-xl px-4 py-3 text-sm font-medium bg-[var(--shop-primary)]" style={{ color: primaryTextColor }}>{customization.announcement}</div>}
 
           {/* Stats */}
           <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4">
             <div className="flex items-center gap-1">
               <Star size={18} className="fill-yellow-400 text-yellow-400" />
-              <span className="font-bold" style={shopTextStyle}>{shop.rating}</span>
+              <span className="font-bold" style={{ color: surfaceTextColor }}>{shop.rating}</span>
               <span className="text-sm opacity-70">({shop.reviews} reviews)</span>
             </div>
             <div className="flex items-center gap-1 text-sm opacity-70">
               <Store size={16} />
               <span>{shop.followers.toLocaleString()} followers</span>
             </div>
-            <span className="text-sm font-medium px-3 py-1 rounded-full" style={{ backgroundColor: customization.primaryColor, color: primaryTextColor }}>
+            <span className="text-sm font-medium px-3 py-1 rounded-full bg-[var(--shop-primary)]" style={{ color: primaryTextColor }}>
               {shop.isOpen ? 'Open now' : 'Closed'}
             </span>
           </div>
@@ -254,7 +252,7 @@ export default function ShopPage() {
 
       {/* Products */}
       {featuredProduct && customization.showFeatured && (
-        <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mt-8 sm:mt-10"><div className="mb-4"><h2 className="font-display text-xl font-bold" style={shopTextStyle}>Featured</h2><p className="text-sm opacity-70">A highlighted find from this shop</p></div><div className="max-w-sm"><ProductCard product={featuredProduct} onClick={() => router.push(`/product/${featuredProduct.id}`)} /></div></section>
+        <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mt-8 sm:mt-10"><div className="mb-4"><h2 className="font-display text-xl font-bold" style={{ color: surfaceTextColor }}>Featured</h2><p className="text-sm opacity-70">A highlighted find from this shop</p></div><div className="max-w-sm"><ProductCard product={featuredProduct} onClick={() => router.push(`/product/${featuredProduct.id}`)} /></div></section>
       )}
 
       {visibleProducts.length > 0 && (
