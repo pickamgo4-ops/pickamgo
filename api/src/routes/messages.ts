@@ -38,6 +38,17 @@ function otherParticipant(conversation: any, userId: string) {
   return conversation.participant1Id === userId ? conversation.participant2 : conversation.participant1
 }
 
+function mapMessage(message: any, receiverId: string) {
+  return {
+    id: message.id,
+    senderId: message.senderId,
+    receiverId,
+    content: message.content,
+    read: message.isRead || false,
+    createdAt: message.createdAt,
+  }
+}
+
 router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id
@@ -63,12 +74,15 @@ router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, r
       orderBy: { updatedAt: 'desc' },
     })
 
-    return successResponse(res, conversations.map((conversation) => ({
-      ...conversation,
-      otherParticipant: otherParticipant(conversation, userId),
-      lastMessage: conversation.messages[0] || null,
-      unreadCount: conversation._count.messages,
-    })))
+    return successResponse(res, conversations.map((conversation) => {
+      const other = otherParticipant(conversation, userId)
+      return {
+        ...conversation,
+        otherParticipant: other,
+        lastMessage: conversation.messages[0] || null,
+        unreadCount: conversation._count.messages,
+      }
+    }))
   } catch (error) {
     return errorResponse(res, 'Failed to fetch conversations', 500)
   }
@@ -125,7 +139,11 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
       data: { isRead: true },
     })
 
-    return successResponse(res, { conversation, messages, canSend: !conversation.closedAt && !access?.closedAt })
+    return successResponse(res, {
+      conversation,
+      messages: messages.map((msg) => mapMessage(msg, otherUserId)),
+      canSend: !conversation.closedAt && !access?.closedAt,
+    })
   } catch (error) {
     return errorResponse(res, 'Failed to fetch messages', 500)
   }
@@ -191,7 +209,7 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
       sendNewMessageEmail(recipient.email, req.user!.name).catch(err => console.error('Failed to send message email:', err))
     }
 
-    return successResponse(res, message, 201, 'Message sent')
+    return successResponse(res, mapMessage(message, otherUserId), 201, 'Message sent')
   } catch (error) {
     return errorResponse(res, 'Failed to send message', 500)
   }

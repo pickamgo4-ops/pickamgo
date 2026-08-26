@@ -73,6 +73,13 @@ async function request<T>(
       }
     }
 
+    if (response.status === 429) {
+      return {
+        success: false,
+        error: 'Too many requests. Please wait a moment and try again.',
+      }
+    }
+
     return response.ok ? data : { ...data, success: false }
   } catch (error) {
     return {

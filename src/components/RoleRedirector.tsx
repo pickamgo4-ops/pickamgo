@@ -9,16 +9,17 @@ const customerPaths = ['/', '/discover', '/cart', '/favorites', '/orders', '/not
 export function RoleRedirector() {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, loading, authInitialized } = useRole()
+  const { user, loading, authInitialized, isValidating } = useRole()
 
   useEffect(() => {
     if (loading || !authInitialized) return
 
+    const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('token')
     const isCustomerPath = customerPaths.some(p => p === '/' ? pathname === '/' : pathname.startsWith(p + '/') || pathname === p)
     const isAuthPath = pathname.startsWith('/auth/')
 
     if (!user) {
-      if (!isAuthPath && !isCustomerPath) {
+      if (!isAuthPath && !isCustomerPath && !hasToken) {
         router.push('/auth/login')
       }
       return

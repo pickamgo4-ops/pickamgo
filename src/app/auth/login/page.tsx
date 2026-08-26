@@ -1,23 +1,29 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { api } from '../../../lib/api'
+import { useRole } from '@/contexts/RoleContext'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { setUser } = useRole()
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const submittingRef = useRef(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading || submittingRef.current) return
+
+    submittingRef.current = true
     setLoading(true)
     setError('')
 
@@ -28,11 +34,24 @@ export default function LoginPage() {
       })
 
       if (response.success && response.data) {
+        const u = response.data.user
+        const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
+        const normalizedUser = {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          avatar: u.avatar,
+          location: u.location,
+          role: role as 'buyer' | 'seller' | 'rider' | 'admin',
+          isSeller: u.isSeller || false,
+          isRider: u.isRider || false,
+          isAdmin: u.isAdmin || false,
+        }
+
         localStorage.setItem('token', response.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.user))
-        window.dispatchEvent(new Event('auth-changed'))
-        const user = response.data.user
-        router.push(user.isAdmin ? '/admin' : user.isRider ? '/rider' : user.isSeller ? '/seller' : '/')
+        localStorage.setItem('user', JSON.stringify(normalizedUser))
+        setUser(normalizedUser)
+        router.push(u.isAdmin ? '/admin' : u.isRider ? '/rider' : u.isSeller ? '/seller' : '/')
       } else {
         setError(response.error || response.message || 'Login failed')
       }
@@ -40,6 +59,7 @@ export default function LoginPage() {
       setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)
+      submittingRef.current = false
     }
   }
 

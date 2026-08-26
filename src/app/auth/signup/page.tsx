@@ -7,11 +7,13 @@ import { Mail, Lock, Eye, EyeOff, Phone, User, Store, Bike } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { api } from '../../../lib/api'
+import { useRole } from '@/contexts/RoleContext'
 
 type UserRole = 'buyer' | 'seller' | 'rider'
 
 export default function SignupPage() {
   const router = useRouter()
+  const { setUser } = useRole()
   const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -36,10 +38,24 @@ export default function SignupPage() {
       })
 
       if (response.success && response.data) {
+        const u = response.data.user
+        const normalizedRole = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
+        const normalizedUser = {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          avatar: u.avatar,
+          location: u.location,
+          role: normalizedRole as 'buyer' | 'seller' | 'rider' | 'admin',
+          isSeller: u.isSeller || false,
+          isRider: u.isRider || false,
+          isAdmin: u.isAdmin || false,
+        }
+
         localStorage.setItem('token', response.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.user))
-        window.dispatchEvent(new Event('auth-changed'))
-        router.push('/')
+        localStorage.setItem('user', JSON.stringify(normalizedUser))
+        setUser(normalizedUser)
+        router.push(normalizedRole === 'seller' ? '/seller' : normalizedRole === 'rider' ? '/rider' : '/')
       } else {
         setError(response.error || response.message || 'Registration failed')
       }

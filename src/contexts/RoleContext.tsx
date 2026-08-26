@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 
 interface User {
   id: string
@@ -39,6 +39,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [isValidating, setIsValidating] = useState(false)
   const [authInitialized, setAuthInitialized] = useState(false)
+  const refreshUserRef = useRef<Promise<void> | null>(null)
 
   const cleanOldAuthKeys = useCallback(() => {
     if (typeof window === 'undefined') return
@@ -74,7 +75,11 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     setIsValidating(false)
   }, [cleanOldAuthKeys])
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
+    if (refreshUserRef.current) {
+      return refreshUserRef.current
+    }
+
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (!token) {
       clearAuth()
@@ -82,41 +87,50 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     }
 
     setIsValidating(true)
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    refreshUserRef.current = (async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.data) {
-          const u = data.data
-          const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
-          setUser({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            avatar: u.avatar,
-            location: u.location,
-            role,
-            isSeller: u.isSeller || false,
-            isRider: u.isRider || false,
-            isAdmin: u.isAdmin || false,
-          })
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data) {
+            const u = data.data
+            const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
+            setUser({
+              id: u.id,
+              name: u.name,
+              email: u.email,
+              avatar: u.avatar,
+              location: u.location,
+              role,
+              isSeller: u.isSeller || false,
+              isRider: u.isRider || false,
+              isAdmin: u.isAdmin || false,
+            })
+          } else {
+            clearAuth()
+          }
+        } else if (response.status === 401 || response.status === 403) {
+          clearAuth()
+        } else if (response.status === 429) {
+          console.warn('Rate limited while validating auth session. Keeping current session.')
         } else {
           clearAuth()
         }
-      } else {
+      } catch {
         clearAuth()
+      } finally {
+        setIsValidating(false)
+        setAuthInitialized(true)
+        setLoading(false)
+        refreshUserRef.current = null
       }
-    } catch {
-      clearAuth()
-    } finally {
-      setIsValidating(false)
-      setAuthInitialized(true)
-      setLoading(false)
-    }
-  }
+    })()
+
+    return refreshUserRef.current
+  }, [clearAuth])
 
   useEffect(() => {
     cleanOldAuthKeys()
@@ -124,7 +138,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     const handleAuthChange = () => refreshUser()
     window.addEventListener('auth-changed', handleAuthChange)
     return () => window.removeEventListener('auth-changed', handleAuthChange)
-  }, [cleanOldAuthKeys])
+  }, [cleanOldAuthKeys, refreshUser])
 
   return (
     <RoleContext.Provider value={{ user, loading, isValidating, authInitialized, setUser, refreshUser, clearAuth }}>

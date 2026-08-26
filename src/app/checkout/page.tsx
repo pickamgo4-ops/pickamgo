@@ -12,12 +12,14 @@ import { api } from '../../lib/api'
 import { Cart, Address, CheckoutOrder, DeliverySettings } from '../../types'
 import { mapApiCartToFrontend, mapApiAddressToFrontend } from '../../lib/api-mappers'
 import { PaymentSafetyNotice } from '../../components/ui/PaymentSafetyNotice'
+import { useRole } from '../../contexts/RoleContext'
 
 type CheckoutMode = 'checking' | 'guest' | 'logged-in'
 type FulfillmentMethod = 'FIND_IT_NEAR_ME_RIDER' | 'SELLER_OWN_DELIVERY' | 'CUSTOMER_PICKUP'
 
 function CheckoutContent() {
   const router = useRouter()
+  const { setUser } = useRole()
   const searchParams = useSearchParams()
   const [mode, setMode] = useState<CheckoutMode>('checking')
   const [loading, setLoading] = useState(true)
@@ -315,9 +317,23 @@ function CheckoutContent() {
       })
 
       if (response.success && response.data) {
+        const u = response.data.user
+        const normalizedRole = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
+        const normalizedUser = {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          avatar: u.avatar,
+          location: u.location,
+          role: normalizedRole as 'buyer' | 'seller' | 'rider' | 'admin',
+          isSeller: u.isSeller || false,
+          isRider: u.isRider || false,
+          isAdmin: u.isAdmin || false,
+        }
+
         localStorage.setItem('token', response.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.user))
-        window.dispatchEvent(new Event('auth-changed'))
+        localStorage.setItem('user', JSON.stringify(normalizedUser))
+        setUser(normalizedUser)
         router.push('/')
       } else {
         setSignupError(response.error || response.message || 'Registration failed')

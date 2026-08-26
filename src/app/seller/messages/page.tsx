@@ -20,6 +20,7 @@ interface Conversation {
 export default function SellerMessagesPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [message, setMessage] = useState('')
@@ -33,7 +34,6 @@ export default function SellerMessagesPage() {
   }, [])
 
   const loadConversations = async () => {
-    setLoading(true)
     try {
       const response = await api.get<Conversation[]>('/messages/conversations')
       if (response.success && response.data) {
@@ -43,6 +43,7 @@ export default function SellerMessagesPage() {
       setError('Failed to load conversations')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -70,6 +71,7 @@ export default function SellerMessagesPage() {
       const response = await api.post(`/messages/conversations/${otherUserId}/messages`, { content: message })
       if (response.success) {
         setMessage('')
+        setRefreshing(true)
         loadConversations()
         loadConversation(otherUserId)
       }

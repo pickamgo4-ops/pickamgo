@@ -33,6 +33,7 @@ import recommendationRoutes from './routes/recommendations'
 import payoutRoutes from './routes/payouts'
 import deliverySettingsRoutes from './routes/delivery-settings'
 import adminRoutes from './routes/admin'
+import emailTestRoutes from './routes/email-test'
 
 const app = express()
 
@@ -129,6 +130,10 @@ app.use('/api/disputes', disputeRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/payouts', payoutRoutes)
 app.use('/api/seller/delivery-settings', deliverySettingsRoutes)
+
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/dev', emailTestRoutes)
+}
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'PickAmGo API is running' })
