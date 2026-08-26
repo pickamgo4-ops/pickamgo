@@ -3,13 +3,19 @@
 import React, { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { 
-  LayoutDashboard, Package, Truck, DollarSign, 
+  Home, LayoutDashboard, Package, Truck, DollarSign, 
   Bell, User, Settings, HelpCircle, ChevronLeft, LogOut, CheckCircle
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
 
 const riderSections = [
+  {
+    title: 'NAVIGATION',
+    items: [
+      { href: '/', label: 'Home', icon: Home },
+    ],
+  },
   {
     title: 'DELIVERY',
     items: [
@@ -82,7 +88,7 @@ export function RiderSidebar({ children }: { children: React.ReactNode }) {
             </h3>
             <div className="space-y-0.5">
               {section.items.map((item) => {
-                const isActive = pathname === item.href || (item.href !== '/rider' && pathname.startsWith(item.href))
+                const isActive = pathname === item.href || (item.href !== '/' && item.href !== '/rider' && pathname.startsWith(item.href))
                 const Icon = item.icon
 
                 return (

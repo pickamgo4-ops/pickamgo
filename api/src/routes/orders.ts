@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
 import { sendOrderStatusEmail } from '../services/email'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
+import { generateOrderNumber } from '../utils/orderNumber'
 
 const router = Router()
 
@@ -170,7 +171,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(createOrder
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.create({
       data: {
-        orderNumber: `ORD-${Date.now()}`,
+        orderNumber: generateOrderNumber(),
         customerId: req.user!.id,
         shopId: shop.id,
         sellerId: shop.ownerId,

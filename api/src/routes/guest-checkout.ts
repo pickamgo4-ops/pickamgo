@@ -7,6 +7,7 @@ import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
 import { sendOrderConfirmationEmail, sendSellerOrderNotification } from '../services/email'
 import { initializeTransaction, verifyTransaction } from '../services/paystack'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
+import { generateOrderNumber } from '../utils/orderNumber'
 
 const router = Router()
 
@@ -178,7 +179,7 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
 
       const newOrder = await tx.order.create({
         data: {
-          orderNumber: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+          orderNumber: generateOrderNumber(),
           customerId: null,
           guestName,
           guestPhone,

@@ -25,6 +25,23 @@ export default function ConversationPage() {
   const [conversationUser, setConversationUser] = useState<{ name: string; avatar: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  const mapMessages = (items: any[]): Message[] => items.map((msg: any) => ({
+    id: msg.id,
+    senderId: msg.senderId,
+    receiverId: msg.receiverId,
+    content: msg.content,
+    read: msg.isRead || msg.read || false,
+    createdAt: msg.createdAt,
+  }))
+
+  const mergeServerMessages = (serverMessages: Message[]) => {
+    setMessages(previous => {
+      const serverIds = new Set(serverMessages.map(message => message.id))
+      const pendingMessages = previous.filter(message => message.id.startsWith('temp-') && !serverIds.has(message.id))
+      return [...serverMessages, ...pendingMessages]
+    })
+  }
+
   useEffect(() => {
     if (userId) {
       loadConversation()
@@ -35,7 +52,7 @@ export default function ConversationPage() {
     if (!userId) return
     const interval = setInterval(() => {
       refreshConversation()
-    }, 3000)
+    }, 10000)
     return () => clearInterval(interval)
   }, [userId])
 
@@ -53,14 +70,7 @@ export default function ConversationPage() {
       const response = await api.get<any>(`/messages/conversations/${userId}${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`)
       if (response.success && response.data) {
         const msgs = response.data.messages || response.data || []
-        setMessages(msgs.map((msg: any) => ({
-          id: msg.id,
-          senderId: msg.senderId,
-          receiverId: msg.receiverId,
-          content: msg.content,
-          read: msg.isRead || msg.read || false,
-          createdAt: msg.createdAt,
-        })))
+        setMessages(mapMessages(msgs))
 
         const conversation = response.data.conversation
         const participant = conversation?.participant1?.id === userId
@@ -87,14 +97,7 @@ export default function ConversationPage() {
       const response = await api.get<any>(`/messages/conversations/${userId}${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`)
       if (response.success && response.data) {
         const msgs = response.data.messages || response.data || []
-        setMessages(msgs.map((msg: any) => ({
-          id: msg.id,
-          senderId: msg.senderId,
-          receiverId: msg.receiverId,
-          content: msg.content,
-          read: msg.isRead || msg.read || false,
-          createdAt: msg.createdAt,
-        })))
+        mergeServerMessages(mapMessages(msgs))
       }
     } catch (err) {
       console.error('Failed to refresh conversation:', err)
@@ -129,10 +132,16 @@ export default function ConversationPage() {
           msg.id === tempMessage.id ? { ...(response.data as any), read: false } : msg
         ))
       } else {
-        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id))
+        setMessages(prev => prev.map(msg =>
+          msg.id === tempMessage.id ? { ...msg, status: 'failed' } : msg
+        ))
+        setNewMessage(tempMessage.content)
       }
     } catch (err) {
-      setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id))
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempMessage.id ? { ...msg, status: 'failed' } : msg
+      ))
+      setNewMessage(tempMessage.content)
     } finally {
       setSending(false)
     }
@@ -238,6 +247,9 @@ export default function ConversationPage() {
                               <CheckCheck size={12} className={message.read ? 'text-white/70' : 'text-white/50'} />
                             )}
                           </div>
+                          {message.status === 'failed' && (
+                            <p className="text-[10px] text-red-200 mt-1">Failed to send. Press Send to retry.</p>
+                          )}
                         </div>
                       </div>
                     )

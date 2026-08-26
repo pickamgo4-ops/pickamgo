@@ -61,7 +61,7 @@ async function request<T>(
     }
     const data = await response.json()
 
-    if (response.status === 401) {
+    if (response.status === 401 && token) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token')
         localStorage.removeItem('user')
@@ -71,6 +71,14 @@ async function request<T>(
         success: false,
         error: 'Session expired. Please log in again.',
       }
+    }
+
+    if (response.status === 401) {
+      return { ...data, success: false }
+    }
+
+    if (response.status === 403) {
+      return { ...data, success: false }
     }
 
     if (response.status === 429) {

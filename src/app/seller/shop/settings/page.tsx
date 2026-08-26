@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { api } from '@/lib/api'
+import MapboxLocationPicker from '@/components/map/MapboxLocationPicker'
 
 export default function ShopSettingsPage() {
   const router = useRouter()
@@ -24,8 +25,8 @@ export default function ShopSettingsPage() {
     location: '',
     area: '',
     campus: '',
-    latitude: '',
-    longitude: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     openingHours: '9:00 AM - 6:00 PM',
     deliveryAvailable: true,
     pickupAvailable: true,
@@ -48,8 +49,8 @@ export default function ShopSettingsPage() {
           location: shopData.location || '',
           area: shopData.area || '',
           campus: shopData.campus || '',
-          latitude: shopData.latitude?.toString() || '',
-          longitude: shopData.longitude?.toString() || '',
+          latitude: shopData.latitude ?? null,
+          longitude: shopData.longitude ?? null,
           openingHours: shopData.openingHours || '9:00 AM - 6:00 PM',
           deliveryAvailable: shopData.deliveryAvailable ?? true,
           pickupAvailable: shopData.pickupAvailable ?? true,
@@ -111,8 +112,8 @@ export default function ShopSettingsPage() {
     try {
       const response = await api.patch<any>(`/shops/${shop.id}`, {
         ...form,
-        latitude: form.latitude ? parseFloat(form.latitude) : null,
-        longitude: form.longitude ? parseFloat(form.longitude) : null,
+        latitude: form.latitude,
+        longitude: form.longitude,
         deliveryFee: parseFloat(form.deliveryFee) || 0,
       })
 
@@ -263,46 +264,38 @@ export default function ShopSettingsPage() {
               <MapPin size={18} className="text-primary" />
               <h3 className="font-semibold text-warm-900">Location</h3>
             </div>
-            <div className="space-y-4">
-              <Input
-                label="Address"
-                placeholder="e.g., Legon, Accra"
-                value={form.location}
-                onChange={(e) => updateField('location', e.target.value)}
-              />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4">
                 <Input
-                  label="Area"
-                  placeholder="e.g., Legon"
-                  value={form.area}
-                  onChange={(e) => updateField('area', e.target.value)}
+                  label="Address"
+                  placeholder="e.g., Legon, Accra"
+                  value={form.location}
+                  onChange={(e) => updateField('location', e.target.value)}
                 />
-                <Input
-                  label="Campus"
-                  placeholder="e.g., UG"
-                  value={form.campus}
-                  onChange={(e) => updateField('campus', e.target.value)}
+                <MapboxLocationPicker
+                  value={{ address: form.location, latitude: form.latitude ?? undefined, longitude: form.longitude ?? undefined }}
+                  onChange={(result) => {
+                    updateField('location', result.address)
+                    updateField('latitude', result.latitude)
+                    updateField('longitude', result.longitude)
+                  }}
+                  placeholder="Search shop address in Ghana"
+                  height="280px"
                 />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Area"
+                    placeholder="e.g., Legon"
+                    value={form.area}
+                    onChange={(e) => updateField('area', e.target.value)}
+                  />
+                  <Input
+                    label="Campus"
+                    placeholder="e.g., UG"
+                    value={form.campus}
+                    onChange={(e) => updateField('campus', e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="Latitude"
-                  type="number"
-                  step="any"
-                  placeholder="5.6577"
-                  value={form.latitude}
-                  onChange={(e) => updateField('latitude', e.target.value)}
-                />
-                <Input
-                  label="Longitude"
-                  type="number"
-                  step="any"
-                  placeholder="-0.1870"
-                  value={form.longitude}
-                  onChange={(e) => updateField('longitude', e.target.value)}
-                />
-              </div>
-            </div>
           </Card>
 
           {/* Delivery Section */}

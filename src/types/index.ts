@@ -198,6 +198,8 @@ export interface Address {
   phone: string;
   instructions?: string;
   isDefault: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -307,6 +309,7 @@ export interface Message {
   content: string;
   read: boolean;
   createdAt: string;
+  status?: 'sending' | 'failed';
 }
 
 export interface Conversation {

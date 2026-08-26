@@ -7,6 +7,7 @@ import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
 import { handleWebhook, initializeTransaction, verifyTransaction } from '../services/paystack'
 import { sendOrderConfirmationEmail, sendPaymentConfirmationEmail, sendSellerOrderNotification } from '../services/email'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
+import { generateOrderNumber } from '../utils/orderNumber'
 
 const router = Router()
 
@@ -26,6 +27,8 @@ const checkoutSchema = z.object({
   notes: z.string().optional(),
   paymentMethod: z.string().transform(value => value.toLowerCase()).refine(value => value === 'paystack', 'Only Paystack payments are supported').default('paystack'),
   fulfillmentMethod: z.string().transform(normalizeFulfillmentMethod).default('FIND_IT_NEAR_ME_RIDER'),
+  deliveryLatitude: z.number().optional(),
+  deliveryLongitude: z.number().optional(),
 })
 
 const paymentVerificationSchema = z.object({
@@ -238,13 +241,15 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
 
       const newOrder = await tx.order.create({
         data: {
-          orderNumber: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+          orderNumber: generateOrderNumber(),
           customerId: req.user!.id,
           shopId: group.shopId,
           sellerId: group.sellerId,
           total: shopTotal,
           status: 'PENDING_PAYMENT',
           deliveryAddress,
+          deliveryLatitude: (req.body as any).deliveryLatitude ?? null,
+          deliveryLongitude: (req.body as any).deliveryLongitude ?? null,
           deliveryFee: group.deliveryFee,
           deliveryStatus: 'PENDING',
           fulfillmentMethod: resolvedFulfillmentMethod,

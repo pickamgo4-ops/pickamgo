@@ -89,7 +89,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     setIsValidating(true)
     refreshUserRef.current = (async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/me`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         })
 
@@ -110,17 +110,17 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
               isAdmin: u.isAdmin || false,
             })
           } else {
-            clearAuth()
+            console.warn('Auth server returned an unexpected session response. Keeping current session.')
           }
-        } else if (response.status === 401 || response.status === 403) {
+        } else if (response.status === 401) {
           clearAuth()
         } else if (response.status === 429) {
           console.warn('Rate limited while validating auth session. Keeping current session.')
         } else {
-          clearAuth()
+          console.warn(`Unable to validate auth session (HTTP ${response.status}). Keeping current session.`)
         }
       } catch {
-        clearAuth()
+        console.warn('Unable to reach auth server while validating session. Keeping current session.')
       } finally {
         setIsValidating(false)
         setAuthInitialized(true)

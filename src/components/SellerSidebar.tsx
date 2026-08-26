@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { 
-  LayoutDashboard, Store, Package, Tag, Archive, ShoppingBag, 
+  Home, LayoutDashboard, Store, Package, Tag, Archive, ShoppingBag, 
   TrendingUp, Star, MessageSquare, Bell, Settings, HelpCircle,
   FileText, MapPin, CheckCircle, ChevronLeft, LogOut, Calendar,
   DollarSign, Truck
@@ -12,6 +12,12 @@ import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
 
 const shopSections = [
+  {
+    title: 'NAVIGATION',
+    items: [
+      { href: '/', label: 'Home', icon: Home },
+    ],
+  },
   {
     title: 'SHOP',
     items: [
@@ -106,7 +112,7 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
             </h3>
             <div className="space-y-0.5">
               {section.items.map((item) => {
-                const isActive = pathname === item.href || (item.href !== '/seller' && pathname.startsWith(item.href))
+                const isActive = pathname === item.href || (item.href !== '/' && item.href !== '/seller' && pathname.startsWith(item.href))
                 const Icon = item.icon
 
                 return (

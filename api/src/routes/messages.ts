@@ -180,29 +180,37 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
 
     if (conversation.closedAt) return errorResponse(res, 'This conversation is closed', 403)
 
-    const message = await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        senderId: currentUserId,
-        content,
-      },
-      include: { sender: { select: { id: true, name: true, avatar: true } } },
+    const message = await prisma.$transaction(async (transaction) => {
+      const savedMessage = await transaction.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderId: currentUserId,
+          content,
+        },
+        include: { sender: { select: { id: true, name: true, avatar: true } } },
+      })
+
+      await transaction.conversation.update({
+        where: { id: conversation.id },
+        data: { updatedAt: new Date() },
+      })
+
+      return savedMessage
     })
 
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: { updatedAt: new Date() },
-    })
-
-    await prisma.notification.create({
-      data: {
-        userId: otherUserId,
-        type: 'NEW_MESSAGE',
-        title: 'New message',
-        message: `${req.user!.name} sent you a message`,
-        data: JSON.stringify({ conversationId: conversation.id, orderId: conversation.orderId }),
-      },
-    })
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: otherUserId,
+          type: 'NEW_MESSAGE',
+          title: 'New message',
+          message: `${req.user!.name} sent you a message`,
+          data: JSON.stringify({ conversationId: conversation.id, orderId: conversation.orderId }),
+        },
+      })
+    } catch (error) {
+      console.error('Failed to create message notification:', error)
+    }
 
     const recipient = await prisma.user.findUnique({ where: { id: otherUserId }, select: { email: true } })
     if (recipient?.email) {

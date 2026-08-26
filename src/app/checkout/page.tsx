@@ -13,6 +13,7 @@ import { Cart, Address, CheckoutOrder, DeliverySettings } from '../../types'
 import { mapApiCartToFrontend, mapApiAddressToFrontend } from '../../lib/api-mappers'
 import { PaymentSafetyNotice } from '../../components/ui/PaymentSafetyNotice'
 import { useRole } from '../../contexts/RoleContext'
+import MapboxLocationPicker from '../../components/map/MapboxLocationPicker'
 
 type CheckoutMode = 'checking' | 'guest' | 'logged-in'
 type FulfillmentMethod = 'FIND_IT_NEAR_ME_RIDER' | 'SELLER_OWN_DELIVERY' | 'CUSTOMER_PICKUP'
@@ -47,6 +48,8 @@ function CheckoutContent() {
     phone: '',
     email: '',
     deliveryAddress: '',
+    deliveryLatitude: null as number | null,
+    deliveryLongitude: null as number | null,
   })
   const [showSignup, setShowSignup] = useState(false)
   const [signupName, setSignupName] = useState('')
@@ -218,6 +221,8 @@ function CheckoutContent() {
         paymentMethod,
         notes: orderNotes,
         fulfillmentMethod,
+        deliveryLatitude: guestInfo.deliveryLatitude,
+        deliveryLongitude: guestInfo.deliveryLongitude,
       })
 
       if (response.success && response.data) {
@@ -529,12 +534,11 @@ function CheckoutContent() {
                 <MapPin size={20} className="text-primary" />
                 Delivery Address
               </h3>
-              <textarea
-                value={guestInfo.deliveryAddress}
-                onChange={(e) => setGuestInfo({ ...guestInfo, deliveryAddress: e.target.value })}
-                placeholder="Enter your full delivery address"
-                required
-                className="w-full bg-warm-50 border border-warm-200 rounded-xl py-3 px-4 text-warm-900 placeholder:text-warm-800/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none h-24"
+              <MapboxLocationPicker
+                value={{ address: guestInfo.deliveryAddress, latitude: guestInfo.deliveryLatitude ?? undefined, longitude: guestInfo.deliveryLongitude ?? undefined }}
+                onChange={(result) => setGuestInfo(prev => ({ ...prev, deliveryAddress: result.address, deliveryLatitude: result.latitude, deliveryLongitude: result.longitude }))}
+                placeholder="Search your delivery address in Ghana"
+                height="280px"
               />
             </div>
 
