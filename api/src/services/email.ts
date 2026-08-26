@@ -52,7 +52,7 @@ export async function sendEmailDirect(options: SendEmailOptions): Promise<SendEm
   return sendEmail(options)
 }
 
-function buildBaseHtml(title: string, body: string): string {
+export function buildBaseHtml(title: string, body: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

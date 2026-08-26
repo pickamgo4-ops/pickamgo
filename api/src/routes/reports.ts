@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma'
-import { authMiddleware, AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
+import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
+import { authMiddleware, requireRole } from '../middleware/auth'
 import { z } from 'zod'
 import { sendEmailDirect, buildBaseHtml } from '../services/email'
 
