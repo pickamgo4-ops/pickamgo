@@ -53,11 +53,20 @@ export default function SellerCustomizeShopPage() {
     const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/jpeg,image/png,image/webp,image/gif'
     input.onchange = async () => {
       const file = input.files?.[0]; if (!file) return
+      setStatus('Uploading...')
       const form = new FormData(); form.append('image', file)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/upload/image`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }, body: form })
-      const contentType = response.headers.get('content-type') || ''
-      if (!contentType.includes('application/json')) { setStatus(`Upload failed (${response.status}). Check that the backend is running.`); return }
-      const data = await response.json(); if (data.success) update({ [field]: data.data.url }); else setStatus(data.error || 'Upload failed')
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 60000)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/upload/image`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }, body: form, signal: controller.signal })
+        clearTimeout(timeout)
+        const contentType = response.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) { setStatus(`Upload failed (${response.status}). Check that the backend is running.`); return }
+        const data = await response.json(); if (data.success) update({ [field]: data.data.url }); else setStatus(data.error || 'Upload failed')
+      } catch (err) {
+        console.error('Upload fetch error:', err)
+        setStatus(err instanceof Error && err.name === 'AbortError' ? 'Upload timed out. Please try again.' : 'Upload failed. Please try again.')
+      }
     }
     input.click()
   }

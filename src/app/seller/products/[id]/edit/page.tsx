@@ -65,22 +65,28 @@ export default function EditProductPage() {
       const file = input.files?.[0]
       if (!file) return
       setUploading(true)
+      setError('')
       try {
         const body = new FormData()
         body.append('image', file)
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 60000)
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/upload/image`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
           body,
+          signal: controller.signal,
         })
+        clearTimeout(timeout)
         const data = await response.json()
         if (data.success) {
           update('images', `${form.images ? `${form.images}\n` : ''}${data.data.url}`)
         } else {
           setError(data.error || 'Image upload failed')
         }
-      } catch {
-        setError('Upload failed. Please try again.')
+      } catch (err) {
+        console.error('Upload fetch error:', err)
+        setError(err instanceof Error && err.name === 'AbortError' ? 'Upload timed out. Please try again.' : 'Upload failed. Please try again.')
       } finally {
         setUploading(false)
       }

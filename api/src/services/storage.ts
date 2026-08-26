@@ -53,15 +53,16 @@ export function isR2Enabled(): boolean {
 export function getStorageProvider(): multer.StorageEngine {
   if (isR2Enabled()) {
     return {
-      _handleFile: async (req: any, file: Express.Multer.File, callback: (error?: Error) => void) => {
+      _handleFile: async (req: any, file: Express.Multer.File, callback: multer.FileFilterCallback) => {
         try {
           const key = `uploads/${file.filename}`
           const url = await r2Bucket.upload(key, file.buffer, file.mimetype)
           ;(file as any).r2Url = url
           ;(file as any).buffer = file.buffer
-          callback()
-        } catch (error) {
-          callback(error as Error)
+          callback(null)
+        } catch (error: any) {
+          console.error('R2 upload error:', error)
+          callback(new Error(`R2 upload failed: ${error.message || 'Unknown error'}`))
         }
       },
       _removeFile: async (req: any, file: Express.Multer.File, callback: (error: Error | null) => void) => {
