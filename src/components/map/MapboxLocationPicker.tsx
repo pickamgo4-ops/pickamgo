@@ -251,7 +251,19 @@ export default function MapboxLocationPicker({
         setLoading(false)
       },
       (err) => {
-        setError('Location permission denied. Please enable location access or search manually.')
+        let message = 'Unable to get your location.'
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            message = 'Location permission was denied. Enable location access in your browser or address bar settings, then try again.'
+            break
+          case err.POSITION_UNAVAILABLE:
+            message = 'Location is unavailable. Try searching manually instead.'
+            break
+          case err.TIMEOUT:
+            message = 'Location request timed out. Please try again or search manually.'
+            break
+        }
+        setError(message)
         setLoading(false)
         console.error('Geolocation error:', err)
       },
