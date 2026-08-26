@@ -95,13 +95,18 @@ export function getStorageProvider(): multer.StorageEngine {
     return {
       _handleFile: async (req: any, file: Express.Multer.File, callback: (error?: Error | null) => void) => {
         try {
+          const chunks: Buffer[] = []
+          for await (const chunk of file.stream) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+          }
+          const fileBuffer = Buffer.concat(chunks)
           const extension = path.extname(file.originalname).toLowerCase() || '.bin'
           const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`
           const key = `uploads/${filename}`
-          const url = await r2Bucket.upload(key, file.buffer, file.mimetype)
+          const url = await r2Bucket.upload(key, fileBuffer, file.mimetype)
           ;(file as any).r2Url = url
           ;(file as any).filename = filename
-          ;(file as any).buffer = file.buffer
+          ;(file as any).buffer = fileBuffer
           callback(undefined)
         } catch (error: any) {
           console.error('R2 upload error:', error)
