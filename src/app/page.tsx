@@ -31,13 +31,25 @@ export default function HomePage() {
   const locations = ['Accra', 'Kumasi', 'Takoradi', 'Tema', 'Cape Coast']
 
   useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pickamgo-location') || 'null')
+      if (saved?.latitude != null && saved?.longitude != null) {
+        setCoordinates({ latitude: saved.latitude, longitude: saved.longitude })
+        setLocation('Selected location')
+      }
+    } catch {
+      localStorage.removeItem('pickamgo-location')
+    }
+  }, [])
+
+  useEffect(() => {
     async function loadData() {
       setLoading(true)
       try {
         const results = await Promise.allSettled([
           api.get<{ products: any[] }>(`/products?limit=20${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=25` : locationQuery ? `&location=${encodeURIComponent(locationQuery)}` : ''}`),
           api.get<{ services: any[] }>('/services?limit=10'),
-          api.get<{ shops: any[] }>('/shops?limit=6'),
+          api.get<{ shops: any[] }>(`/shops?limit=6${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=5` : ''}`),
           api.get<{ data: any[] }>('/categories'),
         ])
 
@@ -330,6 +342,7 @@ export default function HomePage() {
                     <div
                       key={shop.id}
                       className="bg-white rounded-2xl overflow-hidden border border-warm-200/50 hover:shadow-lg transition-all duration-300 cursor-pointer"
+                      onClick={() => router.push(`/shop/${shop.slug}`)}
                     >
                       <div className="h-24 bg-gradient-to-r from-primary/20 to-secondary/20 relative">
                         {shop.banner && (

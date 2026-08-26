@@ -24,6 +24,8 @@ const createOrderSchema = z.object({
   })).min(1),
   deliveryAddress: z.string().min(5),
   deliveryFee: z.number().min(0).default(0),
+  deliveryLatitude: z.number().min(-90).max(90).optional(),
+  deliveryLongitude: z.number().min(-180).max(180).optional(),
   fulfillmentMethod: z.string().transform(normalizeFulfillmentMethod).default('FIND_IT_NEAR_ME_RIDER'),
 })
 
@@ -78,7 +80,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
       items: { include: { product: true, service: true } },
       shop: { include: { owner: { select: { id: true, name: true, avatar: true } } } },
       seller: { select: { id: true, name: true, avatar: true } },
-      customer: { select: { id: true, name: true, avatar: true } },
+      customer: { select: { id: true, name: true, avatar: true, phone: true } },
       rider: { select: { id: true, name: true, avatar: true } },
       payment: true,
       delivery: true,
@@ -100,7 +102,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
 })
 
 router.post('/', authMiddleware, requireRole(['USER']), validateBody(createOrderSchema), async (req: AuthenticatedRequest, res) => {
-  const { items, deliveryAddress, deliveryFee, fulfillmentMethod } = req.body
+  const { items, deliveryAddress, deliveryFee, deliveryLatitude, deliveryLongitude, fulfillmentMethod } = req.body
 
   if (items.length === 0) {
     return errorResponse(res, 'Order must contain at least one item', 400)
@@ -239,8 +241,8 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(createOrder
           dropoffAddress: deliveryAddress,
           pickupLatitude: shop.latitude,
           pickupLongitude: shop.longitude,
-          dropoffLatitude: (req.body as any).deliveryLatitude ?? null,
-          dropoffLongitude: (req.body as any).deliveryLongitude ?? null,
+          dropoffLatitude: deliveryLatitude ?? null,
+          dropoffLongitude: deliveryLongitude ?? null,
           status: 'PENDING',
           fee: deliveryFee,
         },

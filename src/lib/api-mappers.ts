@@ -100,7 +100,7 @@ export function mapApiShopToFrontend(apiShop: any): Shop {
     location: apiShop.location || '',
     latitude: apiShop.latitude ?? null,
     longitude: apiShop.longitude ?? null,
-    distance: apiShop.area || apiShop.distance || '',
+    distance: apiShop.distanceKm != null ? `${Number(apiShop.distanceKm).toFixed(1)} km` : apiShop.area || apiShop.distance || '',
     rating: apiShop.rating || 0,
     reviews: apiShop.reviewsCount || 0,
     followers: apiShop.followersCount || 0,

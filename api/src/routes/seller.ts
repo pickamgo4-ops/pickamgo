@@ -169,7 +169,9 @@ router.get('/orders', authMiddleware, requireRole(['SELLER']), async (req: Authe
         where,
         include: {
           items: { include: { product: true, service: true } },
-          customer: { select: { id: true, name: true, avatar: true } },
+          customer: { select: { id: true, name: true, avatar: true, phone: true } },
+          seller: { select: { id: true, name: true, avatar: true } },
+          rider: { select: { id: true, name: true, avatar: true } },
           payment: true,
           delivery: true,
         },

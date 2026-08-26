@@ -126,7 +126,7 @@ export default function SellerOrdersPage() {
 
               return (
                 <Card key={order.id} className="p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 cursor-pointer" onClick={() => router.push(`/seller/orders/${order.id}`)}>
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-warm-900">#{order.orderNumber}</h3>

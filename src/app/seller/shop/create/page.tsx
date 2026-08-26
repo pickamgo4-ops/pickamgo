@@ -8,6 +8,7 @@ import { Button } from '../../../../components/ui/Button'
 import { Input } from '../../../../components/ui/Input'
 import { Card } from '../../../../components/ui/Card'
 import { api } from '../../../../lib/api'
+import MapboxLocationPicker from '@/components/map/MapboxLocationPicker'
 
 export default function CreateShopPage() {
   const router = useRouter()
@@ -25,6 +26,8 @@ export default function CreateShopPage() {
     campus: '',
     openingHours: '9:00 AM - 6:00 PM',
     category: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
   })
 
   const updateField = (field: string, value: string) => {
@@ -167,6 +170,13 @@ export default function CreateShopPage() {
             value={form.location}
             onChange={(e) => updateField('location', e.target.value)}
             required
+          />
+
+          <MapboxLocationPicker
+            value={{ address: form.location, latitude: form.latitude ?? undefined, longitude: form.longitude ?? undefined }}
+            onChange={(result) => setForm(prev => ({ ...prev, location: result.address, latitude: result.latitude, longitude: result.longitude }))}
+            placeholder="Search and confirm your shop location in Ghana"
+            height="260px"
           />
 
           <div className="grid grid-cols-2 gap-3">

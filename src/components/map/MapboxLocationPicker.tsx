@@ -58,8 +58,8 @@ export default function MapboxLocationPicker({
     const map = new window.mapboxgl.Map({
       container: mapContainer.current,
       style: themeRef.current === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v12',
-      center: value?.longitude && value?.latitude ? [value.longitude, value.latitude] : defaultCenter,
-      zoom: value?.longitude && value?.latitude ? 15 : defaultZoom,
+      center: value?.longitude != null && value?.latitude != null ? [value.longitude, value.latitude] : defaultCenter,
+      zoom: value?.longitude != null && value?.latitude != null ? 15 : defaultZoom,
     })
 
     map.addControl(new window.mapboxgl.NavigationControl(), 'top-right')
@@ -153,14 +153,25 @@ export default function MapboxLocationPicker({
       )
       const data = await res.json()
       const place = data.features?.[0]
-      if (place) {
-        const address = place.place_name || place.text || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-        setSearchValue(address)
-        onChange({ address, latitude: lat, longitude: lng })
-      }
+      const address = place?.place_name || place?.text || `Selected location (${lat.toFixed(5)}, ${lng.toFixed(5)})`
+      setSearchValue(address)
+      onChange({ address, latitude: lat, longitude: lng })
     } catch (err) {
       console.error('Reverse geocode failed:', err)
     }
+  }
+
+  const searchPlaces = async (query: string, limit: number) => {
+    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+    if (!token) return []
+    const base = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=${limit}&language=en&proximity=${defaultCenter[0]},${defaultCenter[1]}`
+    const localResponse = await fetch(`${base}&country=gh`)
+    const localData = await localResponse.json()
+    if (localData.features?.length) return localData.features
+    const broadUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(`${query}, Ghana`)}.json?access_token=${token}&limit=${limit}&language=en&proximity=${defaultCenter[0]},${defaultCenter[1]}`
+    const broadResponse = await fetch(broadUrl)
+    const broadData = await broadResponse.json()
+    return broadData.features || []
   }
 
   const forwardGeocode = async (query: string) => {
@@ -169,11 +180,7 @@ export default function MapboxLocationPicker({
 
     setLoading(true)
     try {
-      const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=5&country=gh&proximity=${defaultCenter[0]},${defaultCenter[1]}`
-      )
-      const data = await res.json()
-      const places = data.features || []
+      const places = await searchPlaces(query, 5)
 
       if (places.length === 0) {
         setError('No results found. Try a different address.')
@@ -219,11 +226,7 @@ export default function MapboxLocationPicker({
     if (!token || query.trim().length < 3) return
     suggestionTimerRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=5&country=gh&proximity=${defaultCenter[0]},${defaultCenter[1]}`
-        )
-        const data = await res.json()
-        setSuggestions(data.features || [])
+        setSuggestions(await searchPlaces(query, 5))
       } catch {
         setSuggestions([])
       }
@@ -257,7 +260,7 @@ export default function MapboxLocationPicker({
   }
 
   useEffect(() => {
-    if (value?.address && mapReady && value.latitude && value.longitude) {
+    if (value?.address && mapReady && value.latitude != null && value.longitude != null) {
       if (mapRef.current) {
         mapRef.current.flyTo({ center: [value.longitude, value.latitude], zoom: 15 })
         placeMarker(value.latitude, value.longitude)

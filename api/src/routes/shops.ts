@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import { authMiddleware, requireRole } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
+import { distanceInKm } from '../utils/geo'
 
 const router = Router()
 
@@ -157,6 +158,9 @@ const listShopsQuerySchema = z.object({
   campus: z.string().optional(),
   verified: z.coerce.boolean().optional(),
   sort: z.enum(['rating', 'newest', 'followers']).default('rating'),
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
+  radius: z.coerce.number().positive().max(100).default(25),
 })
 
 router.get('/', async (req, res) => {
@@ -194,8 +198,20 @@ router.get('/', async (req, res) => {
     prisma.shop.count({ where }),
   ])
 
+  const shopsWithDistance = query.latitude !== undefined && query.longitude !== undefined
+    ? shops
+      .map(shop => ({
+        ...shop,
+        distanceKm: shop.latitude != null && shop.longitude != null
+          ? distanceInKm({ latitude: query.latitude!, longitude: query.longitude! }, { latitude: shop.latitude, longitude: shop.longitude })
+          : null,
+      }))
+      .filter(shop => shop.distanceKm !== null && shop.distanceKm <= query.radius)
+      .sort((a, b) => a.distanceKm! - b.distanceKm!)
+    : shops
+
   return successResponse(res, {
-    shops,
+    shops: shopsWithDistance.length >= 3 || query.latitude === undefined ? shopsWithDistance : shops,
     pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) },
   })
 })
@@ -265,10 +281,10 @@ const createShopSchema = z.object({
 })
 
 router.post('/', authMiddleware, requireRole(['SELLER']), validateBody(createShopSchema), async (req: AuthenticatedRequest, res) => {
-  const { name, description, logo, banner, location, area, campus, openingHours, category } = req.body
+  const { name, description, logo, banner, location, area, campus, latitude, longitude, openingHours, category } = req.body
 
   const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
-  const shopData = { name, description, logo, banner, location, area, campus, openingHours, ownerId: req.user!.id }
+  const shopData = { name, description, logo, banner, location, area, campus, latitude, longitude, openingHours, ownerId: req.user!.id }
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`

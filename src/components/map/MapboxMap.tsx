@@ -54,6 +54,17 @@ export default function MapboxMap({ markers, route, height = '320px', showCurren
           zoom: markers.length ? 13 : 11,
         })
         map.addControl(new mapbox.default.NavigationControl(), 'top-right')
+        if (showCurrentLocation) {
+          const geolocate = new mapbox.default.GeolocateControl({
+            positionOptions: { enableHighAccuracy: true },
+            trackUserLocation: false,
+            showUserHeading: true,
+          })
+          map.addControl(geolocate, 'top-right')
+          geolocate.on('geolocate', (event: any) => {
+            onCurrentLocation?.({ latitude: event.coords.latitude, longitude: event.coords.longitude })
+          })
+        }
         map.on('load', () => {
           if (!cancelled) {
             setLoading(false)
