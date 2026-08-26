@@ -48,7 +48,6 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       'pickamgo_auth',
       'pickamgo_user',
       'auth',
-      'user',
       'isAuthenticated',
       'isLoggedIn',
       'loggedIn',

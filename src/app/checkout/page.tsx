@@ -604,7 +604,9 @@ function CheckoutContent() {
                     <div className="mt-3 space-y-2">
                       <p className="text-sm font-medium text-warm-900">Is this delivery address correct?</p>
                       <div className="flex gap-2">
-                        <Button type="button" size="sm" onClick={() => setAddressConfirmed(true)}>Yes, use this address</Button>
+                        <Button type="button" size="sm" onClick={() => { setAddressConfirmed(true); setError('') }}>
+                          {addressConfirmed ? 'Address confirmed' : 'Yes, use this address'}
+                        </Button>
                         <Button type="button" size="sm" variant="ghost" onClick={() => {
                           setAddressConfirmed(false)
                           setGuestInfo(prev => ({ ...prev, deliveryAddress: '' }))
@@ -926,7 +928,9 @@ function CheckoutContent() {
                     <div className="mt-3 space-y-2">
                       <p className="text-sm font-medium text-warm-900">Is this delivery address correct?</p>
                       <div className="flex gap-2">
-                        <Button type="button" size="sm" onClick={() => setAddressConfirmed(true)}>Yes, use this address</Button>
+                        <Button type="button" size="sm" onClick={() => { setAddressConfirmed(true); setError('') }}>
+                          {addressConfirmed ? 'Address confirmed' : 'Yes, use this address'}
+                        </Button>
                         <Button type="button" size="sm" variant="ghost" onClick={() => {
                           setAddressConfirmed(false)
                           setShowAddressForm(true)

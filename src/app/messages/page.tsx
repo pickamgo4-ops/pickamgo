@@ -35,10 +35,11 @@ export default function MessagesPage() {
       const response = await api.get<any>('/messages/conversations')
       if (response.success && response.data) {
         const mapped = (response.data.conversations || response.data || []).map((conv: any) => ({
-          userId: conv.userId || conv.id,
-          userName: conv.userName || conv.name || 'Unknown User',
-          userAvatar: conv.userAvatar || conv.avatar || '',
-          lastMessage: conv.lastMessage || conv.lastMessageText || '',
+          userId: conv.otherParticipant?.id || conv.userId,
+          orderId: conv.orderId || conv.order?.id,
+          userName: conv.otherParticipant?.name || conv.userName || conv.name || 'Unknown User',
+          userAvatar: conv.otherParticipant?.avatar || conv.userAvatar || conv.avatar || '',
+          lastMessage: conv.lastMessage?.content || conv.lastMessageText || '',
           lastMessageAt: conv.lastMessageAt || conv.updatedAt || new Date().toISOString(),
           unreadCount: conv.unreadCount || 0,
         }))
@@ -56,10 +57,11 @@ export default function MessagesPage() {
       const response = await api.get<any>('/messages/conversations')
       if (response.success && response.data) {
         const mapped = (response.data.conversations || response.data || []).map((conv: any) => ({
-          userId: conv.userId || conv.id,
-          userName: conv.userName || conv.name || 'Unknown User',
-          userAvatar: conv.userAvatar || conv.avatar || '',
-          lastMessage: conv.lastMessage || conv.lastMessageText || '',
+          userId: conv.otherParticipant?.id || conv.userId,
+          orderId: conv.orderId || conv.order?.id,
+          userName: conv.otherParticipant?.name || conv.userName || conv.name || 'Unknown User',
+          userAvatar: conv.otherParticipant?.avatar || conv.userAvatar || conv.avatar || '',
+          lastMessage: conv.lastMessage?.content || conv.lastMessageText || '',
           lastMessageAt: conv.lastMessageAt || conv.updatedAt || new Date().toISOString(),
           unreadCount: conv.unreadCount || 0,
         }))
@@ -132,7 +134,7 @@ export default function MessagesPage() {
             {filteredConversations.map((conversation) => (
               <button
                 key={conversation.userId}
-                onClick={() => router.push(`/messages/${conversation.userId}`)}
+                onClick={() => router.push(`/messages/${conversation.userId}${conversation.orderId ? `?orderId=${encodeURIComponent(conversation.orderId)}` : ''}`)}
                 className="w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-warm-100 transition-colors text-left"
               >
                 <Avatar src={conversation.userAvatar} alt={conversation.userName} size="md" />

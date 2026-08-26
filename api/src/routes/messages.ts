@@ -72,7 +72,7 @@ router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, r
           take: 1,
           include: { sender: { select: { id: true, name: true } } },
         },
-        order: { select: { orderNumber: true, status: true } },
+        order: { select: { id: true, orderNumber: true, status: true } },
         _count: { select: { messages: { where: { isRead: false, senderId: { not: userId } } } } },
       },
       orderBy: { updatedAt: 'desc' },

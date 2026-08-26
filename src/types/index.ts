@@ -316,6 +316,7 @@ export interface Message {
 
 export interface Conversation {
   userId: string;
+  orderId?: string;
   userName: string;
   userAvatar: string;
   lastMessage: string;

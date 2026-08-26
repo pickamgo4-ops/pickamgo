@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Plus, Heart, User, ShoppingCart, Store, PackageSearch, Bike, Shield } from 'lucide-react'
+import { Home, Search, Plus, Heart, User, PackageSearch, Bike, Shield } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '../../lib/api'
 import { Cart } from '../../types'
@@ -11,7 +11,6 @@ const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/discover', label: 'Discover', icon: Search },
   { href: '/track', label: 'Tracker', icon: PackageSearch },
-  { href: '/cart', label: 'Cart', icon: ShoppingCart },
   { href: '/favorites', label: 'Favorites', icon: Heart },
   { href: '/profile', label: 'Profile', icon: User },
 ]
