@@ -37,7 +37,7 @@ router.post('/image', authMiddleware, upload.single('image'), (req: Authenticate
   const url = (req.file as any).r2Url || `/uploads/${req.file.filename}`
 
   return successResponse(res, { url, filename: req.file.filename }, 201, 'Image uploaded successfully')
-}, (err: any, req: any, res: any, next: any) => {
+}, (err: any, req: any, res: Response, next: any) => {
   if (err) {
     console.error('Upload error:', err)
     return errorResponse(res, err.message || 'Image upload failed', 500)
