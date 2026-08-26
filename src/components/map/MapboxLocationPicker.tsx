@@ -143,21 +143,62 @@ export default function MapboxLocationPicker({
     }
   }
 
+  const formatPlaceName = (feature: any, fallback = 'Location selected') => {
+    if (!feature) return fallback
+    if (feature.place_name) return feature.place_name
+
+    const context = Array.isArray(feature.context)
+      ? feature.context.map((item: any) => item.text).filter(Boolean)
+      : []
+    return [feature.text, ...context].filter(Boolean).join(', ') || fallback
+  }
+
+  const rankReverseGeocodeFeature = (feature: any) => {
+    const type = feature?.place_type?.[0]
+    const priority: Record<string, number> = {
+      address: 6,
+      poi: 5,
+      street: 4,
+      neighborhood: 3,
+      locality: 2,
+      place: 2,
+      district: 1,
+      region: 1,
+      country: 0,
+    }
+    return priority[type] ?? -1
+  }
+
   const reverseGeocode = async (lat: number, lng: number) => {
     const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
-    if (!token) return
+    const fallbackAddress = 'Location selected'
+    if (!token) {
+      setError('Address could not be determined. Please check your map configuration or try again.')
+      onChange({ address: fallbackAddress, latitude: lat, longitude: lng })
+      return
+    }
 
+    setLoading(true)
+    setError('')
     try {
       const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&limit=1&country=gh`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&limit=10&country=gh&language=en`
       )
+      if (!res.ok) throw new Error(`Mapbox reverse geocoding failed with ${res.status}`)
       const data = await res.json()
-      const place = data.features?.[0]
-      const address = place?.place_name || place?.text || `Selected location (${lat.toFixed(5)}, ${lng.toFixed(5)})`
+      const place = [...(data.features || [])].sort(
+        (first: any, second: any) => rankReverseGeocodeFeature(second) - rankReverseGeocodeFeature(first)
+      )[0]
+      const address = formatPlaceName(place, fallbackAddress)
       setSearchValue(address)
       onChange({ address, latitude: lat, longitude: lng })
     } catch (err) {
       console.error('Reverse geocode failed:', err)
+      setSearchValue(fallbackAddress)
+      setError('Address could not be determined. Please try selecting the location again.')
+      onChange({ address: fallbackAddress, latitude: lat, longitude: lng })
+    } finally {
+      setLoading(false)
     }
   }
 

@@ -38,7 +38,7 @@ export default function HomePage() {
       const saved = JSON.parse(localStorage.getItem('pickamgo-location') || 'null')
       if (saved?.latitude != null && saved?.longitude != null) {
         setCoordinates({ latitude: saved.latitude, longitude: saved.longitude })
-        setLocation('Selected location')
+        setLocation(saved.address || 'Near you')
       }
     } catch {
       localStorage.removeItem('pickamgo-location')
@@ -110,7 +110,7 @@ export default function HomePage() {
       const next = { latitude: position.coords.latitude, longitude: position.coords.longitude }
       setCoordinates(next)
       setLocation('Your current location')
-      localStorage.setItem('pickamgo-location', JSON.stringify(next))
+      localStorage.setItem('pickamgo-location', JSON.stringify({ ...next, address: 'Your current location' }))
       setIsLocationOpen(false)
     }, () => setLocation('Location unavailable - browse all'))
   }
@@ -165,7 +165,7 @@ export default function HomePage() {
                       const next = { latitude: result.latitude, longitude: result.longitude }
                       setCoordinates(next)
                       setLocation(result.address)
-                      localStorage.setItem('pickamgo-location', JSON.stringify(next))
+                      localStorage.setItem('pickamgo-location', JSON.stringify({ ...next, address: result.address }))
                       setIsLocationOpen(false)
                     }}
                     placeholder="Search a neighborhood, town, or city"
