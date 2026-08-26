@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [googleUser, setGoogleUser] = useState<{ email: string; name: string; avatar: string } | null>(null)
   const [selectedRole, setSelectedRole] = useState<UserRole>('buyer')
   const submittingRef = useRef(false)
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -49,9 +50,13 @@ export default function LoginPage() {
   const initializeGoogleSignIn = () => {
     const google = (window as any).google
     if (!google?.accounts?.id) return
+    if (!googleClientId) {
+      setError('Google Sign-In is not configured. Please use email and password or contact support.')
+      return
+    }
 
     google.accounts.id.initialize({
-      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+      client_id: googleClientId,
       callback: handleGoogleCredentialResponse,
       auto_select: false,
       cancel_on_tap_outside: true,
@@ -281,7 +286,11 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-4">
-              <div id="googleSignInButton" className="w-full" />
+              {googleClientId ? (
+                <div id="googleSignInButton" className="w-full" />
+              ) : (
+                <p className="text-center text-sm text-warm-800/60">Google Sign-In is currently unavailable.</p>
+              )}
               {googleLoading && (
                 <div className="mt-2 text-center text-sm text-warm-800/60">Connecting to Google...</div>
               )}
