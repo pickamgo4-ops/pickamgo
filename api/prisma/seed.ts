@@ -233,7 +233,7 @@ async function main() {
       status: 'ACTIVE',
       images: {
         create: [
-          { url: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?w=400&h=400&fit=crop', sortOrder: 0 },
+          { url: 'https://images.unsplash.com/photo-1519014816548-bd5d6e603f6a?w=400&h=400&fit=crop', sortOrder: 0 },
         ],
       },
       availability: {
@@ -492,7 +492,7 @@ async function main() {
     }
 
     for (const productDef of def.products) {
-      const imageUrl = imageMap[productDef.id] || 'https://images.unsplash.com/photo-1604654894610-df63bc536371?w=400&h=400&fit=crop'
+      const imageUrl = imageMap[productDef.id] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop'
       
       await prisma.product.upsert({
         where: { id: productDef.id },
