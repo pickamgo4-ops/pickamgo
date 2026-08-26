@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import { Search, SlidersHorizontal, MapPin, X } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
@@ -13,7 +13,7 @@ import { Product, BeautyService, Category } from '../../types'
 import { mapApiProductToFrontend, mapApiServiceToFrontend, mapApiCategoryToFrontend } from '../../lib/api-mappers'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function DiscoverPage() {
+function DiscoverContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState('')
@@ -319,5 +319,13 @@ export default function DiscoverPage() {
 
       <BottomNav />
     </div>
+  )
+}
+
+export default function DiscoverPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <DiscoverContent />
+    </Suspense>
   )
 }
