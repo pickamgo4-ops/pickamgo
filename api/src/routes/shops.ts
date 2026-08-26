@@ -264,46 +264,23 @@ const createShopSchema = z.object({
 router.post('/', authMiddleware, requireRole(['SELLER']), validateBody(createShopSchema), async (req: AuthenticatedRequest, res) => {
   const { name, description, logo, banner, location, area, campus, openingHours, category } = req.body
 
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
+  const shopData = { name, description, logo, banner, location, area, campus, openingHours, ownerId: req.user!.id }
 
-  const existing = await prisma.shop.findFirst({ where: { slug } })
-  if (existing) {
-    const uniqueSlug = `${slug}-${Date.now().toString(36)}`
-    const shop = await prisma.shop.create({
-      data: {
-        name,
-        description,
-        logo,
-        banner,
-        location,
-        area,
-        campus,
-        openingHours,
-        slug: uniqueSlug,
-        ownerId: req.user!.id,
-      },
-      include: { owner: { select: { id: true, name: true, avatar: true } } },
-    })
-    return successResponse(res, shop, 201, 'Shop created successfully')
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`
+    try {
+      const shop = await prisma.shop.create({
+        data: { ...shopData, slug },
+        include: { owner: { select: { id: true, name: true, avatar: true } } },
+      })
+      return successResponse(res, shop, 201, 'Shop created successfully')
+    } catch (error: any) {
+      if (error?.code !== 'P2002') throw error
+    }
   }
 
-  const shop = await prisma.shop.create({
-    data: {
-      name,
-      description,
-      logo,
-      banner,
-      location,
-      area,
-      campus,
-      openingHours,
-      slug,
-      ownerId: req.user!.id,
-    },
-    include: { owner: { select: { id: true, name: true, avatar: true } } },
-  })
-
-  return successResponse(res, shop, 201, 'Shop created successfully')
+  return errorResponse(res, 'Unable to generate a unique shop URL', 409)
 })
 
 const updateShopSchema = z.object({

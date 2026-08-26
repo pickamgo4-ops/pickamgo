@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileText, Upload, CheckCircle, Clock, XCircle } from 'lucide-react'
-import { Header } from '../../../components/layout/Header'
-import { BottomNav } from '../../../components/layout/BottomNav'
-import { Button } from '../../../components/ui/Button'
-import { Input } from '../../../components/ui/Input'
-import { Card } from '../../../components/ui/Card'
-import { api } from '../../../lib/api'
+import { FileText, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { SellerSidebar } from '@/components/SellerSidebar'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
+import { api } from '@/lib/api'
 
 export default function SellerVerificationPage() {
   const router = useRouter()
@@ -20,11 +19,6 @@ export default function SellerVerificationPage() {
   const [form, setForm] = useState({
     fullName: '',
     phoneNumber: '',
-    idNumber: '',
-    idType: 'national_id',
-    idFrontUrl: '',
-    idBackUrl: '',
-    selfieUrl: '',
     businessName: '',
     businessType: '',
     businessReg: '',
@@ -43,11 +37,6 @@ export default function SellerVerificationPage() {
           setForm({
             fullName: response.data.fullName || '',
             phoneNumber: response.data.phoneNumber || '',
-            idNumber: response.data.idNumber || '',
-            idType: response.data.idType || 'national_id',
-            idFrontUrl: response.data.idFrontUrl || '',
-            idBackUrl: response.data.idBackUrl || '',
-            selfieUrl: response.data.selfieUrl || '',
             businessName: response.data.businessName || '',
             businessType: response.data.businessType || '',
             businessReg: response.data.businessReg || '',
@@ -70,7 +59,7 @@ export default function SellerVerificationPage() {
     setSuccess('')
 
     try {
-      const response = await api.post<any>('/seller/verify', form)
+      const response = await api.post<any>('/seller/verification/verify', form)
       if (response.success && response.data) {
         setVerification(response.data)
         setSuccess('Verification submitted successfully!')
@@ -102,10 +91,8 @@ export default function SellerVerificationPage() {
   const isLocked = verification?.status === 'APPROVED'
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
-      <Header />
-
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <SellerSidebar>
+      <div className="space-y-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
             <FileText size={20} className="text-primary" />
@@ -149,7 +136,7 @@ export default function SellerVerificationPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Full Name"
-              placeholder="As shown on ID"
+              placeholder="Your full name"
               value={form.fullName}
               onChange={(e) => updateField('fullName', e.target.value)}
               required
@@ -163,50 +150,7 @@ export default function SellerVerificationPage() {
               required
             />
 
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="ID Number"
-                placeholder="Ghana Card / Voter ID"
-                value={form.idNumber}
-                onChange={(e) => updateField('idNumber', e.target.value)}
-                required
-              />
-              <div>
-                <label className="block text-sm font-medium text-warm-900 mb-1.5">ID Type</label>
-                <select
-                  className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4 text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  value={form.idType}
-                  onChange={(e) => updateField('idType', e.target.value)}
-                >
-                  <option value="national_id">National ID</option>
-                  <option value="voter_id">Voter ID</option>
-                  <option value="passport">Passport</option>
-                  <option value="drivers_license">Driver's License</option>
-                </select>
-              </div>
-            </div>
-
-            <Input
-              label="ID Front Photo URL"
-              placeholder="https://example.com/id-front.jpg"
-              value={form.idFrontUrl}
-              onChange={(e) => updateField('idFrontUrl', e.target.value)}
-              required
-            />
-
-            <Input
-              label="ID Back Photo URL (optional)"
-              placeholder="https://example.com/id-back.jpg"
-              value={form.idBackUrl}
-              onChange={(e) => updateField('idBackUrl', e.target.value)}
-            />
-
-            <Input
-              label="Selfie URL (optional)"
-              placeholder="https://example.com/selfie.jpg"
-              value={form.selfieUrl}
-              onChange={(e) => updateField('selfieUrl', e.target.value)}
-            />
+            <p className="text-sm text-warm-800/60 rounded-xl bg-warm-50 p-4">Seller verification uses your verified phone number and account email. No Ghana Card upload is required.</p>
 
             <div className="border-t border-warm-200 pt-4">
               <h3 className="font-semibold text-warm-900 mb-3">Business Information (optional)</h3>
@@ -239,9 +183,7 @@ export default function SellerVerificationPage() {
             </Button>
           </form>
         )}
-      </main>
-
-      <BottomNav />
-    </div>
+      </div>
+    </SellerSidebar>
   )
 }

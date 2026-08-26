@@ -44,6 +44,10 @@
     background-color: var(--background);
   }
 
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
     @apply antialiased;
     background-color: var(--background);
@@ -69,6 +73,16 @@
   .dark .text-warm-800\/40 { color: rgba(227, 211, 197, 0.55) !important; }
   .dark .text-warm-800\/50 { color: rgba(227, 211, 197, 0.7) !important; }
   .dark .text-primary { color: var(--primary) !important; }
+  .dark .bg-gray-50 { background-color: var(--warm-50) !important; }
+  .dark .bg-gray-100 { background-color: var(--warm-100) !important; }
+  .dark .bg-gray-200 { background-color: var(--warm-200) !important; }
+  .dark .bg-gray-800, .dark .bg-gray-900 { background-color: var(--card) !important; }
+  .dark .text-gray-500, .dark .text-gray-600, .dark .text-gray-700 { color: var(--muted) !important; }
+  .dark .text-gray-800, .dark .text-gray-900 { color: var(--foreground) !important; }
+  .dark .border-gray-100, .dark .border-gray-200, .dark .border-gray-300 { border-color: var(--border) !important; }
+  .dark .bg-white\/70, .dark .bg-white\/80, .dark .bg-white\/90 { background-color: rgba(26, 26, 31, 0.94) !important; }
+  .dark input, .dark textarea, .dark select { background-color: var(--card); color: var(--foreground); border-color: var(--border); }
+  .dark input::placeholder, .dark textarea::placeholder { color: rgba(201, 185, 174, 0.65); }
   .dark .bg-primary\/5 { background-color: rgba(255, 123, 79, 0.1) !important; }
   .dark .bg-red-50 { background-color: rgba(127, 29, 29, 0.35) !important; }
   .dark .bg-green-50 { background-color: rgba(20, 83, 45, 0.35) !important; }

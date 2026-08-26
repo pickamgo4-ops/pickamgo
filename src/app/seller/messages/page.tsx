@@ -24,8 +24,11 @@ export default function SellerMessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [currentUserId, setCurrentUserId] = useState('')
 
   useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    setCurrentUserId(user.id || '')
     loadConversations()
   }, [])
 
@@ -47,7 +50,10 @@ export default function SellerMessagesPage() {
     try {
       const response = await api.get<{ conversation: Conversation; messages: any[] }>(`/messages/conversations/${userId}`)
       if (response.success && response.data) {
-        setSelectedConversation(response.data.conversation)
+        setSelectedConversation({
+          ...response.data.conversation,
+          messages: response.data.messages || [],
+        })
       }
     } catch {
       setError('Failed to load conversation')
@@ -57,7 +63,7 @@ export default function SellerMessagesPage() {
   const handleSendMessage = async () => {
     if (!message.trim() || !selectedConversation) return
     try {
-      const otherUserId = selectedConversation.participant1.id === selectedConversation.participant2.id 
+      const otherUserId = selectedConversation.participant1.id === currentUserId
         ? selectedConversation.participant2.id 
         : selectedConversation.participant1.id
       
@@ -73,7 +79,7 @@ export default function SellerMessagesPage() {
   }
 
   const otherUser = selectedConversation 
-    ? (selectedConversation.participant1.id === selectedConversation.participant2.id ? selectedConversation.participant2 : selectedConversation.participant1)
+    ? (selectedConversation.participant1.id === currentUserId ? selectedConversation.participant2 : selectedConversation.participant1)
     : null
 
   if (loading) {
@@ -113,7 +119,7 @@ export default function SellerMessagesPage() {
               </Card>
             ) : (
               conversations.map((conv) => {
-                const other = conv.participant1.id === conv.participant2.id ? conv.participant2 : conv.participant1
+                const other = conv.participant1.id === currentUserId ? conv.participant2 : conv.participant1
                 const lastMessage = conv.messages?.[0]
                 const unreadCount = conv.messages?.filter((m) => !m.isRead && m.senderId !== other.id).length || 0
 
@@ -171,7 +177,7 @@ export default function SellerMessagesPage() {
                     <p className="text-center text-warm-800/60 text-sm py-8">No messages yet. Start the conversation!</p>
                   ) : (
                     selectedConversation.messages?.map((msg) => {
-                      const isMe = msg.senderId === selectedConversation.participant1.id
+                      const isMe = msg.senderId === currentUserId
                       return (
                         <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[70%] p-3 rounded-xl ${

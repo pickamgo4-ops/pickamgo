@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Store, Package, ShoppingBag, Tag, Archive, Star, MessageSquare, Bell, Settings, HelpCircle, FileText, MapPin, CheckCircle, Plus, ArrowRight, TrendingUp, Users, Eye } from 'lucide-react'
+import { Store, Package, ShoppingBag, Tag, Archive, Star, MessageSquare, Bell, Settings, HelpCircle, FileText, MapPin, CheckCircle, Plus, ArrowRight, TrendingUp, Users, Eye, Flag } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -270,6 +270,9 @@ export default function SellerDashboard() {
           </Button>
           <Button variant="outline" fullWidth onClick={() => router.push('/seller/shop')} icon={<Store size={18} />}>
             View Shop
+          </Button>
+          <Button variant="outline" fullWidth onClick={() => router.push('/report')} icon={<Flag size={18} />}>
+            Report
           </Button>
         </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Send, MoreVertical, CheckCheck, MessageCircle } from 'lucide-react'
 import { Header } from '../../../components/layout/Header'
 import { BottomNav } from '../../../components/layout/BottomNav'
@@ -15,7 +15,9 @@ import { Message } from '../../../types'
 export default function ConversationPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const userId = params.userId as string
+  const orderId = searchParams.get('orderId')
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -40,7 +42,7 @@ export default function ConversationPage() {
   const loadConversation = async () => {
     setLoading(true)
     try {
-      const response = await api.get<any>(`/messages/conversations/${userId}`)
+      const response = await api.get<any>(`/messages/conversations/${userId}${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`)
       if (response.success && response.data) {
         const msgs = response.data.messages || response.data || []
         setMessages(msgs.map((msg: any) => ({
@@ -48,23 +50,21 @@ export default function ConversationPage() {
           senderId: msg.senderId,
           receiverId: msg.receiverId,
           content: msg.content,
-          read: msg.read || false,
+          read: msg.isRead || msg.read || false,
           createdAt: msg.createdAt,
         })))
 
-        if (response.data.user) {
+        const conversation = response.data.conversation
+        const participant = conversation?.participant1?.id === userId
+          ? conversation.participant1
+          : conversation?.participant2?.id === userId
+            ? conversation.participant2
+            : null
+        if (participant) {
           setConversationUser({
-            name: response.data.user.name || 'User',
-            avatar: response.data.user.avatar || '',
+            name: participant.name || 'User',
+            avatar: participant.avatar || '',
           })
-        } else if (msgs.length > 0) {
-          const otherMsg = msgs.find((m: any) => m.senderId === userId || m.receiverId === userId)
-          if (otherMsg) {
-            setConversationUser({
-              name: otherMsg.senderId === userId ? 'User' : 'User',
-              avatar: '',
-            })
-          }
         }
       }
     } catch (err) {
@@ -94,6 +94,7 @@ export default function ConversationPage() {
     try {
       const response = await api.post(`/messages/conversations/${userId}/messages`, {
         content: tempMessage.content,
+        ...(orderId ? { orderId } : {}),
       })
 
       if (response.success && response.data) {

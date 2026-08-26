@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Store, MapPin, Phone, Mail, Users, Package, Tag, Star, Clock } from 'lucide-react'
+import { Store, MapPin, Phone, Mail, Users, Package, Tag, Star, Clock, Copy, ExternalLink } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -60,6 +60,13 @@ export default function SellerShopPage() {
   }
 
   const s = shop.shop
+  const shopUrl = typeof window !== 'undefined'
+    ? `${window.location.protocol}//${s.slug}.${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`
+    : `https://${s.slug}.pickamgo.com`
+
+  const copyShopUrl = async () => {
+    await navigator.clipboard.writeText(shopUrl)
+  }
 
   return (
     <SellerSidebar>
@@ -125,6 +132,15 @@ export default function SellerShopPage() {
             <div className="flex items-center gap-3 text-sm">
               <Clock size={18} className="text-warm-800/50" />
               <span className="text-warm-800/70">{s.openingHours}</span>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-xl bg-warm-50 border border-warm-200 p-4">
+            <p className="text-xs text-warm-800/60 mb-1">Your public shop URL</p>
+            <p className="text-sm font-medium text-warm-900 break-all">{shopUrl}</p>
+            <div className="flex gap-2 mt-3">
+              <Button size="sm" variant="outline" onClick={copyShopUrl} icon={<Copy size={15} />}>Copy URL</Button>
+              <Button size="sm" variant="ghost" onClick={() => window.open(shopUrl, '_blank', 'noopener,noreferrer')} icon={<ExternalLink size={15} />}>Open</Button>
             </div>
           </div>
 

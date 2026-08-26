@@ -187,6 +187,11 @@ export function mapApiOrderToFrontend(apiOrder: any): Order {
     shopName: apiOrder.shop?.name || apiOrder.shopName,
     riderId: apiOrder.riderId,
     riderName: apiOrder.rider?.name || apiOrder.riderName,
+    fulfillmentMethod: apiOrder.fulfillmentMethod === 'CUSTOMER_PICKUP'
+      ? 'PICKUP'
+      : apiOrder.fulfillmentMethod === 'SELLER_OWN_DELIVERY'
+        ? 'SELLER_DELIVERY'
+        : 'PLATFORM_DELIVERY',
   }
 }
 

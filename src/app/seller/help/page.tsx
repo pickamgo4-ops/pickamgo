@@ -48,7 +48,7 @@ export default function SellerHelpPage() {
               { q: 'How do I add products to my shop?', a: 'Go to Products > Add Product to create your first listing.' },
               { q: 'How do I process an order?', a: 'Go to Orders, find the order, and use the action buttons to update its status.' },
               { q: 'How do I withdraw my earnings?', a: 'Earnings are automatically transferred to your registered bank account weekly.' },
-              { q: 'How do I get verified?', a: 'Go to Verification and submit your ID documents for review.' },
+              { q: 'How do I get verified?', a: 'Go to Verification and submit your phone and business details for review. Ghana Card upload is not required for sellers.' },
             ].map((faq, idx) => (
               <div key={idx} className="border-b border-warm-200 last:border-0 pb-4 last:pb-0">
                 <h4 className="font-medium text-warm-900 mb-1">{faq.q}</h4>

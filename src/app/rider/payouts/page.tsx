@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Wallet, ArrowUpRight, Clock, CheckCircle, XCircle, Plus, Trash2 } from 'lucide-react'
-import { Header } from '../../../components/layout/Header'
-import { BottomNav } from '../../../components/layout/BottomNav'
+import { RiderSidebar } from '@/components/RiderSidebar'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { api } from '../../../lib/api'
@@ -124,22 +123,20 @@ export default function RiderPayoutsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24 md:pb-8">
-        <Header />
+      <RiderSidebar>
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-warm-800/60">Loading payouts...</p>
           </div>
         </div>
-      </div>
+      </RiderSidebar>
     )
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8">
-      <Header />
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <RiderSidebar>
+      <div className="space-y-6">
         <h1 className="font-display text-2xl font-bold text-warm-900 mb-6">Payouts</h1>
 
         {message && (
@@ -298,6 +295,6 @@ export default function RiderPayoutsPage() {
           </div>
         </div>
       )}
-    </div>
+    </RiderSidebar>
   )
 }

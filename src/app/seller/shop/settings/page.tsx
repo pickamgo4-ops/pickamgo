@@ -1,14 +1,13 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Store, Upload, MapPin, Truck, Settings } from 'lucide-react'
-import { Header } from '../../../../components/layout/Header'
-import { BottomNav } from '../../../../components/layout/BottomNav'
-import { Button } from '../../../../components/ui/Button'
-import { Input } from '../../../../components/ui/Input'
-import { Card } from '../../../../components/ui/Card'
-import { api } from '../../../../lib/api'
+import { SellerSidebar } from '@/components/SellerSidebar'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
+import { api } from '@/lib/api'
 
 export default function ShopSettingsPage() {
   const router = useRouter()
@@ -17,6 +16,7 @@ export default function ShopSettingsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [shop, setShop] = useState<any>(null)
+  const [uploading, setUploading] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     logo: '',
@@ -38,9 +38,9 @@ export default function ShopSettingsPage() {
 
   const loadShop = async () => {
     try {
-      const response = await api.get<any>('/shops?limit=1')
-      if (response.success && response.data && response.data.shops && response.data.shops.length > 0) {
-        const shopData = response.data.shops[0]
+      const response = await api.get<any>('/seller/shop')
+      if (response.success && response.data?.shop) {
+        const shopData = response.data.shop
         setShop(shopData)
         setForm({
           logo: shopData.logo || '',
@@ -68,6 +68,37 @@ export default function ShopSettingsPage() {
   const updateField = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }
+
+  const uploadImage = useCallback(async (field: 'logo' | 'banner') => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/jpeg,image/png,image/webp,image/gif'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      setUploading(field)
+      try {
+        const body = new FormData()
+        body.append('image', file)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/upload/image`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+          body,
+        })
+        const data = await response.json()
+        if (data.success) {
+          updateField(field, data.data.url)
+        } else {
+          setError(data.error || 'Image upload failed')
+        }
+      } catch {
+        setError('Upload failed. Please try again.')
+      } finally {
+        setUploading(null)
+      }
+    }
+    input.click()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,26 +132,20 @@ export default function ShopSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-20 md:pb-0">
-        <Header />
-        <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-warm-800/60">Loading shop...</p>
-            </div>
+      <SellerSidebar>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-warm-800/60">Loading shop...</p>
           </div>
-        </main>
-        <BottomNav />
-      </div>
+        </div>
+      </SellerSidebar>
     )
   }
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
-      <Header />
-
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <SellerSidebar>
+      <div className="space-y-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
             <Settings size={20} className="text-primary" />
@@ -152,28 +177,42 @@ export default function ShopSettingsPage() {
               <h3 className="font-semibold text-warm-900">Shop Photos</h3>
             </div>
             <div className="space-y-4">
-              <Input
-                label="Logo URL"
-                placeholder="https://example.com/logo.png"
-                value={form.logo}
-                onChange={(e) => updateField('logo', e.target.value)}
-              />
-              {form.logo && (
-                <div className="w-20 h-20 rounded-xl overflow-hidden bg-warm-200">
-                  <img src={form.logo} alt="Logo preview" className="w-full h-full object-cover" />
+              <div>
+                <label className="block text-sm font-medium text-warm-900 mb-1.5">Logo</label>
+                <div className="flex gap-2 mb-2">
+                  <Button type="button" variant="outline" onClick={() => uploadImage('logo')} disabled={uploading === 'logo'} className="flex-1">
+                    {uploading === 'logo' ? 'Uploading...' : 'Upload Image'}
+                  </Button>
                 </div>
-              )}
-              <Input
-                label="Cover Image URL"
-                placeholder="https://example.com/cover.jpg"
-                value={form.banner}
-                onChange={(e) => updateField('banner', e.target.value)}
-              />
-              {form.banner && (
-                <div className="w-full h-32 rounded-xl overflow-hidden bg-warm-200">
-                  <img src={form.banner} alt="Cover preview" className="w-full h-full object-cover" />
+                <Input
+                  placeholder="Or paste logo URL"
+                  value={form.logo}
+                  onChange={(e) => updateField('logo', e.target.value)}
+                />
+                {form.logo && (
+                  <div className="mt-3 w-20 h-20 rounded-xl overflow-hidden bg-warm-200">
+                    <img src={form.logo} alt="Logo preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-warm-900 mb-1.5">Cover Image</label>
+                <div className="flex gap-2 mb-2">
+                  <Button type="button" variant="outline" onClick={() => uploadImage('banner')} disabled={uploading === 'banner'} className="flex-1">
+                    {uploading === 'banner' ? 'Uploading...' : 'Upload Image'}
+                  </Button>
                 </div>
-              )}
+                <Input
+                  placeholder="Or paste cover image URL"
+                  value={form.banner}
+                  onChange={(e) => updateField('banner', e.target.value)}
+                />
+                {form.banner && (
+                  <div className="mt-3 w-full h-32 rounded-xl overflow-hidden bg-warm-200">
+                    <img src={form.banner} alt="Cover preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
 
@@ -277,9 +316,7 @@ export default function ShopSettingsPage() {
             {saving ? 'Saving...' : 'Save Settings'}
           </Button>
         </form>
-      </main>
-
-      <BottomNav />
-    </div>
+      </div>
+    </SellerSidebar>
   )
 }

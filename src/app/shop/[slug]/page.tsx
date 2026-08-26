@@ -234,7 +234,7 @@ export default function ShopPage() {
             >
               {isFollowing ? 'Following' : 'Follow'}
             </Button>
-            <Button className="!px-2 !py-2.5 text-sm" variant="outline" fullWidth icon={<MessageCircle size={17} />}>
+            <Button className="!px-2 !py-2.5 text-sm" variant="outline" fullWidth icon={<MessageCircle size={17} />} onClick={() => router.push(`/messages/${shop.owner.id}`)}>
               Message
             </Button>
             <Button className="!px-2 !py-2.5 text-sm" variant="ghost" fullWidth icon={<Heart size={17} />}>

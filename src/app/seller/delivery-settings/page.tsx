@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect } from 'react'
 import { Truck, Store, Bike, Save } from 'lucide-react'
-import { Header } from '../../../components/layout/Header'
-import { BottomNav } from '../../../components/layout/BottomNav'
-import { Button } from '../../../components/ui/Button'
-import { Input } from '../../../components/ui/Input'
-import { api } from '../../../lib/api'
+import { SellerSidebar } from '@/components/SellerSidebar'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { api } from '@/lib/api'
 
 export default function DeliverySettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [deliveryMode, setDeliveryMode] = useState<'PICKUP_ONLY' | 'DELIVERY_ONLY' | 'BOTH'>('BOTH')
   const [settings, setSettings] = useState({
     deliveryAvailable: true,
     pickupAvailable: true,
@@ -40,12 +40,24 @@ export default function DeliverySettingsPage() {
           pickupInstructions: response.data.pickupInstructions || '',
           deliveryZones: response.data.deliveryZones || '',
         })
+        setDeliveryMode(response.data.pickupAvailable && (response.data.deliveryAvailable || response.data.sellerDeliveryAvailable)
+          ? 'BOTH'
+          : response.data.pickupAvailable ? 'PICKUP_ONLY' : 'DELIVERY_ONLY')
       }
     } catch (error) {
       console.error('Failed to load delivery settings:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleDeliveryModeChange = (mode: 'PICKUP_ONLY' | 'DELIVERY_ONLY' | 'BOTH') => {
+    setDeliveryMode(mode)
+    setSettings(current => ({
+      ...current,
+      pickupAvailable: mode !== 'DELIVERY_ONLY',
+      deliveryAvailable: mode !== 'PICKUP_ONLY',
+    }))
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -68,22 +80,20 @@ export default function DeliverySettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24 md:pb-8">
-        <Header />
+      <SellerSidebar>
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-warm-800/60">Loading delivery settings...</p>
           </div>
         </div>
-      </div>
+      </SellerSidebar>
     )
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8">
-      <Header />
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <SellerSidebar>
+      <div className="space-y-6">
         <h1 className="font-display text-2xl font-bold text-warm-900 mb-6">Delivery Settings</h1>
 
         {message && (
@@ -95,9 +105,18 @@ export default function DeliverySettingsPage() {
         <form onSubmit={handleSave} className="space-y-6">
           <div className="bg-white rounded-2xl p-4 border border-warm-200">
             <h2 className="font-semibold text-warm-900 mb-3">Fulfillment Methods</h2>
-            <div className="space-y-3">
+            <select
+              value={deliveryMode}
+              onChange={(event) => handleDeliveryModeChange(event.target.value as typeof deliveryMode)}
+              className="w-full bg-warm-50 border border-warm-200 rounded-xl py-3 px-4 text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="PICKUP_ONLY">Pickup only</option>
+              <option value="DELIVERY_ONLY">Delivery only</option>
+              <option value="BOTH">Pickup and Delivery</option>
+            </select>
+            <div className="space-y-3 mt-4">
               <label className="flex items-center gap-3 p-3 bg-warm-50 rounded-xl cursor-pointer">
-                <input type="checkbox" checked={settings.deliveryAvailable} onChange={(e) => setSettings({ ...settings, deliveryAvailable: e.target.checked })} className="w-5 h-5 rounded border-warm-200 text-primary focus:ring-primary" />
+                <input type="checkbox" checked={settings.deliveryAvailable} readOnly className="w-5 h-5 rounded border-warm-200 text-primary focus:ring-primary" />
                 <div className="flex items-center gap-2">
                   <Truck size={20} className="text-primary" />
                   <div>
@@ -117,7 +136,7 @@ export default function DeliverySettingsPage() {
                 </div>
               </label>
               <label className="flex items-center gap-3 p-3 bg-warm-50 rounded-xl cursor-pointer">
-                <input type="checkbox" checked={settings.pickupAvailable} onChange={(e) => setSettings({ ...settings, pickupAvailable: e.target.checked })} className="w-5 h-5 rounded border-warm-200 text-primary focus:ring-primary" />
+                <input type="checkbox" checked={settings.pickupAvailable} readOnly className="w-5 h-5 rounded border-warm-200 text-primary focus:ring-primary" />
                 <div className="flex items-center gap-2">
                   <Store size={20} className="text-primary" />
                   <div>
@@ -175,7 +194,6 @@ export default function DeliverySettingsPage() {
           </Button>
         </form>
       </div>
-      <BottomNav />
-    </div>
+    </SellerSidebar>
   )
 }

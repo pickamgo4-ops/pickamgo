@@ -5,6 +5,7 @@ import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
 import { sendOrderStatusEmail } from '../services/email'
+import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 
 const router = Router()
 
@@ -22,7 +23,7 @@ const createOrderSchema = z.object({
   })).min(1),
   deliveryAddress: z.string().min(5),
   deliveryFee: z.number().min(0).default(0),
-  fulfillmentMethod: z.enum(fulfillmentMethods).default('FIND_IT_NEAR_ME_RIDER'),
+  fulfillmentMethod: z.string().transform(normalizeFulfillmentMethod).default('FIND_IT_NEAR_ME_RIDER'),
 })
 
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -163,6 +164,8 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(createOrder
 
   const shop = await prisma.shop.findUnique({ where: { id: shopId } })
   if (!shop) return errorResponse(res, 'Shop not found', 404)
+  const methodError = deliveryMethodError(shop, fulfillmentMethod === 'CUSTOMER_PICKUP' ? 'PICKUP' : normalizeDeliveryType('DELIVERY'), fulfillmentMethod)
+  if (methodError) return errorResponse(res, methodError, 400)
 
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.create({

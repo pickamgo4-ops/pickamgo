@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, Clock, CheckCircle, Truck, ChevronRight, MapPin, ShoppingBag } from 'lucide-react'
+import { Package, Clock, CheckCircle, Truck, ChevronRight, MapPin, ShoppingBag, MessageCircle } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
 import { Button } from '../../components/ui/Button'
@@ -120,7 +120,14 @@ export default function OrdersPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-warm-800/50">{order.shopName}</span>
-                    {getFulfillmentBadge(order.fulfillmentMethod)}
+                    <div className="flex items-center gap-2">
+                      {getFulfillmentBadge(order.fulfillmentMethod)}
+                      {order.riderId && order.fulfillmentMethod === 'PLATFORM_DELIVERY' && (
+                        <Button size="sm" variant="outline" onClick={() => router.push(`/messages/${order.riderId}?orderId=${order.id}`)} icon={<MessageCircle size={14} />}>
+                          Rider
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )

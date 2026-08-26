@@ -112,14 +112,15 @@ model SellerVerification {
   userId          String    @unique
   fullName        String
   phoneNumber     String
-  idNumber        String
-  idType          String
-  idFrontUrl      String
+  idNumber        String?
+  idType          String?
+  idFrontUrl      String?
   idBackUrl       String?
   selfieUrl       String?
   businessName    String?
   businessType    String?
   businessReg     String?
+  type            String    @default("SELLER")
   status          String    @default("PENDING")
   rejectionReason String?
   reviewedAt      DateTime?
@@ -252,6 +253,7 @@ model Shop {
   shopCategories ShopCategory[]
   updates        ShopUpdate[]
   customization  ShopCustomization?
+  conversations  Conversation[] @relation("ShopConversations")
 
   @@index([ownerId])
   @@index([slug])
@@ -494,6 +496,7 @@ model Order {
   sellerEarnings SellerEarnings?
   riderEarnings  RiderEarnings?
   ledgerEntries  FinancialLedger[]
+  conversations  Conversation[]
 
   @@index([customerId])
   @@index([shopId])
@@ -658,16 +661,22 @@ model Conversation {
   id             String   @id @default(cuid())
   participant1Id String
   participant2Id String
+  shopId         String?
+  orderId        String?  @unique
+  closedAt       DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   participant1 User      @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
   participant2 User      @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  shop         Shop?     @relation("ShopConversations", fields: [shopId], references: [id], onDelete: Cascade)
+  order        Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   messages     Message[]
 
-  @@unique([participant1Id, participant2Id])
   @@index([participant1Id])
   @@index([participant2Id])
+  @@index([shopId])
+  @@index([orderId])
 }
 
 model Message {
@@ -686,20 +695,27 @@ model Message {
 }
 
 model Report {
-  id          String   @id @default(cuid())
-  reporterId  String
-  targetType  String
-  targetId    String
-  reason      String
-  description String?
-  status      String   @default("OPEN")
-  createdAt   DateTime @default(now())
+  id             String    @id @default(cuid())
+  reporterId     String
+  category       String    // FRAUD, PAYMENT_ISSUE, WRONG_PRODUCT, HARASSMENT, FAKE_SHOP, ORDER_PROBLEM, DELIVERY_PROBLEM, SUSPICIOUS_ACTIVITY, OTHER
+  targetType     String    // PRODUCT, SHOP, SELLER, ORDER, CUSTOMER, RIDER, MESSAGE, PAYMENT, USER, OTHER
+  targetId       String
+  reason         String
+  description    String?
+  attachmentUrl  String?
+  status         String    @default("NEW") // NEW, REVIEWING, RESOLVED, DISMISSED
+  adminNotes     String?
+  resolvedAt     DateTime?
+  resolvedBy     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
   @@index([reporterId])
   @@index([targetType, targetId])
   @@index([status])
+  @@index([createdAt])
 }
 
 model Dispute {

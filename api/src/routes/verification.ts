@@ -10,11 +10,6 @@ const router = Router()
 const verificationSchema = z.object({
   fullName: z.string().min(2),
   phoneNumber: z.string().min(10),
-  idNumber: z.string().min(1),
-  idType: z.string().min(1),
-  idFrontUrl: z.string().url(),
-  idBackUrl: z.string().url().optional(),
-  selfieUrl: z.string().url().optional(),
   businessName: z.string().optional(),
   businessType: z.string().optional(),
   businessReg: z.string().optional(),
@@ -23,9 +18,10 @@ const verificationSchema = z.object({
 router.post('/verify', authMiddleware, requireRole(['SELLER']), validateBody(verificationSchema), async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id
-    const data = req.body
+    const data = { ...req.body, idNumber: null, idType: null, idFrontUrl: null, idBackUrl: null, selfieUrl: null }
+    if (!req.user!.email || !data.phoneNumber) return errorResponse(res, 'Email and phone verification are required', 400)
 
-    const existing = await prisma.sellerVerification.findUnique({ where: { userId } })
+    const existing = await prisma.sellerVerification.findFirst({ where: { userId, type: 'SELLER' } })
     if (existing && existing.status === 'PENDING') {
       return errorResponse(res, 'Verification already pending', 400)
     }
@@ -33,17 +29,18 @@ router.post('/verify', authMiddleware, requireRole(['SELLER']), validateBody(ver
       return errorResponse(res, 'Already verified', 400)
     }
 
-    const verification = await prisma.sellerVerification.upsert({
-      where: { userId },
-      update: {
+    const verification = existing
+      ? await prisma.sellerVerification.update({
+        where: { id: existing.id },
+        data: {
         ...data,
         status: 'PENDING',
         rejectionReason: null,
         reviewedAt: null,
         reviewedBy: null,
-      },
-      create: { ...data, userId },
-    })
+        },
+      })
+      : await prisma.sellerVerification.create({ data: { ...data, userId, type: 'SELLER' } })
 
     await prisma.user.update({
       where: { id: userId },
@@ -59,7 +56,7 @@ router.post('/verify', authMiddleware, requireRole(['SELLER']), validateBody(ver
 router.get('/status', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
   try {
     const verification = await prisma.sellerVerification.findUnique({
-      where: { userId: req.user!.id },
+      where: { userId: req.user!.id, type: 'SELLER' },
     })
 
     if (!verification) {
@@ -75,7 +72,7 @@ router.get('/status', authMiddleware, requireRole(['SELLER']), async (req: Authe
 router.get('/pending', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const verifications = await prisma.sellerVerification.findMany({
-      where: { status: 'PENDING' },
+      where: { status: 'PENDING', type: 'SELLER' },
       include: {
         user: {
           select: { id: true, name: true, email: true, phone: true, avatar: true, location: true },
@@ -117,7 +114,21 @@ router.patch('/:id/status', authMiddleware, requireRole(['ADMIN']), async (req: 
       },
     })
 
-    if (status === 'APPROVED') {
+    if (status === 'APPROVED' && verification.type === 'RIDER') {
+      await prisma.rider.updateMany({
+        where: { userId: verification.userId },
+        data: { isVerified: true },
+      })
+      await prisma.notification.create({
+        data: {
+          userId: verification.userId,
+          type: 'RIDER_VERIFIED',
+          title: 'Verification Approved',
+          message: 'Your rider verification has been approved. You can now accept deliveries!',
+          data: JSON.stringify({ verificationId: id }),
+        },
+      })
+    } else if (status === 'APPROVED') {
       await prisma.user.update({
         where: { id: verification.userId },
         data: { isSeller: true },
@@ -130,9 +141,9 @@ router.patch('/:id/status', authMiddleware, requireRole(['ADMIN']), async (req: 
       await prisma.notification.create({
         data: {
           userId: verification.userId,
-          type: 'SELLER_VERIFIED',
+          type: verification.type === 'RIDER' ? 'RIDER_VERIFIED' : 'SELLER_VERIFIED',
           title: 'Verification Approved',
-          message: 'Your seller verification has been approved. You can now start selling!',
+          message: verification.type === 'RIDER' ? 'Your rider verification has been approved. You can now accept deliveries!' : 'Your seller verification has been approved. You can now start selling!',
           data: JSON.stringify({ verificationId: id }),
         },
       })

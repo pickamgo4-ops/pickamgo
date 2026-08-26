@@ -5,6 +5,8 @@ import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
 import { sendOrderConfirmationEmail, sendSellerOrderNotification } from '../services/email'
+import { initializeTransaction, verifyTransaction } from '../services/paystack'
+import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 
 const router = Router()
 
@@ -21,16 +23,47 @@ const guestCheckoutSchema = z.object({
   guestPhone: z.string().min(10).optional(),
   guestEmail: z.string().email().optional(),
   deliveryAddress: z.string().min(5),
-  deliveryType: z.enum(['DELIVERY', 'PICKUP']).default('DELIVERY'),
+  deliveryType: z.preprocess(value => normalizeDeliveryType(String(value)), z.enum(['DELIVERY', 'PICKUP'])).default('DELIVERY'),
   deliveryFee: z.number().min(0).default(0),
   notes: z.string().optional(),
   paymentMethod: z.string().default('paystack'),
-  fulfillmentMethod: z.enum(fulfillmentMethods).default('FIND_IT_NEAR_ME_RIDER'),
+  fulfillmentMethod: z.string().transform(normalizeFulfillmentMethod).default('FIND_IT_NEAR_ME_RIDER'),
+})
+
+const guestPaymentSchema = z.object({ orderId: z.string().min(1), email: z.string().email() })
+
+router.post('/guest/paystack/initialize', validateBody(guestPaymentSchema), async (req, res) => {
+  try {
+    const order = await prisma.order.findFirst({ where: { id: req.body.orderId, guestEmail: req.body.email }, include: { payment: true } })
+    if (!order?.payment) return errorResponse(res, 'Order payment not found', 404)
+    const result = await initializeTransaction(req.body.email, Number(order.payment.amount), order.payment.transactionRef, `${process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/checkout?orderId=${order.id}&guest=1&email=${encodeURIComponent(req.body.email)}`)
+    return successResponse(res, { authorizationUrl: result.authorization_url, reference: result.reference })
+  } catch (error) {
+    return errorResponse(res, 'Unable to initialize Paystack payment', 400)
+  }
+})
+
+router.post('/guest/verify-payment', validateBody(z.object({ orderId: z.string().min(1), email: z.string().email(), reference: z.string().min(1).max(100) })), async (req, res) => {
+  try {
+    const order = await prisma.order.findFirst({ where: { id: req.body.orderId, guestEmail: req.body.email }, include: { payment: true } })
+    if (!order?.payment) return errorResponse(res, 'Order payment not found', 404)
+    if (order.payment.status === 'PAID' && order.status === 'PAID') return successResponse(res, order, 200, 'Payment already verified')
+    if (order.payment.transactionRef !== req.body.reference) return errorResponse(res, 'Invalid payment reference', 400)
+    const transaction = await verifyTransaction(req.body.reference)
+    if (transaction.status !== 'success' || transaction.currency !== 'GHS' || transaction.amount !== Math.round(Number(order.payment.amount) * 100)) return errorResponse(res, 'Payment could not be verified', 400)
+    const updated = await prisma.$transaction(async tx => {
+      await tx.payment.update({ where: { id: order.payment!.id }, data: { status: 'PAID', paidAt: new Date() } })
+      return tx.order.update({ where: { id: order.id }, data: { status: 'PAID' }, include: { payment: true } })
+    })
+    return successResponse(res, updated, 200, 'Payment verified successfully')
+  } catch (error) {
+    return errorResponse(res, 'Payment verification failed', 400)
+  }
 })
 
 router.post('/guest', validateBody(guestCheckoutSchema), async (req: AuthenticatedRequest, res) => {
   const { items, guestName, guestPhone, guestEmail, deliveryAddress, deliveryType, deliveryFee, notes, paymentMethod, fulfillmentMethod } = req.body
-  const resolvedFulfillmentMethod = deliveryType === 'PICKUP' ? 'CUSTOMER_PICKUP' : fulfillmentMethod
+  const resolvedFulfillmentMethod = deliveryType === 'PICKUP' ? 'CUSTOMER_PICKUP' : normalizeFulfillmentMethod(fulfillmentMethod)
 
   if (!guestName || !guestPhone) {
     return errorResponse(res, 'Guest name and phone are required', 400)
@@ -129,6 +162,9 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
     }
 
     if (!shopGroups.has(shopId)) {
+      const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { deliveryAvailable: true, pickupAvailable: true, sellerDeliveryAvailable: true } })
+      const methodError = shop && deliveryMethodError(shop, deliveryType, resolvedFulfillmentMethod)
+      if (methodError) return errorResponse(res, methodError, 400)
       shopGroups.set(shopId, { shopId, sellerId, items: [] })
     }
     shopGroups.get(shopId)!.items.push(orderItem)

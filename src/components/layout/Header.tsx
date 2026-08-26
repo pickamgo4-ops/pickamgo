@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, MapPin, Bell, User, Plus, Menu, ShoppingCart, Store, Bike, LocateFixed, Moon, SunMedium } from 'lucide-react'
+import { Search, MapPin, Bell, User, Plus, Menu, ShoppingCart, Store, Bike, PackageSearch, Moon, SunMedium } from 'lucide-react'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { api } from '../../lib/api'
@@ -82,7 +82,7 @@ export function Header() {
               className="p-2.5 rounded-xl hover:bg-warm-100 transition-colors"
               title="Order Tracker"
             >
-              <LocateFixed size={20} className="text-warm-800" />
+              <PackageSearch size={20} className="text-warm-800" />
             </button>
             <button
               onClick={() => router.push('/notifications')}
@@ -150,11 +150,13 @@ export function Header() {
           {/* Mobile Actions */}
           <div className="flex md:hidden items-center gap-1 justify-self-end">
             <button
-              onClick={() => router.push('/track')}
+              type="button"
+              onClick={toggleTheme}
               className="p-2.5 rounded-xl hover:bg-warm-100 transition-colors"
-              title="Order Tracker"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              <LocateFixed size={22} className="text-warm-800" />
+              {theme === 'dark' ? <SunMedium size={22} className="text-warm-800" /> : <Moon size={22} className="text-warm-800" />}
             </button>
             <button
               onClick={() => router.push('/notifications')}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { LayoutDashboard, Package, Truck, DollarSign, Bell, User, Settings, HelpCircle, Clock, CheckCircle, ChevronLeft } from 'lucide-react'
+import { LayoutDashboard, Package, Truck, DollarSign, Bell, User, Settings, HelpCircle, Clock, CheckCircle, ChevronLeft, Flag } from 'lucide-react'
 import { RiderSidebar } from '@/components/RiderSidebar'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -157,6 +157,11 @@ export default function RiderDashboardPage() {
             )}
           </>
         )}
+        <div className="mt-6">
+          <Button variant="outline" fullWidth onClick={() => router.push('/report')} icon={<Flag size={18} />}>
+            Report an Issue
+          </Button>
+        </div>
       </div>
     </RiderSidebar>
   )

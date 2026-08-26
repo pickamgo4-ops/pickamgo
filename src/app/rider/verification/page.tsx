@@ -38,7 +38,7 @@ export default function RiderVerificationPage() {
   const loadVerification = async () => {
     setLoading(true)
     try {
-      const response = await api.get<any>('/seller/verification/status')
+      const response = await api.get<any>('/riders/verification/status')
       if (response.success && response.data) {
         setStatus(response.data.status || 'NOT_SUBMITTED')
         if (response.data.status === 'APPROVED' || response.data.status === 'PENDING' || response.data.status === 'REJECTED') {
@@ -63,7 +63,7 @@ export default function RiderVerificationPage() {
     setSuccess('')
 
     try {
-      const response = await api.post('/seller/verify', form)
+      const response = await api.post('/riders/verification/verify', form)
       if (response.success) {
         setSuccess('Verification submitted successfully')
         setStatus('PENDING')

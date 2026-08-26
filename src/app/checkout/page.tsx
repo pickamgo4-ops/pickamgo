@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { Suspense, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { MapPin, CreditCard, FileText, ShoppingBag, ArrowLeft, CheckCircle, User, Phone, Mail, Truck } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
@@ -11,19 +11,21 @@ import { Input } from '../../components/ui/Input'
 import { api } from '../../lib/api'
 import { Cart, Address, CheckoutOrder, DeliverySettings } from '../../types'
 import { mapApiCartToFrontend, mapApiAddressToFrontend } from '../../lib/api-mappers'
+import { PaymentSafetyNotice } from '../../components/ui/PaymentSafetyNotice'
 
 type CheckoutMode = 'checking' | 'guest' | 'logged-in'
-type FulfillmentMethod = 'PLATFORM_DELIVERY' | 'SELLER_DELIVERY' | 'PICKUP'
+type FulfillmentMethod = 'FIND_IT_NEAR_ME_RIDER' | 'SELLER_OWN_DELIVERY' | 'CUSTOMER_PICKUP'
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [mode, setMode] = useState<CheckoutMode>('checking')
   const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState<Cart | null>(null)
   const [addresses, setAddresses] = useState<Address[]>([])
   const [selectedAddressId, setSelectedAddressId] = useState<string>('')
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery')
-  const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [paymentMethod, setPaymentMethod] = useState('paystack')
   const [orderNotes, setOrderNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -56,6 +58,19 @@ export default function CheckoutPage() {
   useEffect(() => {
     checkAuth()
   }, [])
+
+  useEffect(() => {
+    const orderId = searchParams.get('orderId')
+    const reference = searchParams.get('reference')
+    if (!orderId || !reference) return
+    const email = searchParams.get('email') || guestInfo.email
+    const endpoint = searchParams.get('guest') ? '/checkout/guest/verify-payment' : '/checkout/verify-payment'
+    const body = searchParams.get('guest') ? { orderId, reference, email } : { orderId, reference }
+    api.post(endpoint, body).then(response => {
+      if (response.success) router.replace('/orders')
+      else setError(response.error || 'Payment verification failed')
+    })
+  }, [router, searchParams])
 
   const checkAuth = async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
@@ -176,6 +191,10 @@ export default function CheckoutPage() {
   const handleGuestSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!cart || cart.items.length === 0) return
+    if (!guestInfo.email) {
+      setError('Email is required for secure Paystack payment.')
+      return
+    }
 
     setSubmitting(true)
     setError('')
@@ -200,7 +219,10 @@ export default function CheckoutPage() {
       })
 
       if (response.success && response.data) {
-        setOrderConfirmation(response.data)
+        const order = (response.data as any).orders?.[0] || response.data
+        const payment = await api.post<any>('/checkout/guest/paystack/initialize', { orderId: order.id, email: guestInfo.email })
+        if (!payment.success || !payment.data?.authorizationUrl) throw new Error(payment.error || 'Unable to start Paystack payment')
+        window.location.assign(payment.data.authorizationUrl)
         await api.delete('/cart')
       } else {
         setError(response.error || response.message || 'Checkout failed')
@@ -239,7 +261,10 @@ export default function CheckoutPage() {
       })
 
       if (response.success && response.data) {
-        setOrderConfirmation(response.data)
+        const order = (response.data as any).orders?.[0] || response.data
+        const payment = await api.post<any>('/checkout/paystack/initialize', { orderId: order.id })
+        if (!payment.success || !payment.data?.authorizationUrl) throw new Error(payment.error || 'Unable to start Paystack payment')
+        window.location.assign(payment.data.authorizationUrl)
         await api.delete('/cart')
       } else {
         setError(response.error || response.message || 'Checkout failed')
@@ -252,16 +277,28 @@ export default function CheckoutPage() {
   }
 
   const getFulfillmentMethod = (): FulfillmentMethod => {
-    if (deliveryType === 'pickup') return 'PICKUP'
+    if (deliveryType === 'pickup') return 'CUSTOMER_PICKUP'
     const firstItem = cart?.items[0]
     const shopId = firstItem?.shopId || firstItem?.product?.shop?.id
     const settings = shopId ? shopSettings[shopId] : null
     
     if (settings?.sellerDeliveryAvailable) {
-      return 'SELLER_DELIVERY'
+      return 'SELLER_OWN_DELIVERY'
     }
-    return 'PLATFORM_DELIVERY'
+    return 'FIND_IT_NEAR_ME_RIDER'
   }
+
+  const cartShopIds = Array.from(new Set((cart?.items || []).map(item => item.shopId || item.product?.shop?.id).filter(Boolean)))
+  const canPickup = cartShopIds.length > 0 && cartShopIds.every(shopId => shopSettings[shopId!]?.pickupAvailable === true)
+  const canDelivery = cartShopIds.length > 0 && cartShopIds.every(shopId => {
+    const settings = shopSettings[shopId!]
+    return settings?.deliveryAvailable === true || settings?.sellerDeliveryAvailable === true
+  })
+
+  useEffect(() => {
+    if (deliveryType === 'delivery' && !canDelivery && canPickup) setDeliveryType('pickup')
+    if (deliveryType === 'pickup' && !canPickup && canDelivery) setDeliveryType('delivery')
+  }, [canDelivery, canPickup, deliveryType])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -297,6 +334,7 @@ export default function CheckoutPage() {
       <div className="min-h-screen pb-20 md:pb-0">
         <Header />
         <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <PaymentSafetyNotice />
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -489,7 +527,8 @@ export default function CheckoutPage() {
                 <Truck size={20} className="text-primary" />
                 Delivery Method
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className={`grid ${canDelivery && canPickup ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+                {canDelivery && (
                 <button
                   type="button"
                   onClick={() => setDeliveryType('delivery')}
@@ -503,6 +542,8 @@ export default function CheckoutPage() {
                   <span className="font-medium text-sm text-warm-900">Delivery</span>
                   <p className="text-xs text-warm-800/60 mt-1">Deliver to address</p>
                 </button>
+                )}
+                {canPickup && (
                 <button
                   type="button"
                   onClick={() => setDeliveryType('pickup')}
@@ -516,6 +557,7 @@ export default function CheckoutPage() {
                   <span className="font-medium text-sm text-warm-900">Pickup</span>
                   <p className="text-xs text-warm-800/60 mt-1">Collect at shop</p>
                 </button>
+                )}
               </div>
             </div>
 
@@ -525,11 +567,7 @@ export default function CheckoutPage() {
                 Payment Method
               </h3>
               <div className="space-y-2">
-                {[
-                  { id: 'cash', label: 'Cash on Delivery', desc: 'Pay when you receive your order' },
-                  { id: 'card', label: 'Card Payment', desc: 'Pay with credit/debit card' },
-                  { id: 'mobile', label: 'Mobile Money', desc: 'Pay with M-Pesa or similar' },
-                ].map((method) => (
+                  {[{ id: 'paystack', label: 'Paystack', desc: 'Secure payment by Ghanaian card or Mobile Money' }].map((method) => (
                   <button
                     key={method.id}
                     type="button"
@@ -591,6 +629,7 @@ export default function CheckoutPage() {
       <Header />
 
       <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <PaymentSafetyNotice />
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-warm-100 transition-colors">
             <ArrowLeft size={20} className="text-warm-800" />
@@ -616,7 +655,8 @@ export default function CheckoutPage() {
               <MapPin size={20} className="text-primary" />
               Delivery Method
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid ${canDelivery && canPickup ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+              {canDelivery && (
               <button
                 type="button"
                 onClick={() => setDeliveryType('delivery')}
@@ -630,6 +670,8 @@ export default function CheckoutPage() {
                 <span className="font-medium text-sm text-warm-900">Delivery</span>
                 <p className="text-xs text-warm-800/60 mt-1">Deliver to address</p>
               </button>
+              )}
+              {canPickup && (
               <button
                 type="button"
                 onClick={() => setDeliveryType('pickup')}
@@ -643,6 +685,7 @@ export default function CheckoutPage() {
                 <span className="font-medium text-sm text-warm-900">Pickup</span>
                 <p className="text-xs text-warm-800/60 mt-1">Collect at shop</p>
               </button>
+              )}
             </div>
           </div>
 
@@ -755,11 +798,7 @@ export default function CheckoutPage() {
               Payment Method
             </h3>
             <div className="space-y-2">
-              {[
-                { id: 'cash', label: 'Cash on Delivery', desc: 'Pay when you receive your order' },
-                { id: 'card', label: 'Card Payment', desc: 'Pay with credit/debit card' },
-                { id: 'mobile', label: 'Mobile Money', desc: 'Pay with M-Pesa or similar' },
-              ].map((method) => (
+                {[{ id: 'paystack', label: 'Paystack', desc: 'Secure payment by Ghanaian card or Mobile Money' }].map((method) => (
                 <button
                   key={method.id}
                   type="button"
@@ -841,5 +880,13 @@ export default function CheckoutPage() {
 
       <BottomNav />
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <CheckoutContent />
+    </Suspense>
   )
 }

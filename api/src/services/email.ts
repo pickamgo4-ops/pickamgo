@@ -183,6 +183,39 @@ export async function sendOrderStatusEmail(to: string, order: {
   })
 }
 
+export async function sendPaymentConfirmationEmail(to: string, payment: {
+  orderNumber: string
+  amount: number
+}): Promise<SendEmailResult> {
+  const body = `
+    <h2>Payment Confirmed</h2>
+    <p>Your Paystack payment for order <strong>#${payment.orderNumber}</strong> was confirmed.</p>
+    <p><strong>Amount:</strong> GH₵${payment.amount.toFixed(2)}</p>
+    <a href="${APP_URL}/orders" class="button">View Order</a>
+  `
+  return sendEmail({
+    to,
+    subject: `Payment confirmed for order #${payment.orderNumber}`,
+    html: buildBaseHtml(`Payment ${payment.orderNumber}`, body),
+    text: `Payment confirmed for order #${payment.orderNumber}. Amount: GH₵${payment.amount.toFixed(2)}. View at ${APP_URL}/orders`,
+  })
+}
+
+export async function sendNewMessageEmail(to: string, senderName: string): Promise<SendEmailResult> {
+  const body = `
+    <h2>You have a new message</h2>
+    <p><strong>${senderName}</strong> sent you a message on PickAmGo.</p>
+    <p>Sign in to view the conversation and reply securely. Message content is not included in this email.</p>
+    <a href="${APP_URL}/messages" class="button">View Messages</a>
+  `
+  return sendEmail({
+    to,
+    subject: 'You have a new PickAmGo message',
+    html: buildBaseHtml('New Message', body),
+    text: `${senderName} sent you a message on PickAmGo. View and reply at ${APP_URL}/messages`,
+  })
+}
+
 export async function sendSellerOrderNotification(to: string, order: {
   orderNumber: string
   items: Array<{ name: string; quantity: number }>

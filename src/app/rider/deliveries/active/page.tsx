@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { MapPin, DollarSign, Clock, Navigation, Package, CheckCircle, Truck } from 'lucide-react'
+import { MapPin, DollarSign, Clock, Navigation, Package, CheckCircle, Truck, MessageCircle } from 'lucide-react'
 import { RiderSidebar } from '@/components/RiderSidebar'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -172,6 +172,11 @@ export default function RiderActiveDeliveryPage() {
 
           {nextAction && (
             <div className="flex flex-col gap-3 pt-4 border-t border-warm-200">
+              {delivery.order?.customer?.id && (
+                <Button fullWidth variant="outline" onClick={() => router.push(`/messages/${delivery.order.customer.id}?orderId=${delivery.orderId}`)} icon={<MessageCircle size={18} />}>
+                  Message Customer
+                </Button>
+              )}
               <Button fullWidth onClick={() => handleStatusUpdate(nextAction)} icon={nextAction === 'DELIVERED' ? <CheckCircle size={18} /> : undefined}>
                 {actionLabels[nextAction]}
               </Button>

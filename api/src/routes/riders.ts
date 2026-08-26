@@ -11,6 +11,31 @@ const deliveryStatusSchema = z.object({
   status: z.enum(['PENDING', 'ACCEPTED', 'ARRIVED_AT_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED']),
 })
 
+const riderVerificationSchema = z.object({
+  fullName: z.string().min(2),
+  phoneNumber: z.string().min(10),
+  idNumber: z.string().min(1),
+  idType: z.string().min(1),
+  idFrontUrl: z.string().url(),
+  idBackUrl: z.string().url().optional(),
+  selfieUrl: z.string().url().optional(),
+})
+
+router.get('/verification/status', authMiddleware, requireRole(['RIDER']), async (req: AuthenticatedRequest, res) => {
+  const verification = await prisma.sellerVerification.findFirst({ where: { userId: req.user!.id, type: 'RIDER' } })
+  return successResponse(res, verification || { status: 'NOT_SUBMITTED' })
+})
+
+router.post('/verification/verify', authMiddleware, requireRole(['RIDER']), validateBody(riderVerificationSchema), async (req: AuthenticatedRequest, res) => {
+  const existing = await prisma.sellerVerification.findFirst({ where: { userId: req.user!.id, type: 'RIDER' } })
+  if (existing?.status === 'PENDING') return errorResponse(res, 'Verification already pending', 400)
+  if (existing?.status === 'APPROVED') return errorResponse(res, 'Already verified', 400)
+  const verification = existing
+    ? await prisma.sellerVerification.update({ where: { id: existing.id }, data: { ...req.body, type: 'RIDER', status: 'PENDING', rejectionReason: null, reviewedAt: null, reviewedBy: null } })
+    : await prisma.sellerVerification.create({ data: { ...req.body, userId: req.user!.id, type: 'RIDER' } })
+  return successResponse(res, verification, 201, 'Rider verification submitted successfully')
+})
+
 router.get('/deliveries', authMiddleware, requireRole(['RIDER']), async (req: AuthenticatedRequest, res) => {
   const rider = await prisma.rider.findUnique({ where: { userId: req.user!.id } })
   if (!rider) return errorResponse(res, 'Rider profile not found', 404)
@@ -33,7 +58,7 @@ router.get('/deliveries', authMiddleware, requireRole(['RIDER']), async (req: Au
 
   const activeDelivery = await prisma.delivery.findFirst({
     where: { riderId: req.user!.id, status: { not: 'DELIVERED' } },
-    include: { order: true },
+    include: { order: { include: { customer: { select: { id: true, name: true, avatar: true } } } } },
   })
 
   return successResponse(res, {
@@ -50,6 +75,7 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
   })
   if (!rider) return errorResponse(res, 'Rider profile not found', 404)
   if (!rider.isOnline) return errorResponse(res, 'You must be online to accept deliveries', 400)
+  if (!rider.isVerified) return errorResponse(res, 'Complete Ghana Card verification before accepting deliveries', 403)
 
   const existingDelivery = await prisma.delivery.findFirst({
     where: { riderId: req.user!.id, status: { not: 'DELIVERED' } },

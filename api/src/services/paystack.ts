@@ -62,6 +62,22 @@ export async function verifyTransaction(reference: string) {
   return response.data.data
 }
 
+export async function initializeTransaction(email: string, amount: number, reference: string, callbackUrl: string) {
+  if (!PAYSTACK_SECRET_KEY) {
+    throw new Error('Paystack secret key not configured')
+  }
+
+  const response = await paystack.post('/transaction/initialize', {
+    email,
+    amount: Math.round(amount * 100),
+    currency: 'GHS',
+    reference,
+    callback_url: callbackUrl,
+  })
+
+  return response.data.data
+}
+
 export async function handleWebhook(payload: any, signature?: string): Promise<any> {
   if (!PAYSTACK_SECRET_KEY) {
     throw new Error('Paystack secret key not configured')
@@ -87,6 +103,8 @@ export async function handleWebhook(payload: any, signature?: string): Promise<a
       return { status: 'FAILED', transfer: data }
     case 'transfer.reversed':
       return { status: 'REVERSED', transfer: data }
+    case 'charge.success':
+      return { status: 'SUCCESS', payment: data }
     default:
       return { status: 'UNKNOWN', event, data }
   }

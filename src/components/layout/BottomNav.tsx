@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Plus, Heart, User, ShoppingCart, Store, LocateFixed, Bike, Shield } from 'lucide-react'
+import { Home, Search, Plus, Heart, User, ShoppingCart, Store, PackageSearch, Bike, Shield } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '../../lib/api'
 import { Cart } from '../../types'
@@ -10,7 +10,7 @@ import { Cart } from '../../types'
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/discover', label: 'Discover', icon: Search },
-  { href: '/track', label: 'Tracker', icon: LocateFixed },
+  { href: '/track', label: 'Tracker', icon: PackageSearch },
   { href: '/cart', label: 'Cart', icon: ShoppingCart },
   { href: '/favorites', label: 'Favorites', icon: Heart },
   { href: '/profile', label: 'Profile', icon: User },
@@ -45,17 +45,15 @@ export function BottomNav() {
     }
   }, [authInitialized, loading, pathname])
 
-  // Show dashboard-specific bottom navs in their respective layout components
-  // This bottom nav is only for the customer experience
-  if (user && (user.role === 'seller' || user.role === 'rider' || user.role === 'admin')) {
-    return null
-  }
-
   const currentNavItems = navItems.filter((item) => {
     if (item.href === '/cart') return false
     if (!user && item.href === '/favorites') return false
     return true
   })
+
+  if (currentNavItems.length === 0) {
+    return null
+  }
 
   return (
     <nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-lg border-t border-warm-200/50 md:hidden">

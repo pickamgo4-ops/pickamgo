@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { Wallet, ArrowUpRight, Clock, CheckCircle, XCircle, Plus, Trash2, Copy, Check } from 'lucide-react'
-import { Header } from '../../../components/layout/Header'
-import { BottomNav } from '../../../components/layout/BottomNav'
-import { Button } from '../../../components/ui/Button'
-import { Input } from '../../../components/ui/Input'
-import { api } from '../../../lib/api'
+import { SellerSidebar } from '@/components/SellerSidebar'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { api } from '@/lib/api'
 import { useRole } from '@/contexts/RoleContext'
 
 export default function SellerPayoutsPage() {
@@ -126,23 +125,20 @@ export default function SellerPayoutsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24 md:pb-8">
-        <Header />
+      <SellerSidebar>
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-warm-800/60">Loading payouts...</p>
           </div>
         </div>
-        <BottomNav />
-      </div>
+      </SellerSidebar>
     )
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8">
-      <Header />
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <SellerSidebar>
+      <div className="space-y-6">
         <h1 className="font-display text-2xl font-bold text-warm-900 mb-6">Payouts</h1>
 
         {message && (
@@ -301,7 +297,6 @@ export default function SellerPayoutsPage() {
           </div>
         </div>
       )}
-      <BottomNav />
-    </div>
+    </SellerSidebar>
   )
 }

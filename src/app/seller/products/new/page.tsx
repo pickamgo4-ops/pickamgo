@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Package, Plus, Trash2 } from 'lucide-react'
-import { Header } from '../../../../components/layout/Header'
-import { BottomNav } from '../../../../components/layout/BottomNav'
+import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '../../../../components/ui/Button'
 import { Input } from '../../../../components/ui/Input'
 import { Card } from '../../../../components/ui/Card'
@@ -147,10 +146,8 @@ export default function CreateProductPage() {
   }
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
-      <Header />
-
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <SellerSidebar>
+      <div className="space-y-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
             <Package size={20} className="text-primary" />
@@ -302,9 +299,7 @@ export default function CreateProductPage() {
             {loading ? 'Creating Product...' : 'Create Product'}
           </Button>
         </form>
-      </main>
-
-      <BottomNav />
-    </div>
+      </div>
+    </SellerSidebar>
   )
 }

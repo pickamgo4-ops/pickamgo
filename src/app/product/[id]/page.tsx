@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Heart, Share2, MapPin, Star, Truck, ChevronLeft, Store, Clock, MessageCircle, Minus, Plus } from 'lucide-react'
+import { Heart, Share2, MapPin, Star, Truck, ChevronLeft, Store, Clock, MessageCircle, Minus, Plus, ShoppingCart } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
 import { api } from '../../../lib/api'
 import { Product, CartItemWithRelations } from '../../../types'
 import { mapApiProductToFrontend } from '../../../lib/api-mappers'
 import { ProductCard } from '../../../components/product/ProductCard'
+import { PaymentSafetyNotice } from '../../../components/ui/PaymentSafetyNotice'
 
 export default function ProductPage() {
   const params = useParams()
@@ -123,6 +124,9 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen pb-24 md:pb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <PaymentSafetyNotice />
+      </div>
       {/* Image Gallery */}
       <div className="relative aspect-square md:aspect-[4/3] bg-warm-100">
         <img
@@ -252,7 +256,7 @@ export default function ProductPage() {
                   Visit Shop
                 </Button>
               )}
-              <Button variant="outline" size="sm" icon={<MessageCircle size={16} />}>
+              <Button variant="outline" size="sm" icon={<MessageCircle size={16} />} onClick={() => router.push(`/messages/${product.seller.id}`)}>
                 Message
               </Button>
             </div>
@@ -335,15 +339,14 @@ export default function ProductPage() {
               <Plus size={18} />
             </button>
           </div>
-          <Button
-            variant="outline"
-            fullWidth
-            className="flex-1"
+          <button
             onClick={() => addToCart(false)}
             disabled={addingToCart}
+            className="p-2.5 rounded-xl border border-warm-200 hover:bg-warm-100 transition-colors"
+            aria-label="Add to cart"
           >
-            {addingToCart ? 'Adding...' : 'Add to Cart'}
-          </Button>
+            <ShoppingCart size={20} className={addingToCart ? 'text-warm-800/50' : 'text-warm-800'} />
+          </button>
           <Button
             variant="primary"
             fullWidth

@@ -3,12 +3,11 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Store, Upload, MapPin, Settings, Package, FileText, CheckCircle, ArrowRight } from 'lucide-react'
-import { Header } from '../../../components/layout/Header'
-import { BottomNav } from '../../../components/layout/BottomNav'
-import { Button } from '../../../components/ui/Button'
-import { Input } from '../../../components/ui/Input'
-import { Card } from '../../../components/ui/Card'
-import { api } from '../../../lib/api'
+import { SellerSidebar } from '@/components/SellerSidebar'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
+import { api } from '@/lib/api'
 
 export default function SellerOnboardingPage() {
   const router = useRouter()
@@ -71,26 +70,20 @@ export default function SellerOnboardingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-20 md:pb-0">
-        <Header />
-        <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-warm-800/60">Loading setup...</p>
-            </div>
+      <SellerSidebar>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-warm-800/60">Loading setup...</p>
           </div>
-        </main>
-        <BottomNav />
-      </div>
+        </div>
+      </SellerSidebar>
     )
   }
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
-      <Header />
-
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <SellerSidebar>
+      <div className="space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
@@ -168,9 +161,7 @@ export default function SellerOnboardingPage() {
             </Button>
           </Card>
         )}
-      </main>
-
-      <BottomNav />
-    </div>
+      </div>
+    </SellerSidebar>
   )
 }

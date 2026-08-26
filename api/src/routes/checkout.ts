@@ -4,8 +4,9 @@ import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
-import { verifyTransaction } from '../services/paystack'
-import { sendOrderConfirmationEmail, sendSellerOrderNotification } from '../services/email'
+import { handleWebhook, initializeTransaction, verifyTransaction } from '../services/paystack'
+import { sendOrderConfirmationEmail, sendPaymentConfirmationEmail, sendSellerOrderNotification } from '../services/email'
+import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 
 const router = Router()
 
@@ -19,17 +20,53 @@ const checkoutSchema = z.object({
     quantity: z.number().min(1).default(1),
   })).min(1),
   deliveryAddress: z.string().min(5),
-  deliveryType: z.enum(['DELIVERY', 'PICKUP']).default('DELIVERY'),
+  deliveryType: z.preprocess(value => normalizeDeliveryType(String(value)), z.enum(['DELIVERY', 'PICKUP'])).default('DELIVERY'),
   deliveryFee: z.number().min(0).optional(),
   addressId: z.string().optional(),
   notes: z.string().optional(),
-  paymentMethod: z.string().default('paystack'),
-  fulfillmentMethod: z.enum(fulfillmentMethods).default('FIND_IT_NEAR_ME_RIDER'),
+  paymentMethod: z.string().transform(value => value.toLowerCase()).refine(value => value === 'paystack', 'Only Paystack payments are supported').default('paystack'),
+  fulfillmentMethod: z.string().transform(normalizeFulfillmentMethod).default('FIND_IT_NEAR_ME_RIDER'),
 })
 
 const paymentVerificationSchema = z.object({
   orderId: z.string().min(1),
   reference: z.string().min(1).max(100),
+})
+
+router.post('/paystack/webhook', async (req, res) => {
+  try {
+    const result = await handleWebhook(req.body, req.headers['x-paystack-signature'] as string | undefined)
+    if (result.status !== 'SUCCESS' || !result.payment?.reference || result.payment.status !== 'success') {
+      return res.status(200).json({ success: true })
+    }
+
+    const reference = result.payment.reference as string
+    const payment = await prisma.payment.findUnique({ where: { transactionRef: reference } })
+    if (!payment) return res.status(200).json({ success: true })
+
+    const paymentUpdated = await prisma.$transaction(async tx => {
+      const updatedPayment = await tx.payment.updateMany({
+        where: { id: payment.id, status: { not: 'PAID' } },
+        data: { status: 'PAID', paidAt: new Date() },
+      })
+      if (updatedPayment.count === 1) {
+        await tx.order.updateMany({ where: { id: payment.orderId, status: 'PENDING_PAYMENT' }, data: { status: 'PAID' } })
+        await tx.financialLedger.updateMany({ where: { orderId: payment.orderId, type: 'ORDER_PAYMENT' }, data: { status: 'SUCCESS', reference } })
+      }
+      return updatedPayment.count === 1
+    })
+
+    if (paymentUpdated) {
+      const order = await prisma.order.findUnique({ where: { id: payment.orderId }, include: { customer: { select: { email: true } } } })
+      if (order?.customer?.email) {
+        sendPaymentConfirmationEmail(order.customer.email, { orderNumber: order.orderNumber, amount: Number(payment.amount) }).catch(err => console.error('Failed to send payment email:', err))
+      }
+    }
+
+    return res.status(200).json({ success: true })
+  } catch (error) {
+    return res.status(401).json({ success: false, error: 'Invalid Paystack webhook' })
+  }
 })
 
 router.post('/verify-payment', authMiddleware, requireRole(['USER']), validateBody(paymentVerificationSchema), async (req: AuthenticatedRequest, res) => {
@@ -41,6 +78,7 @@ router.post('/verify-payment', authMiddleware, requireRole(['USER']), validateBo
     })
     if (!order || !order.payment) return errorResponse(res, 'Order payment not found', 404)
     if (order.payment.status === 'PAID' && order.status === 'PAID') return successResponse(res, order, 200, 'Payment already verified')
+    if (order.payment.transactionRef !== reference) return errorResponse(res, 'Invalid payment reference', 400)
 
     const transaction = await verifyTransaction(reference)
     const expectedAmount = Math.round(Number(order.payment.amount) * 100)
@@ -48,24 +86,40 @@ router.post('/verify-payment', authMiddleware, requireRole(['USER']), validateBo
       return errorResponse(res, 'Payment could not be verified', 400)
     }
 
-    const updated = await prisma.$transaction(async tx => {
-      await tx.payment.update({
+    const result = await prisma.$transaction(async tx => {
+      const updatedPayment = await tx.payment.updateMany({
         where: { id: order.payment!.id },
         data: { status: 'PAID', paidAt: new Date(), transactionRef: reference },
       })
-      await tx.order.update({ where: { id: order.id }, data: { status: 'PAID' } })
+      if (updatedPayment.count !== 1) return { order: order, paymentUpdated: false }
+      await tx.order.updateMany({ where: { id: order.id, status: 'PENDING_PAYMENT' }, data: { status: 'PAID' } })
       await tx.financialLedger.updateMany({ where: { orderId: order.id, type: 'ORDER_PAYMENT' }, data: { status: 'SUCCESS', reference } })
-      return tx.order.findUnique({ where: { id: order.id }, include: { payment: true } })
+      return { order: await tx.order.findUnique({ where: { id: order.id }, include: { payment: true } }), paymentUpdated: true }
     })
-    return successResponse(res, updated, 200, 'Payment verified successfully')
+    if (result.paymentUpdated && req.user!.email) {
+      sendPaymentConfirmationEmail(req.user!.email, { orderNumber: order.orderNumber, amount: Number(order.payment.amount) }).catch(err => console.error('Failed to send payment email:', err))
+    }
+    return successResponse(res, result.order, 200, 'Payment verified successfully')
   } catch (error) {
     return errorResponse(res, 'Payment verification failed', 400)
   }
 })
 
+router.post('/paystack/initialize', authMiddleware, requireRole(['USER']), validateBody(z.object({ orderId: z.string().min(1) })), async (req: AuthenticatedRequest, res) => {
+  try {
+    const order = await prisma.order.findFirst({ where: { id: req.body.orderId, customerId: req.user!.id }, include: { payment: true } })
+    if (!order?.payment) return errorResponse(res, 'Order payment not found', 404)
+    if (order.payment.status === 'PAID') return errorResponse(res, 'Order is already paid', 400)
+    const result = await initializeTransaction(req.user!.email, Number(order.payment.amount), order.payment.transactionRef, `${process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/checkout?orderId=${order.id}`)
+    return successResponse(res, { authorizationUrl: result.authorization_url, reference: result.reference })
+  } catch (error) {
+    return errorResponse(res, 'Unable to initialize Paystack payment', 400)
+  }
+})
+
 router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSchema), async (req: AuthenticatedRequest, res) => {
   const { items, deliveryAddress, deliveryType, addressId, notes, paymentMethod, fulfillmentMethod } = req.body
-  const resolvedFulfillmentMethod = deliveryType === 'PICKUP' ? 'CUSTOMER_PICKUP' : fulfillmentMethod
+  const resolvedFulfillmentMethod = deliveryType === 'PICKUP' ? 'CUSTOMER_PICKUP' : normalizeFulfillmentMethod(fulfillmentMethod)
 
   if (items.length === 0) {
     return errorResponse(res, 'Order must contain at least one item', 400)
@@ -165,7 +219,9 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
     }
 
     if (!shopGroups.has(shopId)) {
-      const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { platformDeliveryFee: true, sellerDeliveryFee: true } })
+      const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { platformDeliveryFee: true, sellerDeliveryFee: true, deliveryAvailable: true, pickupAvailable: true, sellerDeliveryAvailable: true } })
+      const methodError = shop && deliveryMethodError(shop, deliveryType, resolvedFulfillmentMethod)
+      if (methodError) return errorResponse(res, methodError, 400)
       const serverDeliveryFee = deliveryType === 'DELIVERY'
         ? Number(shop?.platformDeliveryFee || shop?.sellerDeliveryFee || 0)
         : 0
