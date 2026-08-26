@@ -14,7 +14,6 @@ interface MapboxLocationPickerProps {
 declare global {
   interface Window {
     mapboxgl: any
-    MapboxGeocoder: any
   }
 }
 
@@ -31,13 +30,17 @@ export default function MapboxLocationPicker({
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
-  const geocoderRef = useRef<any>(null)
   const [mapReady, setMapReady] = useState(false)
   const [searchValue, setSearchValue] = useState(value?.address || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [suggestions, setSuggestions] = useState<any[]>([])
   const suggestionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const suggestionRequestRef = useRef<AbortController | null>(null)
+  const searchQueryRef = useRef(searchValue)
+  const proximityRef = useRef<[number, number] | null>(
+    value?.longitude != null && value?.latitude != null ? [value.longitude, value.latitude] : null
+  )
 
   const defaultCenter = GHANA_CENTER
   const defaultZoom = GhanaCentric ? 12 : 13
@@ -88,7 +91,6 @@ export default function MapboxLocationPicker({
         if (!window.mapboxgl) {
           const mapbox = await import('mapbox-gl')
           window.mapboxgl = mapbox.default
-          await import('@mapbox/mapbox-gl-geocoder')
         }
 
         if (!document.getElementById('mapbox-css')) {
@@ -120,6 +122,7 @@ export default function MapboxLocationPicker({
 
     return () => {
       if (suggestionTimerRef.current) clearTimeout(suggestionTimerRef.current)
+      suggestionRequestRef.current?.abort()
       if (mapRef.current) {
         mapRef.current.remove()
         mapRef.current = null
@@ -130,6 +133,18 @@ export default function MapboxLocationPicker({
       }
     }
   }, [initMap])
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        proximityRef.current = [coords.longitude, coords.latitude]
+      },
+      () => undefined,
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+    )
+  }, [])
 
   const placeMarker = (lat: number, lng: number) => {
     if (!mapRef.current) return
@@ -182,7 +197,7 @@ export default function MapboxLocationPicker({
     setError('')
     try {
       const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&limit=10&country=gh&language=en`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${encodeURIComponent(token)}&limit=10&country=GH&language=en&autocomplete=false`
       )
       if (!res.ok) throw new Error(`Mapbox reverse geocoding failed with ${res.status}`)
       const data = await res.json()
@@ -202,17 +217,27 @@ export default function MapboxLocationPicker({
     }
   }
 
-  const searchPlaces = async (query: string, limit: number) => {
+  const searchPlaces = async (query: string, limit: number, signal?: AbortSignal) => {
     const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
     if (!token) return []
-    const base = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=${limit}&language=en&proximity=${defaultCenter[0]},${defaultCenter[1]}`
-    const localResponse = await fetch(`${base}&country=gh`)
-    const localData = await localResponse.json()
-    if (localData.features?.length) return localData.features
-    const broadUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(`${query}, Ghana`)}.json?access_token=${token}&limit=${limit}&language=en&proximity=${defaultCenter[0]},${defaultCenter[1]}`
-    const broadResponse = await fetch(broadUrl)
-    const broadData = await broadResponse.json()
-    return broadData.features || []
+    const params = new URLSearchParams({
+      access_token: token,
+      autocomplete: 'true',
+      country: 'GH',
+      language: 'en',
+      limit: String(limit),
+      types: 'address,street,poi,building,neighborhood,locality,place,district',
+    })
+    const proximity = proximityRef.current
+    if (proximity) params.set('proximity', `${proximity[0]},${proximity[1]}`)
+
+    const response = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params.toString()}`,
+      { signal }
+    )
+    if (!response.ok) throw new Error(`Mapbox search failed with ${response.status}`)
+    const data = await response.json()
+    return Array.isArray(data.features) ? data.features : []
   }
 
   const forwardGeocode = async (query: string) => {
@@ -261,17 +286,34 @@ export default function MapboxLocationPicker({
 
   const handleSearchChange = (query: string) => {
     setSearchValue(query)
+    searchQueryRef.current = query
     setSuggestions([])
+    setError('')
     if (suggestionTimerRef.current) clearTimeout(suggestionTimerRef.current)
+    suggestionRequestRef.current?.abort()
     const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
-    if (!token || query.trim().length < 3) return
+    const cleanQuery = query.trim()
+    if (!token || cleanQuery.length < 3) return
     suggestionTimerRef.current = setTimeout(async () => {
+      const controller = new AbortController()
+      suggestionRequestRef.current = controller
+      setLoading(true)
       try {
-        setSuggestions(await searchPlaces(query, 5))
-      } catch {
-        setSuggestions([])
+        const results = await searchPlaces(cleanQuery, 5, controller.signal)
+        if (!controller.signal.aborted && searchQueryRef.current.trim() === cleanQuery) {
+          setSuggestions(results)
+          if (results.length === 0) setError('No Ghanaian places found. Try a nearby street, landmark, or area.')
+        }
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === 'AbortError')) {
+          setSuggestions([])
+          setError('Address search failed. Please try again.')
+          console.error('Autocomplete error:', err)
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
       }
-    }, 300)
+    }, 350)
   }
 
   const handleUseCurrentLocation = () => {
