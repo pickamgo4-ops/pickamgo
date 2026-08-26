@@ -3,6 +3,7 @@ import { z } from 'zod'
 import prisma from '../utils/prisma'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody, validateQuery } from '../types/express'
+import { publicServiceVisibility } from '../utils/visibility'
 
 const router = Router()
 
@@ -68,7 +69,7 @@ router.get('/', validateQuery(listServicesQuerySchema), async (req: Authenticate
       sort,
     } = req.query as z.infer<typeof listServicesQuerySchema>
 
-    const where: any = { status: 'ACTIVE' }
+    const where: any = { ...publicServiceVisibility }
 
     if (search) {
       where.OR = [

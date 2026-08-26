@@ -35,6 +35,7 @@ function CheckoutContent() {
   const [error, setError] = useState('')
   const [orderConfirmation, setOrderConfirmation] = useState<CheckoutOrder | null>(null)
   const [showAddressForm, setShowAddressForm] = useState(false)
+  const [addressConfirmed, setAddressConfirmed] = useState(false)
   const [newAddress, setNewAddress] = useState({
     label: '',
     street: '',
@@ -137,11 +138,9 @@ function CheckoutContent() {
         const mappedAddresses = addressesRes.data.map(mapApiAddressToFrontend)
         setAddresses(mappedAddresses)
         const defaultAddr = mappedAddresses.find(a => a.isDefault)
-        if (defaultAddr) {
-          setSelectedAddressId(defaultAddr.id)
-        } else if (mappedAddresses.length > 0) {
-          setSelectedAddressId(mappedAddresses[0].id)
-        }
+        const nextSelectedId = defaultAddr ? defaultAddr.id : mappedAddresses[0]?.id || ''
+        setSelectedAddressId(nextSelectedId)
+        setAddressConfirmed(false)
       }
     } catch (err) {
       console.error('Failed to load checkout data:', err)
@@ -176,8 +175,11 @@ function CheckoutContent() {
         label: newAddress.label,
         address: newAddress.street,
         city: newAddress.city,
-        area: newAddress.region,
+        area: newAddress.region || undefined,
+        region: newAddress.region || undefined,
+        country: newAddress.country || 'Ghana',
         phone: newAddress.phone,
+        instructions: newAddress.instructions || undefined,
         latitude: newAddress.latitude ?? undefined,
         longitude: newAddress.longitude ?? undefined,
         isDefault: addresses.length === 0,
@@ -186,6 +188,7 @@ function CheckoutContent() {
         const mapped = mapApiAddressToFrontend(response.data)
         setAddresses(prev => [...prev, mapped])
         setSelectedAddressId(mapped.id)
+        setAddressConfirmed(false)
         setShowAddressForm(false)
         setNewAddress({
           label: '',
@@ -207,6 +210,10 @@ function CheckoutContent() {
   const handleGuestSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!cart || cart.items.length === 0) return
+    if (deliveryType === 'delivery' && (!guestInfo.deliveryAddress || !addressConfirmed)) {
+      setError('Please confirm the delivery address before continuing to payment.')
+      return
+    }
     if (!guestInfo.email) {
       setError('Email is required for secure Paystack payment.')
       return
@@ -258,6 +265,10 @@ function CheckoutContent() {
   const handleLoggedInSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!cart || cart.items.length === 0) return
+    if (deliveryType === 'delivery' && (!selectedAddressId || !addressConfirmed)) {
+      setError('Please confirm the delivery address before continuing to payment.')
+      return
+    }
 
     setSubmitting(true)
     setError('')
@@ -493,6 +504,11 @@ function CheckoutContent() {
   const deliveryFee = deliveryType === 'delivery' ? (subtotal > 100 ? 0 : 15) : 0
   const total = subtotal + deliveryFee
   const selectedAddress = addresses.find(a => a.id === selectedAddressId)
+  const deliverySummary = deliveryType === 'delivery'
+    ? selectedAddress
+      ? `${selectedAddress.label} • ${selectedAddress.street}, ${selectedAddress.city}${selectedAddress.region ? `, ${selectedAddress.region}` : ''}`
+      : guestInfo.deliveryAddress || 'No delivery address selected yet'
+    : 'Pickup from shop'
   const pickupMarkers = cartShopIds.map(shopId => {
     const settings = shopSettings[shopId!]
     return settings?.latitude != null && settings.longitude != null
@@ -573,19 +589,34 @@ function CheckoutContent() {
                 </h3>
                 <MapboxLocationPicker
                   value={{ address: guestInfo.deliveryAddress, latitude: guestInfo.deliveryLatitude ?? undefined, longitude: guestInfo.deliveryLongitude ?? undefined }}
-                  onChange={(result) => setGuestInfo(prev => ({ ...prev, deliveryAddress: result.address, deliveryLatitude: result.latitude, deliveryLongitude: result.longitude }))}
+                  onChange={(result) => {
+                    setGuestInfo(prev => ({ ...prev, deliveryAddress: result.address, deliveryLatitude: result.latitude, deliveryLongitude: result.longitude }))
+                    setAddressConfirmed(false)
+                  }}
                   placeholder="Search your delivery address in Ghana"
                   height="280px"
                 />
+
+                {guestInfo.deliveryAddress && (
+                  <div className="mt-4 rounded-xl border border-warm-200 bg-warm-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-warm-800/60 mb-2">Confirm delivery address</p>
+                    <p className="text-sm font-medium text-warm-900">{guestInfo.deliveryAddress}</p>
+                    <div className="mt-3 space-y-2">
+                      <p className="text-sm font-medium text-warm-900">Is this delivery address correct?</p>
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" onClick={() => setAddressConfirmed(true)}>Yes, use this address</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => {
+                          setAddressConfirmed(false)
+                          setGuestInfo(prev => ({ ...prev, deliveryAddress: '' }))
+                        }}>Edit address</Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                <Truck size={20} className="text-primary" />
-                Delivery Method
-              </h3>
-              <div className={`grid ${canDelivery && canPickup ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+            <div className={`grid ${canDelivery && canPickup ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
                 {canDelivery && (
                 <button
                   type="button"
@@ -617,7 +648,6 @@ function CheckoutContent() {
                 </button>
                 )}
               </div>
-            </div>
 
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
               <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
@@ -784,7 +814,10 @@ function CheckoutContent() {
                     <button
                       key={addr.id}
                       type="button"
-                      onClick={() => setSelectedAddressId(addr.id)}
+                      onClick={() => {
+                        setSelectedAddressId(addr.id)
+                        setAddressConfirmed(false)
+                      }}
                       className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
                         selectedAddressId === addr.id
                           ? 'border-primary bg-primary/5'
@@ -870,6 +903,7 @@ function CheckoutContent() {
                   <MapboxLocationPicker
                     value={{ address: selectedAddress.street, latitude: selectedAddress.latitude ?? undefined, longitude: selectedAddress.longitude ?? undefined }}
                     onChange={async (result) => {
+                      setAddressConfirmed(false)
                       const response = await api.patch<Address>(`/addresses/${selectedAddress.id}`, {
                         address: result.address,
                         latitude: result.latitude,
@@ -883,6 +917,23 @@ function CheckoutContent() {
                     placeholder="Search or adjust this delivery location"
                     height="240px"
                   />
+
+                  <div className="mt-4 rounded-xl border border-warm-200 bg-warm-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-warm-800/60 mb-2">Confirm delivery address</p>
+                    <p className="text-sm font-medium text-warm-900">{selectedAddress.label}</p>
+                    <p className="text-sm text-warm-800/70">{selectedAddress.street}, {selectedAddress.city}{selectedAddress.region ? `, ${selectedAddress.region}` : ''}</p>
+                    <p className="text-xs text-warm-800/60 mt-1">{selectedAddress.phone}</p>
+                    <div className="mt-3 space-y-2">
+                      <p className="text-sm font-medium text-warm-900">Is this delivery address correct?</p>
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" onClick={() => setAddressConfirmed(true)}>Yes, use this address</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => {
+                          setAddressConfirmed(false)
+                          setShowAddressForm(true)
+                        }}>Edit address</Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -954,11 +1005,12 @@ function CheckoutContent() {
             {selectedAddress && (
               <div className="mt-4 p-3 bg-warm-50 rounded-xl">
                 <p className="text-xs text-warm-800/60 mb-1">Delivering to:</p>
-                <p className="text-sm font-medium text-warm-900">
-                  {selectedAddress.label}
-                </p>
+                <p className="text-sm font-medium text-warm-900">{selectedAddress.label}</p>
                 <p className="text-xs text-warm-800/60">
-                  {selectedAddress.street}, {selectedAddress.city}
+                  {selectedAddress.street}, {selectedAddress.city}{selectedAddress.region ? `, ${selectedAddress.region}` : ''}
+                </p>
+                <p className="mt-2 text-xs font-medium text-warm-900">
+                  {addressConfirmed ? 'Confirmed: yes' : 'Confirmed: not yet'}
                 </p>
               </div>
             )}
@@ -967,7 +1019,7 @@ function CheckoutContent() {
               fullWidth
               className="mt-6"
               type="submit"
-              disabled={submitting || (deliveryType === 'delivery' && !selectedAddressId)}
+              disabled={submitting || (deliveryType === 'delivery' && (!selectedAddressId || !addressConfirmed))}
             >
               {submitting ? 'Processing...' : `Pay GH₵${total.toFixed(2)}`}
             </Button>

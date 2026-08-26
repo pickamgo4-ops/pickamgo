@@ -4,6 +4,7 @@ import { authMiddleware, requireRole } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { distanceInKm } from '../utils/geo'
+import { publicProductVisibility, publicServiceVisibility } from '../utils/visibility'
 
 const router = Router()
 
@@ -224,7 +225,7 @@ router.get('/:slug', async (req, res) => {
         select: { id: true, name: true, avatar: true, location: true },
       },
       products: {
-        where: { status: 'ACTIVE' },
+        where: publicProductVisibility,
         include: {
           category: true,
           images: { orderBy: { sortOrder: 'asc' }, take: 4 },
@@ -233,7 +234,7 @@ router.get('/:slug', async (req, res) => {
         take: 20,
       },
       services: {
-        where: { status: 'ACTIVE' },
+        where: publicServiceVisibility,
         include: {
           category: true,
           images: { orderBy: { sortOrder: 'asc' }, take: 4 },
@@ -352,7 +353,7 @@ router.get('/:id/products', async (req, res) => {
 
   const [products, total] = await Promise.all([
     prisma.product.findMany({
-      where: { shopId: req.params.id, status: 'ACTIVE' },
+      where: { ...publicProductVisibility, shopId: req.params.id },
       include: {
         category: true,
         images: { orderBy: { sortOrder: 'asc' } },
@@ -362,7 +363,7 @@ router.get('/:id/products', async (req, res) => {
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.product.count({ where: { shopId: req.params.id, status: 'ACTIVE' } }),
+    prisma.product.count({ where: { ...publicProductVisibility, shopId: req.params.id } }),
   ])
 
   return successResponse(res, {

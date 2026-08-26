@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
-import { api } from '@/lib/api'
+import { api, clearGuestSessionId, getGuestSessionId } from '@/lib/api'
 
 interface User {
   id: string
@@ -66,8 +66,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
   const mergeGuestCart = useCallback(async () => {
     if (typeof window === 'undefined') return
-    const guestSessionId = localStorage.getItem('pickamgo-guest-session-id')
-    if (!guestSessionId) return
+    const guestSessionId = getGuestSessionId()
 
     try {
       const token = localStorage.getItem('token')
@@ -75,7 +74,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
       const response = await api.post('/cart/merge', { sessionId: guestSessionId, items: [] })
       if (response.success) {
-        localStorage.removeItem('pickamgo-guest-session-id')
+        clearGuestSessionId()
         window.dispatchEvent(new Event('cart-updated'))
       }
     } catch {

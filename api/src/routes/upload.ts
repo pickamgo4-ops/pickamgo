@@ -3,7 +3,7 @@ import multer from 'multer'
 import path from 'path'
 import { authMiddleware } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse } from '../types/express'
-import { getStorageProvider } from '../services/storage'
+import { ensureUploadsDir, getPublicUrl, getStorageProvider } from '../services/storage'
 
 const router = Router()
 
@@ -29,15 +29,22 @@ const upload = multer({
   fileFilter,
 })
 
-router.post('/image', authMiddleware, upload.single('image'), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/image', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!req.file) {
-      return errorResponse(res, 'No image file provided', 400)
-    }
+    await ensureUploadsDir()
+    upload.single('image')(req as any, res as any, async (uploadError: any) => {
+      if (uploadError) {
+        console.error('Upload middleware error:', uploadError)
+        return errorResponse(res, uploadError.message || 'Image upload failed', 400)
+      }
 
-    const url = (req.file as any).r2Url || `/uploads/${req.file.filename}`
+      if (!req.file) {
+        return errorResponse(res, 'No image file provided', 400)
+      }
 
-    return successResponse(res, { url, filename: req.file.filename }, 201, 'Image uploaded successfully')
+      const url = (req.file as any).r2Url || await getPublicUrl(req.file.filename)
+      return successResponse(res, { url, filename: req.file.filename }, 201, 'Image uploaded successfully')
+    })
   } catch (err: any) {
     console.error('Upload error:', err)
     return errorResponse(res, err.message || 'Image upload failed', 500)

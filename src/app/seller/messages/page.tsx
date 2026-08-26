@@ -25,6 +25,7 @@ export default function SellerMessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [sending, setSending] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
 
   useEffect(() => {
@@ -62,21 +63,28 @@ export default function SellerMessagesPage() {
   }
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !selectedConversation) return
+    const cleanMessage = message.trim()
+    if (!cleanMessage || !selectedConversation || sending) return
+
+    setSending(true)
+    setError('')
     try {
       const otherUserId = selectedConversation.participant1.id === currentUserId
-        ? selectedConversation.participant2.id 
+        ? selectedConversation.participant2.id
         : selectedConversation.participant1.id
-      
-      const response = await api.post(`/messages/conversations/${otherUserId}/messages`, { content: message })
+
+      const response = await api.post(`/messages/conversations/${otherUserId}/messages`, { content: cleanMessage })
       if (response.success) {
         setMessage('')
         setRefreshing(true)
-        loadConversations()
-        loadConversation(otherUserId)
+        await Promise.all([loadConversations(), loadConversation(otherUserId)])
+      } else {
+        setError(response.error || "Message couldn't be sent. Please try again.")
       }
     } catch {
-      setError('Failed to send message')
+      setError("Message couldn't be sent. Please try again.")
+    } finally {
+      setSending(false)
     }
   }
 
@@ -201,10 +209,17 @@ export default function SellerMessagesPage() {
                     placeholder="Type a message..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void handleSendMessage();
+                      }
+                    }}
                     className="flex-1"
                   />
-                  <Button onClick={handleSendMessage} icon={<Send size={18} />}>Send</Button>
+                  <Button onClick={handleSendMessage} disabled={sending || !message.trim()} icon={<Send size={18} />}>
+                    {sending ? 'Sending...' : 'Send'}
+                  </Button>
                 </div>
               </Card>
             )}

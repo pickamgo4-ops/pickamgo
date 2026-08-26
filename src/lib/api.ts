@@ -15,15 +15,30 @@ export interface ApiResponse<T = any> {
   }
 }
 
-function getGuestSessionId(): string {
+export function getGuestSessionId(): string {
   if (typeof window === 'undefined') return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
   const key = 'pickamgo-guest-session-id'
-  let sessionId = localStorage.getItem(key)
+  const cookie = document.cookie.split('; ').find(value => value.startsWith(`${key}=`))
+  let sessionId = cookie ? decodeURIComponent(cookie.slice(key.length + 1)) : localStorage.getItem(key)
   if (!sessionId) {
     sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+    const rootDomain = process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'
+    const isPickAmGoHost = window.location.hostname === rootDomain || window.location.hostname.endsWith(`.${rootDomain}`)
+    document.cookie = `${key}=${encodeURIComponent(sessionId)}; Max-Age=2592000; Path=/${isPickAmGoHost ? `; Domain=.${rootDomain}` : ''}; SameSite=Lax`
+    localStorage.setItem(key, sessionId)
+  } else if (!cookie) {
     localStorage.setItem(key, sessionId)
   }
   return sessionId
+}
+
+export function clearGuestSessionId(): void {
+  if (typeof window === 'undefined') return
+  const key = 'pickamgo-guest-session-id'
+  const rootDomain = process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'
+  document.cookie = `${key}=; Max-Age=0; Path=/; Domain=.${rootDomain}`
+  document.cookie = `${key}=; Max-Age=0; Path=/`
+  localStorage.removeItem(key)
 }
 
 async function request<T>(
@@ -31,11 +46,12 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const url = `${API_URL}${endpoint}`
+  const isFormDataRequest = typeof FormData !== 'undefined' && options.body instanceof FormData
 
   const config: RequestInit = {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormDataRequest ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     },
   }
@@ -121,12 +137,17 @@ export const api = {
   post: <T>(endpoint: string, body: any) =>
     request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: body instanceof FormData ? body : JSON.stringify(body),
     }),
   patch: <T>(endpoint: string, body: any) =>
     request<T>(endpoint, {
       method: 'PATCH',
-      body: JSON.stringify(body),
+      body: body instanceof FormData ? body : JSON.stringify(body),
+    }),
+  uploadFile: <T>(endpoint: string, body: FormData) =>
+    request<T>(endpoint, {
+      method: 'POST',
+      body,
     }),
   delete: <T>(endpoint: string) =>
     request<T>(endpoint, {
@@ -194,6 +215,11 @@ export const api = {
   updateRiderStatus: (isOnline: boolean, isAvailable: boolean) =>
     api.patch('/riders/me/status', { isOnline, isAvailable }),
   guestCheckout: (data: any) => api.post<CheckoutOrder>('/checkout/guest', data),
+  uploadImage: (file: File) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    return api.uploadFile<{ url: string; filename: string }>('/upload/image', formData)
+  },
   trackOrder: (orderNumber: string) => api.get<any>(`/tracking/${orderNumber}`),
   followShop: (shopId: string) => api.post(`/follows/shops/${shopId}/follow`, {}),
   getFollowStatus: (shopId: string) => api.get<{ isFollowing: boolean }>(`/follows/shops/${shopId}/follow-status`),

@@ -69,13 +69,20 @@ app.use(cors({
     if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
       return callback(null, true)
     }
+
+    try {
+      const hostname = new URL(origin).hostname.toLowerCase()
+      if (hostname.endsWith('.pickamgo.com')) return callback(null, true)
+    } catch {
+      // Reject malformed origins below.
+    }
     
     console.warn(`CORS rejection for origin: ${origin}`)
     return callback(new Error('Origin not allowed'))
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
 }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '100kb' }))

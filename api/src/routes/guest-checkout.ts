@@ -196,6 +196,8 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
           status: 'PENDING_PAYMENT',
           deliveryAddress,
           deliveryFee: deliveryType === 'DELIVERY' ? deliveryFee : 0,
+          deliveryLatitude: deliveryLatitude ?? null,
+          deliveryLongitude: deliveryLongitude ?? null,
           deliveryStatus: 'PENDING',
           fulfillmentMethod: resolvedFulfillmentMethod,
           notes: notes || null,

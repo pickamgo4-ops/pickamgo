@@ -2,6 +2,7 @@ import { Router } from 'express'
 import prisma from '../utils/prisma'
 import { successResponse, errorResponse } from '../types/express'
 import { AuthenticatedRequest } from '../middleware/auth'
+import { publicProductVisibility } from '../utils/visibility'
 
 const router = Router()
 
@@ -37,6 +38,9 @@ router.get('/:productId/recommendations', async (req: AuthenticatedRequest, res)
     if (!currentProduct) {
       return errorResponse(res, 'Product not found', 404)
     }
+    if (currentProduct.status !== 'ACTIVE' || currentProduct.stock <= 0 || currentProduct.shop?.status !== 'ACTIVE') {
+      return errorResponse(res, 'Product not found', 404)
+    }
 
     const recommendations: any[] = []
     const seenIds = new Set<string>([productId])
@@ -53,8 +57,8 @@ router.get('/:productId/recommendations', async (req: AuthenticatedRequest, res)
 
     const sameCategoryProducts = await prisma.product.findMany({
       where: {
+        ...publicProductVisibility,
         categoryId: currentProduct.categoryId,
-        status: 'ACTIVE',
         id: { not: productId },
       },
       orderBy: [{ isTrending: 'desc' }, { rating: 'desc' }, { createdAt: 'desc' }],
@@ -66,8 +70,8 @@ router.get('/:productId/recommendations', async (req: AuthenticatedRequest, res)
     if (recommendations.length < 8 && currentProduct.shopId) {
       const sameShopProducts = await prisma.product.findMany({
         where: {
+          ...publicProductVisibility,
           shopId: currentProduct.shopId,
-          status: 'ACTIVE',
           id: { not: productId },
         },
         orderBy: [{ isTrending: 'desc' }, { rating: 'desc' }, { createdAt: 'desc' }],
@@ -98,8 +102,8 @@ router.get('/:productId/recommendations', async (req: AuthenticatedRequest, res)
       if (otherCategories.length > 0) {
         const relatedProducts = await prisma.product.findMany({
           where: {
+            ...publicProductVisibility,
             categoryId: { in: otherCategories.map(c => c.id) },
-            status: 'ACTIVE',
             id: { not: productId },
           },
           orderBy: [{ isTrending: 'desc' }, { rating: 'desc' }, { createdAt: 'desc' }],
@@ -113,7 +117,7 @@ router.get('/:productId/recommendations', async (req: AuthenticatedRequest, res)
     if (recommendations.length < 8) {
       const popularProducts = await prisma.product.findMany({
         where: {
-          status: 'ACTIVE',
+          ...publicProductVisibility,
           id: { not: productId },
         },
         orderBy: [{ isTrending: 'desc' }, { rating: 'desc' }, { createdAt: 'desc' }],

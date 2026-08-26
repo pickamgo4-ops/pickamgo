@@ -22,8 +22,22 @@ export default function ConversationPage() {
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const [currentUserId, setCurrentUserId] = useState('')
   const [conversationUser, setConversationUser] = useState<{ name: string; avatar: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const getCurrentUserId = () => {
+    if (typeof window === 'undefined') return currentUserId
+    const storedUser = localStorage.getItem('user')
+    if (!storedUser) return currentUserId
+    try {
+      const parsed = JSON.parse(storedUser)
+      return parsed?.id || currentUserId
+    } catch {
+      return currentUserId
+    }
+  }
 
   const mapMessages = (items: any[]): Message[] => items.map((msg: any) => ({
     id: msg.id,
@@ -43,6 +57,8 @@ export default function ConversationPage() {
   }
 
   useEffect(() => {
+    const storedUserId = getCurrentUserId()
+    if (storedUserId) setCurrentUserId(storedUserId)
     if (userId) {
       loadConversation()
     }
@@ -66,6 +82,7 @@ export default function ConversationPage() {
 
   const loadConversation = async () => {
     setLoading(true)
+    setError('')
     try {
       const response = await api.get<any>(`/messages/conversations/${userId}${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`)
       if (response.success && response.data) {
@@ -84,9 +101,12 @@ export default function ConversationPage() {
             avatar: participant.avatar || '',
           })
         }
+        const nextUserId = getCurrentUserId()
+        if (nextUserId) setCurrentUserId(nextUserId)
       }
     } catch (err) {
       console.error('Failed to load conversation:', err)
+      setError('Failed to load messages. Please refresh and try again.')
     } finally {
       setLoading(false)
     }
@@ -104,18 +124,24 @@ export default function ConversationPage() {
     }
   }
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newMessage.trim() || sending) return
+  const handleSend = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    const cleanMessage = newMessage.trim()
+    if (!cleanMessage || sending) return
+
+    const currentUser = getCurrentUserId()
+    if (currentUser) setCurrentUserId(currentUser)
 
     setSending(true)
+    setError('')
     const tempMessage: Message = {
       id: `temp-${Date.now()}`,
-      senderId: 'me',
+      senderId: currentUser || 'me',
       receiverId: userId,
-      content: newMessage.trim(),
+      content: cleanMessage,
       read: false,
       createdAt: new Date().toISOString(),
+      status: 'sending',
     }
 
     setMessages(prev => [...prev, tempMessage])
@@ -128,20 +154,24 @@ export default function ConversationPage() {
       })
 
       if (response.success && response.data) {
+        const savedMessage = mapMessages([response.data])[0]
         setMessages(prev => prev.map(msg =>
-          msg.id === tempMessage.id ? { ...(response.data as any), read: false } : msg
+          msg.id === tempMessage.id ? { ...savedMessage, read: false } : msg
         ))
       } else {
         setMessages(prev => prev.map(msg =>
           msg.id === tempMessage.id ? { ...msg, status: 'failed' } : msg
         ))
         setNewMessage(tempMessage.content)
+        setError(response.error || "Message couldn't be sent. Please try again.")
       }
     } catch (err) {
+      console.error('Failed to send message:', err)
       setMessages(prev => prev.map(msg =>
         msg.id === tempMessage.id ? { ...msg, status: 'failed' } : msg
       ))
       setNewMessage(tempMessage.content)
+      setError("Message couldn't be sent. Please try again.")
     } finally {
       setSending(false)
     }
@@ -202,6 +232,12 @@ export default function ConversationPage() {
       {/* Messages */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
@@ -225,7 +261,7 @@ export default function ConversationPage() {
                     </span>
                   </div>
                   {msgs.map((message) => {
-                    const isMe = message.senderId === 'me' || message.senderId !== userId
+                    const isMe = message.senderId === currentUserId || message.senderId === 'me'
                     return (
                       <div
                         key={message.id}
@@ -270,6 +306,12 @@ export default function ConversationPage() {
               placeholder="Type a message..."
               value={newMessage}
               onValueChange={setNewMessage}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  void handleSend();
+                }
+              }}
               className="flex-1"
             />
             <Button
@@ -278,7 +320,7 @@ export default function ConversationPage() {
               disabled={!newMessage.trim() || sending}
               icon={<Send size={18} />}
             >
-              Send
+              {sending ? 'Sending...' : 'Send'}
             </Button>
           </form>
         </div>

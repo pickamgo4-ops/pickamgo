@@ -56,9 +56,12 @@ export default function AddressesPage() {
         label: formData.label,
         address: formData.street,
         city: formData.city,
-        area: formData.city,
-        campus: formData.city,
-        isDefault: addresses.length === 0 ? true : formData.isDefault,
+        area: formData.region || formData.city,
+        region: formData.region,
+        country: formData.country || 'Ghana',
+        phone: formData.phone,
+        instructions: formData.instructions || undefined,
+        isDefault: addresses.length === 0 || formData.isDefault,
       }
 
       const response = await method<Address>(endpoint, payload)

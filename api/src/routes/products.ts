@@ -4,6 +4,7 @@ import prisma from '../utils/prisma'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody, validateQuery } from '../types/express'
 import { distanceInKm } from '../utils/geo'
+import { publicProductVisibility } from '../utils/visibility'
 
 const router = Router()
 const imageUrl = z.string().refine(value => value.startsWith('/') || /^https?:\/\//.test(value), 'Invalid image URL')
@@ -82,7 +83,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
       radius,
     } = req.query as z.infer<typeof listProductsQuerySchema>
 
-    const where: any = { status: 'ACTIVE', stock: { gt: 0 } }
+    const where: any = { ...publicProductVisibility }
 
     const shopStatusOk = await prisma.shop.count({ where: { status: 'ACTIVE' } })
     if (shopStatusOk === 0) {
@@ -216,7 +217,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
       return errorResponse(res, 'Product not found', 404)
     }
 
-    if (product.status !== 'ACTIVE') return errorResponse(res, 'Product not found', 404)
+    if (product.status !== 'ACTIVE' || product.stock <= 0 || product.shop?.status !== 'ACTIVE') {
+      return errorResponse(res, 'Product not found', 404)
+    }
 
     return successResponse(res, product)
   } catch (error) {
