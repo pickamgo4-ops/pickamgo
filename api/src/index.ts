@@ -40,13 +40,14 @@ const app = express()
 
 app.set('trust proxy', 1)
 app.use(helmet())
+const marketplaceDomain = process.env.MARKETPLACE_DOMAIN || 'pickamgo.com'
 const allowedOrigins = Array.from(new Set([
   ...(process.env.FRONTEND_URL || 'http://localhost:3000')
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean),
-  'https://pickamgo.com',
-  'https://www.pickamgo.com',
+  `https://${marketplaceDomain}`,
+  `https://www.${marketplaceDomain}`,
   'https://pickamgo.pickamgo4.workers.dev',
 ]))
 
@@ -72,7 +73,7 @@ app.use(cors({
 
     try {
       const hostname = new URL(origin).hostname.toLowerCase()
-      if (hostname.endsWith('.pickamgo.com')) return callback(null, true)
+      if (hostname.endsWith(`.${marketplaceDomain}`)) return callback(null, true)
     } catch {
       // Reject malformed origins below.
     }

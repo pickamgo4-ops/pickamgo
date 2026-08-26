@@ -5,6 +5,9 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "vars": {
+    "NEXT_PUBLIC_MARKETPLACE_DOMAIN": "pickamgo.com"
+  },
   "compatibility_flags": ["nodejs_compat"],
   "compatibility_date": "2025-01-01",
   "routes": [

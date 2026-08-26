@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { api } from '@/lib/api'
+import { getShopUrl } from '@/lib/shop-url'
 
 export default function SellerShopPage() {
   const router = useRouter()
@@ -60,9 +61,7 @@ export default function SellerShopPage() {
   }
 
   const s = shop.shop
-  const shopUrl = typeof window !== 'undefined'
-    ? `${window.location.protocol}//${s.slug}.${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`
-    : `https://${s.slug}.pickamgo.com`
+  const shopUrl = getShopUrl(s.slug)
 
   const copyShopUrl = async () => {
     await navigator.clipboard.writeText(shopUrl)

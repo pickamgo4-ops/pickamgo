@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { api } from '@/lib/api'
+import { getShopUrl } from '@/lib/shop-url'
 import MapboxLocationPicker from '@/components/map/MapboxLocationPicker'
 
 export default function ShopSettingsPage() {
@@ -180,9 +181,7 @@ export default function ShopSettingsPage() {
           <Card className="p-4 mb-6">
             <p className="text-xs text-warm-800/60 mb-1">Your public shop URL</p>
             <p className="text-sm font-medium text-warm-900 break-all">
-              {typeof window !== 'undefined'
-                ? `${window.location.protocol}//${shop.slug}.${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`
-                : `https://${shop.slug}.pickamgo.com`}
+              {getShopUrl(shop.slug)}
             </p>
             <div className="flex gap-2 mt-3">
               <Button
@@ -190,9 +189,7 @@ export default function ShopSettingsPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const url = typeof window !== 'undefined'
-                    ? `${window.location.protocol}//${shop.slug}.${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`
-                    : `https://${shop.slug}.pickamgo.com`
+                  const url = getShopUrl(shop.slug)
                   navigator.clipboard.writeText(url)
                 }}
                 icon={<Copy size={15} />}
@@ -204,9 +201,7 @@ export default function ShopSettingsPage() {
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  const url = typeof window !== 'undefined'
-                    ? `${window.location.protocol}//${shop.slug}.${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`
-                    : `https://${shop.slug}.pickamgo.com`
+                  const url = getShopUrl(shop.slug)
                   window.open(url, '_blank', 'noopener,noreferrer')
                 }}
                 icon={<ExternalLink size={15} />}

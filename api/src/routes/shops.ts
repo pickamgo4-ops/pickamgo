@@ -10,6 +10,7 @@ const router = Router()
 
 const themes = ['CLEAN', 'MIDNIGHT', 'SOFT', 'LUXURY', 'FRESH', 'CAMPUS', 'STREET', 'BEAUTY'] as const
 const layouts = ['CLASSIC', 'GRID', 'FEATURED', 'BEAUTY', 'CAMPUS'] as const
+const reservedShopSlugs = new Set(['www', 'api', 'admin', 'app', 'mail', 'support', 'help', 'dashboard', 'checkout', 'login', 'signup'])
 const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Colors must be six-digit hex values')
 const customizationFields = {
   theme: z.enum(themes).default('CLEAN'),
@@ -285,22 +286,25 @@ router.post('/', authMiddleware, requireRole(['SELLER']), validateBody(createSho
   const { name, description, logo, banner, location, area, campus, latitude, longitude, openingHours, category } = req.body
 
   const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
+  if (reservedShopSlugs.has(baseSlug)) {
+    return errorResponse(res, 'That shop name is reserved. Please choose another name.', 409)
+  }
+  const existingSlug = await prisma.shop.findUnique({ where: { slug: baseSlug }, select: { id: true } })
+  if (existingSlug) {
+    return errorResponse(res, 'That shop name is already taken. Please choose another name.', 409)
+  }
   const shopData = { name, description, logo, banner, location, area, campus, latitude, longitude, openingHours, ownerId: req.user!.id }
 
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`
-    try {
-      const shop = await prisma.shop.create({
-        data: { ...shopData, slug },
-        include: { owner: { select: { id: true, name: true, avatar: true } } },
-      })
-      return successResponse(res, shop, 201, 'Shop created successfully')
-    } catch (error: any) {
-      if (error?.code !== 'P2002') throw error
-    }
+  try {
+    const shop = await prisma.shop.create({
+      data: { ...shopData, slug: baseSlug },
+      include: { owner: { select: { id: true, name: true, avatar: true } } },
+    })
+    return successResponse(res, shop, 201, 'Shop created successfully')
+  } catch (error: any) {
+    if (error?.code === 'P2002') return errorResponse(res, 'That shop name is already taken. Please choose another name.', 409)
+    throw error
   }
-
-  return errorResponse(res, 'Unable to generate a unique shop URL', 409)
 })
 
 const updateShopSchema = z.object({

@@ -6,6 +6,7 @@ import { SellerSidebar } from '@/components/SellerSidebar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
+import { getShopUrl } from '@/lib/shop-url'
 import { defaultShopCustomization, ShopCustomization, ShopLayout, themePresets } from '@/lib/shop-themes'
 
 const layouts: Array<{ id: ShopLayout; name: string; description: string }> = [
@@ -74,7 +75,7 @@ export default function SellerCustomizeShopPage() {
   if (!shop) return <SellerSidebar><Card className="p-8 text-center">Loading customization...</Card></SellerSidebar>
 
   return <SellerSidebar><div className="space-y-6">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="font-display text-3xl font-bold text-warm-900">Customize Shop</h1><p className="text-warm-800/60 mt-1">Build a storefront that feels like your business.</p></div><div className="flex gap-2"><Button variant="ghost" onClick={reset} icon={<RotateCcw size={16} />}>Reset</Button><Button variant="outline" onClick={() => window.open(`/shop/${shop.slug}`, '_blank')} icon={<ExternalLink size={16} />}>Open live shop</Button><Button onClick={save} icon={<Save size={16} />}>Save</Button></div></div>
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="font-display text-3xl font-bold text-warm-900">Customize Shop</h1><p className="text-warm-800/60 mt-1">Build a storefront that feels like your business.</p></div><div className="flex gap-2"><Button variant="ghost" onClick={reset} icon={<RotateCcw size={16} />}>Reset</Button><Button variant="outline" onClick={() => window.open(getShopUrl(shop.slug), '_blank')} icon={<ExternalLink size={16} />}>Open live shop</Button><Button onClick={save} icon={<Save size={16} />}>Save</Button></div></div>
     {status && <p className="text-sm font-medium text-primary">{status}</p>}
     <div className="grid xl:grid-cols-[minmax(0,1fr)_420px] gap-6 items-start"><div className="space-y-6">
       <Card className="p-5"><div className="flex items-center gap-2 mb-4"><Palette size={18} className="text-primary" /><h2 className="font-semibold text-warm-900">Theme</h2></div><div className="grid sm:grid-cols-2 gap-3">{themePresets.map(theme => <button key={theme.id} onClick={() => update({ theme: theme.id, primaryColor: theme.colors[0], secondaryColor: theme.colors[1], accentColor: theme.colors[2] })} className={`text-left p-4 rounded-xl border-2 ${customization.theme === theme.id ? 'border-primary bg-primary/5' : 'border-warm-200'}`}><div className="flex gap-2 mb-3">{theme.colors.map(color => <span key={color} className="w-7 h-7 rounded-full border border-black/10" style={{ backgroundColor: color }} />)}</div><p className="font-semibold text-warm-900">{theme.name}</p><p className="text-xs text-warm-800/60 mt-1">{theme.description}</p></button>)}</div></Card>

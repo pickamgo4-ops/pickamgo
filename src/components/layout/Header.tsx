@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, MapPin, Bell, User, Plus, Menu, ShoppingCart, Store, Bike, PackageSearch, Moon, SunMedium } from 'lucide-react'
+import { Search, MapPin, Bell, User, ShoppingCart, Store, Bike, PackageSearch, Moon, SunMedium } from 'lucide-react'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { api } from '../../lib/api'

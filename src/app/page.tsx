@@ -10,6 +10,7 @@ import { BeautyCard } from '../components/beauty/BeautyCard'
 import { SectionHeader } from '../components/ui/SectionHeader'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
+import { getShopUrl } from '../lib/shop-url'
 import { Product, BeautyService, Shop, Category } from '../types'
 import { mapApiProductToFrontend, mapApiServiceToFrontend, mapApiShopToFrontend, mapApiCategoryToFrontend } from '../lib/api-mappers'
 import { useRouter } from 'next/navigation'
@@ -362,7 +363,7 @@ export default function HomePage() {
                     <div
                       key={shop.id}
                       className="bg-white rounded-2xl overflow-hidden border border-warm-200/50 hover:shadow-lg transition-all duration-300 cursor-pointer"
-                      onClick={() => router.push(`/shop/${shop.slug}`)}
+                      onClick={() => window.location.assign(getShopUrl(shop.slug))}
                     >
                       <div className="h-24 bg-gradient-to-r from-primary/20 to-secondary/20 relative">
                         {shop.banner && (

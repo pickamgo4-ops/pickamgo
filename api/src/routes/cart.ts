@@ -166,7 +166,7 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         where: { id: productId },
         include: {
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-          shop: { select: { id: true, name: true } },
+          shop: { select: { id: true, name: true, status: true } },
         },
       })
       if (!product || product.status !== 'ACTIVE' || product.stock <= 0 || product.shop?.status !== 'ACTIVE') {
@@ -195,7 +195,7 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         where: { id: serviceId },
         include: {
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-          shop: { select: { id: true, name: true } },
+          shop: { select: { id: true, name: true, status: true } },
         },
       })
       if (!service || service.status !== 'ACTIVE' || service.shop?.status !== 'ACTIVE') {

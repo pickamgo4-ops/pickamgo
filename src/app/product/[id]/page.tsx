@@ -8,6 +8,7 @@ import { Button } from '../../../components/ui/Button'
 import { api } from '../../../lib/api'
 import { Product, CartItemWithRelations } from '../../../types'
 import { mapApiProductToFrontend } from '../../../lib/api-mappers'
+import { getShopUrl } from '../../../lib/shop-url'
 import { ProductCard } from '../../../components/product/ProductCard'
 import { PaymentSafetyNotice } from '../../../components/ui/PaymentSafetyNotice'
 
@@ -231,7 +232,7 @@ export default function ProductPage() {
               <h3 className="font-semibold text-warm-900">{product.seller.name}</h3>
               {product.shop && (
                 <button
-                  onClick={() => router.push(`/shop/${product.shop!.slug}`)}
+                  onClick={() => window.location.assign(getShopUrl(product.shop!.slug))}
                   className="text-sm text-primary hover:underline flex items-center gap-1 mt-0.5"
                 >
                   <Store size={14} />
@@ -246,7 +247,7 @@ export default function ProductPage() {
                   variant="outline"
                   size="sm"
                   icon={<Store size={16} />}
-                  onClick={() => router.push(`/shop/${product.shop!.slug}`)}
+                  onClick={() => window.location.assign(getShopUrl(product.shop!.slug))}
                 >
                   Visit Shop
                 </Button>
