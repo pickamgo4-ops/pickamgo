@@ -2,6 +2,7 @@
 
 import React, { Suspense, useState, useEffect, useRef } from 'react'
 import { Search, SlidersHorizontal, MapPin, X } from 'lucide-react'
+import * as LucideIcons from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
 import { ProductCard } from '../../components/product/ProductCard'
@@ -28,6 +29,14 @@ function DiscoverContent() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  const renderCategoryIcon = (iconName: string) => {
+    const IconComponent = (LucideIcons as any)[iconName]
+    if (IconComponent) {
+      return <IconComponent size={18} />
+    }
+    return <LucideIcons.PackageOpen size={18} />
+  }
   const generationRef = useRef(0)
 
   const sortOptions = [
@@ -253,7 +262,9 @@ function DiscoverContent() {
                     : 'bg-white border border-warm-200 text-warm-900 hover:border-primary/30'
                 }`}
               >
-                {category.emoji} {category.name}
+                <span className="inline-flex items-center gap-1.5">
+                  {renderCategoryIcon(category.icon)} {category.name}
+                </span>
               </button>
             ))}
           </div>

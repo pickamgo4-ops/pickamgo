@@ -68,6 +68,29 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
   }
 }
 
+export async function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
+  const authHeader = (req as any).headers?.authorization as string | undefined
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    next()
+    return
+  }
+
+  const token = authHeader.split(' ')[1]
+  try {
+    const payload = verifyToken(token)
+    const user = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true },
+    })
+    if (user) {
+      req.user = user
+    }
+  } catch {
+    // ignore invalid token for optional auth
+  }
+  next()
+}
+
 export function requireRole(allowedRoles: string[]) {
   return (req: AuthenticatedRequest, res: Response, next: Function) => {
     if (!req.user) {

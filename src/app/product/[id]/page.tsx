@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Heart, Share2, MapPin, Star, Truck, ChevronLeft, Store, Clock, MessageCircle, Minus, Plus, ShoppingCart } from 'lucide-react'
+import { Heart, Share2, MapPin, Star, Truck, ChevronLeft, Store, Clock, MessageCircle, Minus, Plus, ShoppingCart, Flame, Sparkles, Tag, CheckCircle2 } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
 import { api } from '../../../lib/api'
@@ -63,11 +63,6 @@ export default function ProductPage() {
     if (!product) return false
     setAddingToCart(true)
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      if (!token) {
-        if (!buyNow) router.push('/auth/login')
-        return false
-      }
       const response = await api.post<CartItemWithRelations>('/cart/items', {
         productId: product.id,
         quantity,
@@ -85,7 +80,7 @@ export default function ProductPage() {
     } finally {
       setAddingToCart(false)
     }
-  }, [product, quantity, router])
+  }, [product, quantity])
 
   const handleBuyNow = async () => {
     const success = await addToCart(true)
@@ -171,10 +166,10 @@ export default function ProductPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Category & Badges */}
         <div className="flex flex-wrap gap-2 mb-3">
-          {product.isTrending && <Badge variant="trending">🔥 Trending</Badge>}
-          {product.isNew && <Badge variant="new">🆕 New</Badge>}
-          {product.isDeal && <Badge variant="deal">💸 Deal</Badge>}
-          {product.isVerified && <Badge variant="verified">✅ Verified</Badge>}
+          {product.isTrending && <Badge variant="trending"><Flame size={12} /> Trending</Badge>}
+          {product.isNew && <Badge variant="new"><Sparkles size={12} /> New</Badge>}
+          {product.isDeal && <Badge variant="deal"><Tag size={12} /> Deal</Badge>}
+          {product.isVerified && <Badge variant="verified"><CheckCircle2 size={12} /> Verified</Badge>}
         </div>
 
         {/* Name */}

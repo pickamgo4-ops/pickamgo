@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Heart, Share2, MapPin, Star, Clock, Store, Shield, ChevronLeft, MessageCircle, Plus, Check } from 'lucide-react'
+import { Heart, Share2, MapPin, Star, Clock, Store, Shield, ChevronLeft, MessageCircle, Plus, Check, CheckCircle2 } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
 import { ProductCard } from '../../../components/product/ProductCard'
@@ -153,7 +153,7 @@ export default function ShopPage() {
             <div className="flex-1 min-w-0 pt-1 sm:pt-2">
               <div className="flex items-start gap-2 mb-1">
                 <h1 className="font-display text-lg sm:text-xl font-bold break-words" style={{ color: surfaceTextColor }}>{shop.name}</h1>
-                {shop.isVerified && <span className="text-lg">✅</span>}
+                 {shop.isVerified && <CheckCircle2 size={18} className="text-emerald-500" />}
               </div>
               <div className="flex items-center gap-1 text-sm opacity-70">
                 <MapPin size={14} />

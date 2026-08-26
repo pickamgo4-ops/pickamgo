@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { api } from '@/lib/api'
 
 interface User {
   id: string
@@ -63,6 +64,25 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  const mergeGuestCart = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    const guestSessionId = localStorage.getItem('pickamgo-guest-session-id')
+    if (!guestSessionId) return
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await api.post('/cart/merge', { sessionId: guestSessionId, items: [] })
+      if (response.success) {
+        localStorage.removeItem('pickamgo-guest-session-id')
+        window.dispatchEvent(new Event('cart-updated'))
+      }
+    } catch {
+      // ignore merge errors
+    }
+  }, [])
+
   const clearAuth = useCallback(() => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token')
@@ -109,6 +129,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
               isRider: u.isRider || false,
               isAdmin: u.isAdmin || false,
             })
+            await mergeGuestCart()
           } else {
             console.warn('Auth server returned an unexpected session response. Keeping current session.')
           }
@@ -130,7 +151,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     })()
 
     return refreshUserRef.current
-  }, [clearAuth])
+  }, [clearAuth, mergeGuestCart])
 
   useEffect(() => {
     cleanOldAuthKeys()

@@ -356,6 +356,7 @@ function CheckoutContent() {
         localStorage.setItem('token', response.data.token)
         localStorage.setItem('user', JSON.stringify(normalizedUser))
         setUser(normalizedUser)
+        window.dispatchEvent(new Event('auth-changed'))
         router.push('/')
       } else {
         setSignupError(response.error || response.message || 'Registration failed')

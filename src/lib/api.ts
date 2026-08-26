@@ -1,4 +1,4 @@
-import { Cart, Address, Order, RiderDelivery, RiderProfile, SellerVerification, CheckoutOrder, PayoutMethod, Payout, PayoutBalances, DeliverySettings } from '../types'
+import { Cart, CartItemWithRelations, Address, Order, RiderDelivery, RiderProfile, SellerVerification, CheckoutOrder, PayoutMethod, Payout, PayoutBalances, DeliverySettings } from '../types'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
@@ -13,6 +13,17 @@ export interface ApiResponse<T = any> {
     total: number
     totalPages: number
   }
+}
+
+function getGuestSessionId(): string {
+  if (typeof window === 'undefined') return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+  const key = 'pickamgo-guest-session-id'
+  let sessionId = localStorage.getItem(key)
+  if (!sessionId) {
+    sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+    localStorage.setItem(key, sessionId)
+  }
+  return sessionId
 }
 
 async function request<T>(
@@ -34,6 +45,14 @@ async function request<T>(
     config.headers = {
       ...config.headers,
       Authorization: `Bearer ${token}`,
+    }
+  }
+
+  if (!token && (endpoint.startsWith('/cart') || endpoint.startsWith('/checkout/guest'))) {
+    const guestSessionId = getGuestSessionId()
+    config.headers = {
+      ...config.headers,
+      'x-session-id': guestSessionId,
     }
   }
 
@@ -114,6 +133,14 @@ export const api = {
       method: 'DELETE',
     }),
   getCart: () => api.get<Cart>('/cart'),
+  addToCart: (item: { productId?: string; serviceId?: string; variantId?: string; quantity?: number }) =>
+    api.post<CartItemWithRelations>('/cart/items', item),
+  updateCartItem: (itemId: string, quantity: number) =>
+    api.patch<CartItemWithRelations>(`/cart/items/${itemId}`, { quantity }),
+  removeCartItem: (itemId: string) => api.delete(`/cart/items/${itemId}`),
+  clearCart: () => api.delete('/cart'),
+  mergeGuestCart: (sessionId: string, items: any[]) =>
+    api.post<Cart>('/cart/merge', { sessionId, items }),
   getAddresses: () => api.get<Address[]>('/addresses'),
   getOrders: (params?: { status?: string; page?: number; limit?: number }) => {
     const query = params
@@ -140,7 +167,7 @@ export const api = {
       ? '?' + new URLSearchParams(
           Object.fromEntries(
             Object.entries(params).filter(([, v]) => v !== undefined)
-          ) as Record<string, string>
+          ) as unknown as Record<string, string>
         ).toString()
       : ''
     return api.get<{ services: any[] }>(`/services${query}`)
@@ -150,7 +177,7 @@ export const api = {
       ? '?' + new URLSearchParams(
           Object.fromEntries(
             Object.entries(params).filter(([, v]) => v !== undefined)
-          ) as Record<string, string>
+          ) as unknown as Record<string, string>
         ).toString()
       : ''
     return api.get<{ shops: any[] }>(`/shops${query}`)

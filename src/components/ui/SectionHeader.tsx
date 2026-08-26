@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 interface SectionHeaderProps {
   title: string
-  emoji?: string
+  emoji?: React.ReactNode
   subtitle?: string
   link?: string
   linkText?: string
@@ -23,7 +23,7 @@ export function SectionHeader({
     <div className={`flex items-center justify-between mb-4 ${className}`}>
       <div>
         <h2 className="font-display text-xl md:text-2xl font-bold text-warm-900 flex items-center gap-2">
-          {emoji && <span>{emoji}</span>}
+          {emoji && <span className="flex items-center">{emoji}</span>}
           {title}
         </h2>
         {subtitle && (

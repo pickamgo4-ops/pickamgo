@@ -1,5 +1,5 @@
 import React from 'react'
-import { Heart, MapPin, Star, Clock } from 'lucide-react'
+import { Heart, MapPin, Star, Clock, Flame, Sparkles, Tag, CheckCircle2 } from 'lucide-react'
 import { Product } from '../../types'
 import { Badge } from '../../components/ui/Badge'
 
@@ -27,13 +27,13 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
         {/* Badges */}
         <div className="absolute top-2 left-2 flex flex-wrap gap-1">
           {product.isTrending && (
-            <Badge variant="trending">🔥 Trending</Badge>
+            <Badge variant="trending"><Flame size={12} /> Trending</Badge>
           )}
           {product.isNew && (
-            <Badge variant="new">🆕 New</Badge>
+            <Badge variant="new"><Sparkles size={12} /> New</Badge>
           )}
           {product.isDeal && (
-            <Badge variant="deal">💸 Deal</Badge>
+            <Badge variant="deal"><Tag size={12} /> Deal</Badge>
           )}
         </div>
 
@@ -77,7 +77,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
             {product.seller.name}
           </span>
           {product.isVerified && (
-            <span className="text-xs flex-shrink-0">✅</span>
+            <CheckCircle2 size={14} className="text-emerald-500 flex-shrink-0" />
           )}
         </div>
 

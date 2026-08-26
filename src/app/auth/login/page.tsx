@@ -51,6 +51,7 @@ export default function LoginPage() {
         localStorage.setItem('token', response.data.token)
         localStorage.setItem('user', JSON.stringify(normalizedUser))
         setUser(normalizedUser)
+        window.dispatchEvent(new Event('auth-changed'))
         router.push(u.isAdmin ? '/admin' : u.isRider ? '/rider' : u.isSeller ? '/seller' : '/')
       } else {
         setError(response.error || response.message || 'Login failed')

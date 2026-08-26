@@ -1,5 +1,5 @@
 import React from 'react'
-import { Heart, MapPin, Star, Clock, Calendar } from 'lucide-react'
+import { Heart, MapPin, Star, Clock, Calendar, Flame, CheckCircle2, Sparkles } from 'lucide-react'
 import { BeautyService } from '../../types'
 import { Badge } from '../../components/ui/Badge'
 
@@ -29,9 +29,9 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-wrap gap-1">
           {service.isTrending && (
-            <Badge variant="trending">🔥 Trending</Badge>
+            <Badge variant="trending"><Flame size={12} /> Trending</Badge>
           )}
-          <Badge variant="verified">✅ Verified</Badge>
+          <Badge variant="verified"><CheckCircle2 size={12} /> Verified</Badge>
         </div>
 
         {/* Favorite Button */}
@@ -51,9 +51,9 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
         {/* Bottom Info */}
         <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
           <div className="flex items-center gap-2 mb-1">
-            <Badge variant="default" className="bg-white/20 text-white border-0">
-              💅🏽 {service.subcategory}
-            </Badge>
+          <Badge variant="default" className="bg-white/20 text-white border-0">
+            <Sparkles size={12} /> {service.subcategory}
+          </Badge>
           </div>
           <h3 className="font-bold text-lg leading-tight mb-1">
             {service.name}

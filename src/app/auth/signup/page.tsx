@@ -55,6 +55,7 @@ export default function SignupPage() {
         localStorage.setItem('token', response.data.token)
         localStorage.setItem('user', JSON.stringify(normalizedUser))
         setUser(normalizedUser)
+        window.dispatchEvent(new Event('auth-changed'))
         router.push(normalizedRole === 'seller' ? '/seller' : normalizedRole === 'rider' ? '/rider' : '/')
       } else {
         setError(response.error || response.message || 'Registration failed')

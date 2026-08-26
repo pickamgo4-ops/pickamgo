@@ -46,7 +46,6 @@ export function BottomNav() {
   }, [authInitialized, loading, pathname])
 
   const currentNavItems = navItems.filter((item) => {
-    if (item.href === '/cart') return false
     if (!user && item.href === '/favorites') return false
     return true
   })

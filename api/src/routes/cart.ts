@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma'
-import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
+import { optionalAuthMiddleware, authMiddleware, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 
@@ -21,11 +21,22 @@ function generateSessionId(): string {
   return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
 }
 
-router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
-  try {
-    const userId = req.user!.id
+function getSessionId(req: any): string {
+  const headerSessionId = req.headers?.['x-session-id'] as string | undefined
+  if (headerSessionId && headerSessionId.trim()) {
+    return headerSessionId.trim()
+  }
+  return generateSessionId()
+}
 
-    let cart = await prisma.cart.findUnique({
+async function getCartForRequest(req: AuthenticatedRequest, res: any, createIfMissing = true) {
+  const userId = req.user?.id
+  const sessionId = req.user ? null : getSessionId(req)
+
+  let cart = null
+
+  if (userId) {
+    cart = await prisma.cart.findUnique({
       where: { userId },
       include: {
         items: {
@@ -48,7 +59,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
       },
     })
 
-    if (!cart) {
+    if (!cart && createIfMissing) {
       cart = await prisma.cart.create({
         data: { userId },
         include: {
@@ -71,17 +82,75 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
         },
       })
     }
+  } else if (sessionId) {
+    cart = await prisma.cart.findUnique({
+      where: { sessionId },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+                shop: { select: { id: true, name: true, logo: true } },
+              },
+            },
+            service: {
+              include: {
+                images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+                shop: { select: { id: true, name: true, logo: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    })
 
+    if (!cart && createIfMissing) {
+      cart = await prisma.cart.create({
+        data: { sessionId },
+        include: {
+          items: {
+            include: {
+              product: {
+                include: {
+                  images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+                  shop: { select: { id: true, name: true, logo: true } },
+                },
+              },
+              service: {
+                include: {
+                  images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+                  shop: { select: { id: true, name: true, logo: true } },
+                },
+              },
+            },
+          },
+        },
+      })
+    }
+  }
+
+  return cart
+}
+
+router.get('/', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
+  try {
+    const cart = await getCartForRequest(req, res)
+    if (!cart) {
+      return successResponse(res, { id: '', userId: null, sessionId: null, items: [] })
+    }
     return successResponse(res, cart)
   } catch (error) {
     return errorResponse(res, 'Failed to fetch cart', 500)
   }
 })
 
-router.post('/items', authMiddleware, validateBody(createCartItemSchema), async (req: AuthenticatedRequest, res) => {
+router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema), async (req: AuthenticatedRequest, res) => {
   try {
     const { productId, serviceId, variantId, quantity } = req.body
-    const userId = req.user!.id
+    const userId = req.user?.id
+    const sessionId = req.user ? undefined : getSessionId(req)
 
     if ((!productId && !serviceId) || (productId && serviceId)) {
       return errorResponse(res, 'Must specify exactly one of productId or serviceId', 400)
@@ -137,9 +206,32 @@ router.post('/items', authMiddleware, validateBody(createCartItemSchema), async 
       shopId = service.shopId
     }
 
-    let cart = await prisma.cart.findUnique({ where: { userId } })
+    let cart = userId
+      ? await prisma.cart.findUnique({ where: { userId } })
+      : await prisma.cart.findUnique({ where: { sessionId } })
+
     if (!cart) {
-      cart = await prisma.cart.create({ data: { userId } })
+      cart = await prisma.cart.create({
+        data: userId ? { userId } : { sessionId },
+        include: {
+          items: {
+            include: {
+              product: {
+                include: {
+                  images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+                  shop: { select: { id: true, name: true, logo: true } },
+                },
+              },
+              service: {
+                include: {
+                  images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+                  shop: { select: { id: true, name: true, logo: true } },
+                },
+              },
+            },
+          },
+        },
+      })
     }
 
     const existingItem = await prisma.cartItem.findFirst({
@@ -207,14 +299,14 @@ router.post('/items', authMiddleware, validateBody(createCartItemSchema), async 
   }
 })
 
-router.patch('/items/:id', authMiddleware, validateBody(updateCartItemSchema), async (req: AuthenticatedRequest, res) => {
+router.patch('/items/:id', optionalAuthMiddleware, validateBody(updateCartItemSchema), async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params
     const { quantity } = req.body
-    const userId = req.user!.id
-
-    const cart = await prisma.cart.findUnique({ where: { userId } })
-    if (!cart) return errorResponse(res, 'Cart not found', 404)
+    const cart = await getCartForRequest(req, res, false)
+    if (!cart) {
+      return errorResponse(res, 'Cart not found', 404)
+    }
 
     const item = await prisma.cartItem.findFirst({ where: { id, cartId: cart.id } })
     if (!item) return errorResponse(res, 'Cart item not found', 404)
@@ -244,13 +336,13 @@ router.patch('/items/:id', authMiddleware, validateBody(updateCartItemSchema), a
   }
 })
 
-router.delete('/items/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.delete('/items/:id', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params
-    const userId = req.user!.id
-
-    const cart = await prisma.cart.findUnique({ where: { userId } })
-    if (!cart) return errorResponse(res, 'Cart not found', 404)
+    const cart = await getCartForRequest(req, res, false)
+    if (!cart) {
+      return errorResponse(res, 'Cart not found', 404)
+    }
 
     const item = await prisma.cartItem.findFirst({ where: { id, cartId: cart.id } })
     if (!item) return errorResponse(res, 'Cart item not found', 404)
@@ -263,11 +355,12 @@ router.delete('/items/:id', authMiddleware, async (req: AuthenticatedRequest, re
   }
 })
 
-router.delete('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.delete('/', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user!.id
-    const cart = await prisma.cart.findUnique({ where: { userId } })
-    if (!cart) return successResponse(res, null, 200, 'Cart cleared')
+    const cart = await getCartForRequest(req, res, false)
+    if (!cart) {
+      return successResponse(res, null, 200, 'Cart cleared')
+    }
 
     await prisma.cartItem.deleteMany({ where: { cartId: cart.id } })
 

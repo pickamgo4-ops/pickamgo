@@ -97,7 +97,7 @@ export interface Seller {
 export interface Category {
   id: string;
   name: string;
-  emoji: string;
+  icon: string;
   color: string;
   count: number;
 }
@@ -222,7 +222,7 @@ export interface CheckoutOrder {
 export interface ShopCategory {
   id: string;
   name: string;
-  emoji: string;
+  icon: string;
   color: string;
   shopId: string;
   productCount: number;

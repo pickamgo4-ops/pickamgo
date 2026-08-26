@@ -84,7 +84,7 @@ export default function FavoritesPage() {
               <Heart size={32} className="text-warm-800/30" />
             </div>
             <h2 className="font-display text-xl font-bold text-warm-900 mb-2">
-              Your favorites are waiting ❤️
+              Your favorites are waiting
             </h2>
             <p className="text-warm-800/60 mb-6 max-w-md mx-auto">
               Save items you love by tapping the heart icon. They&apos;ll appear here for easy access.

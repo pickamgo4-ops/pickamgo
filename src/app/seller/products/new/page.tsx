@@ -18,6 +18,7 @@ interface Variant {
 export default function CreateProductPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [shopId, setShopId] = useState<string | null>(null)
   const [categories, setCategories] = useState<any[]>([])

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Heart, Share2, MapPin, Star, Clock, Calendar, Shield, ChevronLeft, MessageCircle, Minus, Plus, CheckCircle2 } from 'lucide-react'
+import { Heart, Share2, MapPin, Star, Clock, Calendar, Shield, ChevronLeft, MessageCircle, Minus, Plus, CheckCircle2, Flame, Sparkles } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
 import { api } from '../../../lib/api'
@@ -133,10 +133,10 @@ export default function ServicePage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Badges */}
         <div className="flex flex-wrap gap-2 mb-3">
-          {service.isTrending && <Badge variant="trending">🔥 Trending</Badge>}
-          {service.isVerified && <Badge variant="verified">✅ Verified</Badge>}
+          {service.isTrending && <Badge variant="trending"><Flame size={12} /> Trending</Badge>}
+          {service.isVerified && <Badge variant="verified"><CheckCircle2 size={12} /> Verified</Badge>}
           <Badge variant="default" className="bg-purple-100 text-purple-700">
-            ✨ {service.subcategory}
+            <Sparkles size={12} /> {service.subcategory}
           </Badge>
         </div>
 
@@ -193,7 +193,7 @@ export default function ServicePage() {
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-warm-900">{service.provider.name}</h3>
-                {service.isVerified && <span>✅</span>}
+                 {service.isVerified && <CheckCircle2 size={16} className="text-emerald-500" />}
               </div>
               <p className="text-sm text-warm-800/60">{service.provider.location}</p>
             </div>

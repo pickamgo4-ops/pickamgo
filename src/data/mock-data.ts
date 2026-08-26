@@ -1,14 +1,14 @@
 import { Category, Product, BeautyService, Shop, Seller, User, Order, OrderItem, Review } from '../types'
 
 export const categories: Category[] = [
-  { id: 'beauty', name: 'Beauty', emoji: '💅🏽', color: 'bg-pink-100 text-pink-800', count: 245 },
-  { id: 'food', name: 'Food', emoji: '🍔', color: 'bg-orange-100 text-orange-800', count: 189 },
-  { id: 'fashion', name: 'Fashion', emoji: '👕', color: 'bg-purple-100 text-purple-800', count: 312 },
-  { id: 'electronics', name: 'Phones & Tech', emoji: '📱', color: 'bg-blue-100 text-blue-800', count: 156 },
-  { id: 'campus', name: 'Campus', emoji: '🎓', color: 'bg-green-100 text-green-800', count: 98 },
-  { id: 'home', name: 'Home', emoji: '🏠', color: 'bg-yellow-100 text-yellow-800', count: 134 },
-  { id: 'services', name: 'Services', emoji: '✨', color: 'bg-teal-100 text-teal-800', count: 87 },
-  { id: 'more', name: 'More', emoji: '📦', color: 'bg-gray-100 text-gray-800', count: 203 },
+  { id: 'beauty', name: 'Beauty', icon: 'Sparkles', color: 'bg-pink-100 text-pink-800', count: 245 },
+  { id: 'food', name: 'Food', icon: 'Utensils', color: 'bg-orange-100 text-orange-800', count: 189 },
+  { id: 'fashion', name: 'Fashion', icon: 'Shirt', color: 'bg-purple-100 text-purple-800', count: 312 },
+  { id: 'electronics', name: 'Phones & Tech', icon: 'Smartphone', color: 'bg-blue-100 text-blue-800', count: 156 },
+  { id: 'campus', name: 'Campus', icon: 'GraduationCap', color: 'bg-green-100 text-green-800', count: 98 },
+  { id: 'home', name: 'Home', icon: 'Home', color: 'bg-yellow-100 text-yellow-800', count: 134 },
+  { id: 'services', name: 'Services', icon: 'Sparkles', color: 'bg-teal-100 text-teal-800', count: 87 },
+  { id: 'more', name: 'More', icon: 'PackageOpen', color: 'bg-gray-100 text-gray-800', count: 203 },
 ]
 
 export const sellers: Seller[] = [

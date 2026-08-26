@@ -118,7 +118,7 @@ export function mapApiCategoryToFrontend(apiCategory: any): Category {
   return {
     id: apiCategory.id,
     name: apiCategory.name,
-    emoji: apiCategory.emoji || '📦',
+    icon: apiCategory.icon || 'PackageOpen',
     color: apiCategory.color || 'bg-warm-100 text-warm-800',
     count: apiCategory.productCount || apiCategory.count || 0,
   }
@@ -203,7 +203,7 @@ export function mapApiShopCategoryToFrontend(apiCat: any): ShopCategory {
   return {
     id: apiCat.id,
     name: apiCat.name,
-    emoji: apiCat.emoji || '📦',
+    icon: apiCat.icon || 'PackageOpen',
     color: apiCat.color || 'bg-warm-100 text-warm-800',
     shopId: apiCat.shopId,
     productCount: apiCat.productCount || 0,

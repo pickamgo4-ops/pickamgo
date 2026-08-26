@@ -145,11 +145,6 @@ export function Header() {
             >
               Cart {cartCount > 0 && `(${cartCount})`}
             </Button>
-            {!userRole && (
-              <Button size="sm" icon={<Plus size={18} />} onClick={() => router.push('/sell')}>
-                Sell
-              </Button>
-            )}
           </div>
 
           {/* Mobile Actions */}

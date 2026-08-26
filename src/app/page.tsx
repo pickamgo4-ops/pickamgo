@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { MapPin, ChevronDown, Heart, Flame, Sparkles, Utensils, Shirt, PackageOpen, Tag, Store, Star } from 'lucide-react'
+import { MapPin, ChevronDown, Heart, Flame, Sparkles, Utensils, Shirt, PackageOpen, Tag, Store, Star, Eye, CheckCircle2 } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { BottomNav } from '../components/layout/BottomNav'
 import { CategoryGrid } from '../components/layout/CategoryGrid'
@@ -138,7 +138,7 @@ export default function HomePage() {
             <h1 className="font-display text-3xl md:text-5xl lg:text-6xl font-bold text-warm-900 leading-tight mb-4">
               Find something good{' '}
               <span className="text-primary">near you</span>{' '}
-              👀
+              <Eye size={28} className="inline-block text-warm-800/70" />
             </h1>
             <p className="text-lg md:text-xl text-warm-800/70 mb-6 text-balance">
               Discover products, beauty, food, fashion and businesses around you.
@@ -225,7 +225,7 @@ export default function HomePage() {
           <>
             {nearbyProducts.length > 0 && (
               <section className="mb-10">
-                <SectionHeader title="Products Near You" emoji="📍" subtitle={`Closest finds around ${location}`} link="/discover" />
+                <SectionHeader title="Products Near You" emoji={<MapPin size={20} className="text-primary" />} subtitle={`Closest finds around ${location}`} link="/discover" />
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {nearbyProducts.map(product => <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />)}
                 </div>
@@ -236,7 +236,7 @@ export default function HomePage() {
               <section className="mb-10">
                 <SectionHeader
                   title="Trending Near You"
-                  emoji="🔥"
+                  emoji={<Flame size={20} className="text-orange-500" />}
                   subtitle="Popular picks in your area"
                   link="/discover?filter=trending"
                 />
@@ -252,7 +252,7 @@ export default function HomePage() {
             <section className="mb-10">
               <SectionHeader
                 title="Beauty Near You"
-                emoji="💅🏽"
+                emoji={<Sparkles size={20} className="text-pink-500" />}
                 subtitle="Products and services for your glow-up"
                 link="/discover?category=beauty"
               />
@@ -285,7 +285,7 @@ export default function HomePage() {
               <section className="mb-10">
                 <SectionHeader
                   title="Local Food"
-                  emoji="🍔"
+                  emoji={<Utensils size={20} className="text-orange-500" />}
                   subtitle="Food and treats near you"
                   link="/discover?category=food"
                 />
@@ -302,7 +302,7 @@ export default function HomePage() {
               <section className="mb-10">
                 <SectionHeader
                   title="Fresh Fashion"
-                  emoji="👕"
+                  emoji={<Shirt size={20} className="text-purple-500" />}
                   subtitle="Trending styles near you"
                   link="/discover?category=fashion"
                 />
@@ -319,7 +319,7 @@ export default function HomePage() {
               <section className="mb-10">
                 <SectionHeader
                   title="Just Dropped"
-                  emoji="🆕"
+                  emoji={<Sparkles size={20} className="text-blue-500" />}
                   subtitle="Fresh finds just landed"
                   link="/discover?filter=new"
                 />
@@ -336,7 +336,7 @@ export default function HomePage() {
               <section className="mb-10">
                 <SectionHeader
                   title="Under GH₵50"
-                  emoji="💸"
+                  emoji={<Tag size={20} className="text-green-500" />}
                   subtitle="Affordable finds you'll love"
                   link="/discover?filter=under50"
                 />
@@ -353,7 +353,7 @@ export default function HomePage() {
               <section className="mb-10">
                 <SectionHeader
                   title="Shops Near You"
-                  emoji="📍"
+                  emoji={<MapPin size={20} className="text-primary" />}
                   subtitle="Local sellers and businesses"
                   link="/discover?type=shops"
                 />
@@ -392,7 +392,7 @@ export default function HomePage() {
                             </div>
                           </div>
                           {shop.isVerified && (
-                            <span className="text-lg">✅</span>
+                            <CheckCircle2 size={20} className="text-emerald-500" />
                           )}
                         </div>
                         <p className="text-sm text-warm-800/60 line-clamp-2 mb-3">
