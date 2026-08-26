@@ -358,7 +358,7 @@ router.get('/reports', authMiddleware, requireRole(['ADMIN']), async (req: Authe
 router.post('/shops/backfill-slugs', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const shops = await prisma.shop.findMany({
-      where: { slug: { equals: null } },
+      where: { slug: { equals: '' } },
       select: { id: true, name: true },
     })
 
