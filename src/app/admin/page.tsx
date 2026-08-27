@@ -1,18 +1,15 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Shield, Users, Store, Package, Tag, Bike, FileText, ArrowRight, CheckCircle, Clock, XCircle, Receipt, Settings, ClipboardList } from 'lucide-react'
-import { Header } from '../../components/layout/Header'
-import { BottomNav } from '../../components/layout/BottomNav'
-import { Button } from '../../components/ui/Button'
-import { Badge } from '../../components/ui/Badge'
-import { api } from '../../lib/api'
-import { SellerVerification } from '../../types'
-import { useRole } from '../../contexts/RoleContext'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
+import { Card } from '@/components/ui/Card'
+import { api } from '@/lib/api'
+import { SellerVerification } from '@/types'
+import { useRole } from '@/contexts/RoleContext'
 
 export default function AdminDashboardPage() {
-  const router = useRouter()
   const { user, loading, authInitialized } = useRole()
   const [adminLoading, setAdminLoading] = useState(true)
   const [stats, setStats] = useState({
@@ -49,7 +46,6 @@ export default function AdminDashboardPage() {
     setAdminLoading(true)
     try {
       if (!user || (!user.isAdmin && user.role !== 'admin')) {
-        router.push('/')
         return
       }
 
@@ -122,84 +118,115 @@ export default function AdminDashboardPage() {
   }
 
   const statCards = [
-    { label: 'Total Users', value: stats.totalUsers, href: '/admin/users', icon: Users },
-    { label: 'Buyers', value: stats.totalBuyers, href: '/admin/users', icon: Users },
-    { label: 'Sellers', value: stats.totalSellers, href: '/admin/users', icon: Store },
-    { label: 'Riders', value: stats.totalRiders, href: '/admin/riders', icon: Bike },
-    { label: 'Admins', value: stats.totalAdmins, href: '/admin/users', icon: Shield },
-    { label: 'Shops', value: stats.totalShops, href: '/admin/shops', icon: Store },
-    { label: 'Products', value: stats.totalProducts, href: '/admin/products', icon: Package },
-    { label: 'Services', value: stats.totalServices, href: '/admin/products', icon: Tag },
-    { label: 'Orders', value: stats.totalOrders, href: '/admin/orders', icon: ClipboardList },
-    { label: 'Revenue', value: `GH₵${stats.totalRevenue.toFixed(2)}`, href: '/admin/orders', icon: Receipt },
+    { label: 'Total Orders', value: stats.totalOrders, href: '/admin/orders', icon: ClipboardList },
+    { label: 'Total Sales', value: `GH₵${stats.totalRevenue.toFixed(2)}`, href: '/admin/payments', icon: Receipt },
+    { label: 'Total Customers', value: stats.totalUsers, href: '/admin/users', icon: Users },
+    { label: 'Total Sellers', value: stats.totalSellers, href: '/admin/shops', icon: Store },
+    { label: 'Total Riders', value: stats.totalRiders, href: '/admin/riders', icon: Bike },
     { label: 'Pending Orders', value: stats.pendingOrders, href: '/admin/orders', icon: Clock },
-    { label: 'Completed', value: stats.completedOrders, href: '/admin/orders', icon: CheckCircle },
-    { label: 'Cancelled', value: stats.cancelledOrders, href: '/admin/orders', icon: XCircle },
-    { label: 'Seller Verifications', value: stats.pendingSellerVerifications, href: '/admin/verifications', icon: Clock },
-    { label: 'Shop Approvals', value: stats.pendingShopApprovals, href: '/admin/shops', icon: Store },
-    { label: 'Rider Verifications', value: stats.pendingRiderVerifications, href: '/admin/verifications', icon: Bike },
-    { label: 'Active Riders', value: stats.activeRiders, href: '/admin/riders', icon: Bike },
-    { label: 'Commission', value: `GH₵${stats.platformCommission.toFixed(2)}`, href: '/admin/payouts', icon: Receipt },
+    { label: 'Pending Seller Approvals', value: stats.pendingSellerVerifications, href: '/admin/verifications', icon: FileText },
+    { label: 'Pending Rider Approvals', value: stats.pendingRiderVerifications, href: '/admin/verifications', icon: Bike },
+    { label: 'Pending Payouts', value: 0, href: '/admin/payouts', icon: Receipt },
   ]
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
-      <Header />
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+          <Shield size={24} className="text-primary" />
+        </div>
+        <div>
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
+            Admin Dashboard
+          </h1>
+          <p className="text-warm-800/60">Platform overview</p>
+        </div>
+      </div>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-            <Shield size={24} className="text-primary" />
-          </div>
-          <div>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-              Admin Dashboard
-            </h1>
-            <p className="text-warm-800/60">Manage the platform</p>
+      {adminLoading || loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-warm-800/60">Loading dashboard...</p>
           </div>
         </div>
-
-        {adminLoading || loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-warm-800/60">Loading dashboard...</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-              {statCards.map((stat) => (
-                <button
-                  key={stat.label}
-                  onClick={() => router.push(stat.href)}
-                  className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200 text-left hover:border-primary/30 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 bg-warm-100 rounded-lg flex items-center justify-center">
-                      <stat.icon size={16} className="text-warm-800" />
-                    </div>
-                    <span className="text-xs text-warm-800/60">{stat.label}</span>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {statCards.map((stat) => (
+              <a
+                key={stat.label}
+                href={stat.href}
+                className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200 text-left hover:border-primary/30 hover:shadow-md transition-all block"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-warm-100 rounded-lg flex items-center justify-center">
+                    <stat.icon size={16} className="text-warm-800" />
                   </div>
-                  <p className="text-2xl font-bold text-warm-900">{stat.value}</p>
-                </button>
-              ))}
-            </div>
+                  <span className="text-xs text-warm-800/60">{stat.label}</span>
+                </div>
+                <p className="text-2xl font-bold text-warm-900">{stat.value}</p>
+              </a>
+            ))}
+          </div>
 
-            {/* Pending Verifications */}
-            {pendingVerifications.length > 0 && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200 mb-6">
-                <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                  <Clock size={20} className="text-primary" />
-                  Pending Verifications ({pendingVerifications.length})
-                </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="p-6">
+              <h3 className="font-semibold text-warm-900 mb-4">Recent Orders</h3>
+              {recentOrders.length === 0 ? (
+                <p className="text-sm text-warm-800/60 text-center py-4">No orders yet</p>
+              ) : (
                 <div className="space-y-3">
-                  {pendingVerifications.map((ver) => (
-                    <div
-                      key={ver.id}
-                      className="p-4 bg-warm-50 rounded-xl border border-warm-200"
-                    >
+                  {recentOrders.map((order: any) => (
+                    <div key={order.id} className="flex items-center justify-between p-3 bg-warm-50 rounded-xl">
+                      <div>
+                        <p className="font-medium text-sm text-warm-900">
+                          #{order.orderNumber || order.id.slice(-6)}
+                        </p>
+                        <p className="text-xs text-warm-800/60">
+                          {new Date(order.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold text-warm-900">
+                        GH₵{order.total?.toFixed(2) || '0.00'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-6">
+              <h3 className="font-semibold text-warm-900 mb-4">Recent Users</h3>
+              {recentUsers.length === 0 ? (
+                <p className="text-sm text-warm-800/60 text-center py-4">No users yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {recentUsers.map((u: any) => (
+                    <div key={u.id} className="flex items-center justify-between p-3 bg-warm-50 rounded-xl">
+                      <div>
+                        <p className="font-medium text-sm text-warm-900">{u.name}</p>
+                        <p className="text-xs text-warm-800/60">{u.email}</p>
+                      </div>
+                      <span className="text-xs text-warm-800/50">
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="p-6">
+              <h3 className="font-semibold text-warm-900 mb-4">Pending Approvals</h3>
+              {pendingVerifications.length === 0 ? (
+                <p className="text-sm text-warm-800/60 text-center py-4">No pending verifications</p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingVerifications.slice(0, 5).map((ver) => (
+                    <div key={ver.id} className="p-4 bg-warm-50 rounded-xl border border-warm-200">
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <p className="font-medium text-sm text-warm-900">
@@ -241,45 +268,10 @@ export default function AdminDashboardPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Recent Orders */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-warm-900">Recent Orders</h3>
-                <button onClick={() => router.push('/admin/orders')} className="text-sm text-primary font-medium">
-                  View All
-                </button>
-              </div>
-              {recentOrders.length === 0 ? (
-                <p className="text-sm text-warm-800/60 text-center py-4">No orders yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {recentOrders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="flex items-center justify-between p-3 bg-warm-50 rounded-xl"
-                    >
-                      <div>
-                        <p className="font-medium text-sm text-warm-900">
-                          #{order.orderNumber || order.id.slice(-6)}
-                        </p>
-                        <p className="text-xs text-warm-800/60">
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <span className="text-sm font-bold text-warm-900">
-                        GH₵{order.total?.toFixed(2) || '0.00'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
               )}
-            </div>
+            </Card>
 
-            {/* Admin Navigation */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+            <Card className="p-6">
               <h3 className="font-semibold text-warm-900 mb-4">Manage</h3>
               <div className="grid grid-cols-2 gap-3">
                 {[
@@ -293,24 +285,22 @@ export default function AdminDashboardPage() {
                   { icon: FileText, label: 'Reports', href: '/admin/reports' },
                   { icon: Settings, label: 'Settings', href: '/admin/settings' },
                 ].map((item) => (
-                  <button
+                  <a
                     key={item.label}
-                    onClick={() => router.push(item.href)}
+                    href={item.href}
                     className="flex items-center gap-3 p-4 rounded-xl border border-warm-200 hover:border-primary/30 hover:bg-primary/5 transition-all"
                   >
                     <div className="w-10 h-10 bg-warm-100 rounded-xl flex items-center justify-center">
                       <item.icon size={20} className="text-warm-800" />
                     </div>
                     <span className="font-medium text-sm text-warm-900">{item.label}</span>
-                  </button>
+                  </a>
                 ))}
               </div>
-            </div>
-          </>
-        )}
-      </main>
-
-      <BottomNav />
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   )
 }

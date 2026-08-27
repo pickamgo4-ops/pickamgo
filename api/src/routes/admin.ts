@@ -846,6 +846,36 @@ router.get('/settings', authMiddleware, requireRole(['ADMIN']), async (_req: Aut
   }
 })
 
+router.get('/features', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
+  try {
+    const features = {
+      googleAuth: !!process.env.GOOGLE_CLIENT_ID,
+      paystack: !!process.env.PAYSTACK_SECRET_KEY,
+      r2: !!process.env.R2_ACCOUNT_ID,
+      email: !!process.env.RESEND_API_KEY,
+    }
+
+    return successResponse(res, features)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch features', 500)
+  }
+})
+
+router.get('/environment', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
+  try {
+    const environment = {
+      apiUrl: process.env.NEXT_PUBLIC_API_URL || '/api',
+      nodeEnv: process.env.NODE_ENV || 'development',
+      database: 'connected',
+      redis: process.env.REDIS_URL ? 'connected' : 'disconnected',
+    }
+
+    return successResponse(res, environment)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch environment', 500)
+  }
+})
+
 router.post('/shops/backfill-slugs', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const shops = await prisma.shop.findMany({
@@ -883,6 +913,220 @@ router.post('/shops/backfill-slugs', authMiddleware, requireRole(['ADMIN']), asy
     return successResponse(res, { updated, total: shops.length }, 200, `Backfilled ${updated} shop slugs`)
   } catch (error) {
     return errorResponse(res, 'Failed to backfill shop slugs', 500)
+  }
+})
+
+router.get('/deliveries', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    const status = req.query.status as string | undefined
+    const search = req.query.search as string | undefined
+
+    const where: any = {}
+    if (status) where.status = status
+    if (search) {
+      where.order = {
+        OR: [
+          { orderNumber: { contains: search, mode: 'insensitive' } },
+          { customer: { name: { contains: search, mode: 'insensitive' } } },
+        ],
+      }
+    }
+
+    const [deliveries, total] = await Promise.all([
+      prisma.delivery.findMany({
+        where,
+        include: {
+          order: {
+            select: {
+              id: true,
+              orderNumber: true,
+              total: true,
+              status: true,
+              customer: { select: { id: true, name: true, email: true } },
+              shop: { select: { id: true, name: true } },
+            },
+          },
+          rider: { select: { id: true, name: true, email: true, phone: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.delivery.count({ where }),
+    ])
+
+    return successResponse(res, {
+      deliveries,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch deliveries', 500)
+  }
+})
+
+router.get('/bookings', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    const status = req.query.status as string | undefined
+    const search = req.query.search as string | undefined
+
+    const where: any = {}
+    if (status) where.status = status
+    if (search) {
+      where.OR = [
+        { service: { name: { contains: search, mode: 'insensitive' } } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { provider: { name: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
+
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        include: {
+          service: { include: { category: true, images: true } },
+          customer: { select: { id: true, name: true, email: true, avatar: true } },
+          provider: { select: { id: true, name: true, email: true, avatar: true } },
+          shop: { include: { owner: { select: { id: true, name: true, avatar: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.booking.count({ where }),
+    ])
+
+    return successResponse(res, {
+      bookings,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch bookings', 500)
+  }
+})
+
+router.get('/conversations', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    const search = req.query.search as string | undefined
+
+    const conversations = await prisma.conversation.findMany({
+      include: {
+        participant1: { select: { id: true, name: true, email: true, avatar: true } },
+        participant2: { select: { id: true, name: true, email: true, avatar: true } },
+        order: { select: { id: true, orderNumber: true, status: true } },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: { sender: { select: { id: true, name: true } } },
+        },
+        _count: { select: { messages: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    })
+
+    const total = await prisma.conversation.count()
+
+    const mapped = conversations.map((conversation) => ({
+      id: conversation.id,
+      participant1: conversation.participant1,
+      participant2: conversation.participant2,
+      order: conversation.order,
+      shopId: conversation.shopId,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      lastMessage: conversation.messages[0] || null,
+      totalMessages: conversation._count.messages,
+    }))
+
+    return successResponse(res, {
+      conversations: mapped,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch conversations', 500)
+  }
+})
+
+router.get('/reviews', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    const targetType = req.query.targetType as string | undefined
+    const search = req.query.search as string | undefined
+
+    const where: any = {}
+    if (targetType) where.targetType = targetType
+    if (search) {
+      where.OR = [
+        { comment: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, email: true, avatar: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.review.count({ where }),
+    ])
+
+    return successResponse(res, {
+      reviews,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch reviews', 500)
+  }
+})
+
+router.get('/notifications', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    const isRead = req.query.isRead as string | undefined
+    const search = req.query.search as string | undefined
+
+    const where: any = {}
+    if (isRead !== undefined) where.isRead = isRead === 'true'
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { message: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    const [notifications, total] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.notification.count({ where }),
+    ])
+
+    return successResponse(res, {
+      notifications,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch notifications', 500)
   }
 })
 

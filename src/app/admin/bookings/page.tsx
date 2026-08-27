@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, DollarSign, Eye, Loader2, XCircle, X } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Calendar, Eye, Loader2, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -10,36 +10,31 @@ import { Card } from '@/components/ui/Card'
 import { api } from '@/lib/api'
 import { useRole } from '@/contexts/RoleContext'
 
-interface AdminPayout {
+interface AdminBooking {
   id: string
-  amount: number
-  currency: string
+  date: string
+  timeSlot: string
   status: string
-  reference: string
-  processedAt?: string
-  failureReason?: string
-  payoutMethod: {
-    provider: string
-    phoneNumber: string
-    accountName?: string
-    type: string
-  }
-  user: { id: string; name: string; email: string }
+  notes?: string
   createdAt: string
+  service: { id: string; name: string; category: { name: string } }
+  customer: { id: string; name: string; email: string; avatar: string }
+  provider: { id: string; name: string; email: string; avatar: string }
+  shop: { id: string; name: string; owner: { name: string } }
 }
 
-export default function AdminPayoutsPage() {
+export default function AdminBookingsPage() {
   const router = useRouter()
   const { user, loading, authInitialized } = useRole()
   const [dataLoading, setDataLoading] = useState(true)
   const [error, setError] = useState('')
-  const [payouts, setPayouts] = useState<AdminPayout[]>([])
+  const [bookings, setBookings] = useState<AdminBooking[]>([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [selectedPayout, setSelectedPayout] = useState<AdminPayout | null>(null)
+  const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null)
 
   useEffect(() => {
     if (!authInitialized) return
@@ -47,20 +42,20 @@ export default function AdminPayoutsPage() {
       router.push('/')
       return
     }
-    loadPayouts()
+    loadBookings()
   }, [authInitialized, user, page, statusFilter])
 
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (searchQuery !== undefined) {
         setPage(1)
-        loadPayouts(1, searchQuery, statusFilter)
+        loadBookings(1, searchQuery, statusFilter)
       }
     }, 400)
     return () => clearTimeout(timeout)
   }, [searchQuery])
 
-  const loadPayouts = async (pageNum = page, search = searchQuery, status = statusFilter) => {
+  const loadBookings = async (pageNum = page, search = searchQuery, status = statusFilter) => {
     setDataLoading(true)
     setError('')
     try {
@@ -70,13 +65,13 @@ export default function AdminPayoutsPage() {
       if (search) params.set('search', search)
       if (status) params.set('status', status)
 
-      const response = await api.get<any>(`/admin/payouts?${params.toString()}`)
+      const response = await api.get<any>(`/admin/bookings?${params.toString()}`)
       if (response.success && response.data) {
-        setPayouts(response.data.payouts || [])
+        setBookings(response.data.bookings || [])
         setTotalPages(response.data.pagination?.totalPages || 1)
         setTotal(response.data.pagination?.total || 0)
       } else {
-        setError(response.error || 'Failed to load payouts')
+        setError(response.error || 'Failed to load bookings')
       }
     } catch {
       setError('Network error. Please try again.')
@@ -88,10 +83,8 @@ export default function AdminPayoutsPage() {
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
       PENDING: { variant: 'default', label: 'Pending' },
-      PROCESSING: { variant: 'delivery', label: 'Processing' },
-      SUCCESS: { variant: 'verified', label: 'Success' },
-      FAILED: { variant: 'default', label: 'Failed' },
-      REVERSED: { variant: 'default', label: 'Reversed' },
+      CONFIRMED: { variant: 'verified', label: 'Confirmed' },
+      COMPLETED: { variant: 'verified', label: 'Completed' },
       CANCELLED: { variant: 'default', label: 'Cancelled' },
     }
     const c = config[status] || { variant: 'default', label: status }
@@ -100,7 +93,7 @@ export default function AdminPayoutsPage() {
 
   if (loading || !authInitialized) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         </div>
@@ -112,13 +105,13 @@ export default function AdminPayoutsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-          <DollarSign size={20} className="text-primary" />
+          <Calendar size={20} className="text-primary" />
         </div>
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-            Payouts
+            Bookings
           </h1>
-          <p className="text-warm-800/60 text-sm">Manage payout requests</p>
+          <p className="text-warm-800/60 text-sm">Manage service bookings</p>
         </div>
       </div>
 
@@ -126,7 +119,7 @@ export default function AdminPayoutsPage() {
         <div className="relative flex-1">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-800/50" />
           <Input
-            placeholder="Search by user name, email, or reference..."
+            placeholder="Search by service, customer, or provider..."
             value={searchQuery}
             onValueChange={setSearchQuery}
             className="pl-9"
@@ -139,10 +132,8 @@ export default function AdminPayoutsPage() {
         >
           <option value="">All statuses</option>
           <option value="PENDING">Pending</option>
-          <option value="PROCESSING">Processing</option>
-          <option value="SUCCESS">Success</option>
-          <option value="FAILED">Failed</option>
-          <option value="REVERSED">Reversed</option>
+          <option value="CONFIRMED">Confirmed</option>
+          <option value="COMPLETED">Completed</option>
           <option value="CANCELLED">Cancelled</option>
         </select>
       </div>
@@ -151,19 +142,19 @@ export default function AdminPayoutsPage() {
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <Loader2 size={40} className="animate-spin text-primary mx-auto mb-4" />
-            <p className="text-warm-800/60">Loading payouts...</p>
+            <p className="text-warm-800/60">Loading bookings...</p>
           </div>
         </div>
       ) : error ? (
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadPayouts()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadBookings()} className="mt-4">Retry</Button>
         </Card>
-      ) : payouts.length === 0 ? (
+      ) : bookings.length === 0 ? (
         <Card className="p-12 text-center">
-          <DollarSign size={44} className="mx-auto text-warm-800/30 mb-3" />
-          <p className="text-warm-800/60">No payouts found</p>
+          <Calendar size={44} className="mx-auto text-warm-800/30 mb-3" />
+          <p className="text-warm-800/60">No bookings found</p>
         </Card>
       ) : (
         <>
@@ -172,33 +163,35 @@ export default function AdminPayoutsPage() {
               <table className="w-full text-left text-sm">
                 <thead className="bg-warm-50 border-b border-warm-200">
                   <tr>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70">User</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70">Amount</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70">Service</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">Customer</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">Provider</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">Phone</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Status</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-warm-200">
-                  {payouts.map((p) => (
+                  {bookings.map((b) => (
                     <tr
-                      key={p.id}
-                      onClick={() => setSelectedPayout(p)}
+                      key={b.id}
+                      onClick={() => setSelectedBooking(b)}
                       className="hover:bg-warm-50 cursor-pointer transition-colors"
                     >
                       <td className="px-4 py-3">
                         <div>
-                          <p className="font-medium text-warm-900">{p.user.name}</p>
-                          <p className="text-xs text-warm-800/50">{p.user.email}</p>
+                          <p className="font-medium text-warm-900">{b.service.name}</p>
+                          <p className="text-xs text-warm-800/50">{b.timeSlot}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium text-warm-900">GH₵{p.amount?.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-warm-800/70 hidden sm:table-cell">{p.payoutMethod.provider}</td>
-                      <td className="px-4 py-3 text-warm-800/70 hidden md:table-cell">{p.payoutMethod.phoneNumber}</td>
-                      <td className="px-4 py-3">{getStatusBadge(p.status)}</td>
+                      <td className="px-4 py-3 hidden md:table-cell text-warm-800/70">
+                        {b.customer.name}
+                      </td>
+                      <td className="px-4 py-3 text-warm-800/70 hidden sm:table-cell">
+                        {b.provider.name}
+                      </td>
+                      <td className="px-4 py-3">{getStatusBadge(b.status)}</td>
                       <td className="px-4 py-3 text-warm-800/60 hidden lg:table-cell">
-                        {new Date(p.createdAt).toLocaleDateString()}
+                        {new Date(b.createdAt).toLocaleDateString()}
                       </td>
                     </tr>
                   ))}
@@ -221,61 +214,61 @@ export default function AdminPayoutsPage() {
         </>
       )}
 
-      {selectedPayout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setSelectedPayout(null)}>
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setSelectedBooking(null)}>
           <div onClick={(e) => e.stopPropagation()}>
             <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-xl font-bold text-warm-900">Payout Details</h2>
-                <button onClick={() => setSelectedPayout(null)} className="p-2 rounded-xl hover:bg-warm-100">
+                <h2 className="font-display text-xl font-bold text-warm-900">Booking Details</h2>
+                <button onClick={() => setSelectedBooking(null)} className="p-2 rounded-xl hover:bg-warm-100">
                   <X size={20} className="text-warm-800" />
                 </button>
               </div>
-
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-medium text-warm-800/50 uppercase">User</label>
-                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedPayout.user.name}</p>
-                    <p className="text-xs text-warm-800/60">{selectedPayout.user.email}</p>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">Service</label>
+                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedBooking.service.name}</p>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-warm-800/50 uppercase">Amount</label>
-                    <p className="text-sm font-medium text-warm-900 mt-1">GH₵{selectedPayout.amount?.toFixed(2)}</p>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">Category</label>
+                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedBooking.service.category.name}</p>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-warm-800/50 uppercase">Reference</label>
-                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedPayout.reference}</p>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">Date</label>
+                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedBooking.date}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">Time</label>
+                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedBooking.timeSlot}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">Customer</label>
+                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedBooking.customer.name}</p>
+                    <p className="text-xs text-warm-800/60">{selectedBooking.customer.email}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">Provider</label>
+                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedBooking.provider.name}</p>
+                    <p className="text-xs text-warm-800/60">{selectedBooking.provider.email}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">Shop</label>
+                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedBooking.shop.name}</p>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-warm-800/50 uppercase">Status</label>
-                    <div className="mt-1">{getStatusBadge(selectedPayout.status)}</div>
+                    <div className="mt-1">{getStatusBadge(selectedBooking.status)}</div>
                   </div>
                 </div>
-
-                <div>
-                  <label className="text-xs font-medium text-warm-800/50 uppercase">Payout Method</label>
-                  <div className="mt-1 p-3 bg-warm-50 rounded-xl text-sm space-y-1">
-                    <p className="text-warm-900">{selectedPayout.payoutMethod.type} · {selectedPayout.payoutMethod.provider}</p>
-                    <p className="text-warm-800/70">{selectedPayout.payoutMethod.phoneNumber}</p>
-                    {selectedPayout.payoutMethod.accountName && (
-                      <p className="text-warm-800/70">{selectedPayout.payoutMethod.accountName}</p>
-                    )}
-                  </div>
-                </div>
-
-                {selectedPayout.failureReason && (
+                {selectedBooking.notes && (
                   <div>
-                    <label className="text-xs font-medium text-warm-800/50 uppercase">Failure Reason</label>
-                    <p className="text-sm text-red-600 mt-1">{selectedPayout.failureReason}</p>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">Notes</label>
+                    <p className="text-sm text-warm-900 mt-1">{selectedBooking.notes}</p>
                   </div>
                 )}
-
                 <div className="text-xs text-warm-800/50">
-                  Created: {new Date(selectedPayout.createdAt).toLocaleString()}
-                  {selectedPayout.processedAt && (
-                    <> · Processed: {new Date(selectedPayout.processedAt).toLocaleString()}</>
-                  )}
+                  Created: {new Date(selectedBooking.createdAt).toLocaleString()}
                 </div>
               </div>
             </Card>
