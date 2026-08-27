@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
-import { successResponse, errorResponse } from '../types/express'
+import { successResponse, errorResponse, validateBody } from '../types/express'
 import { testR2Connection } from '../services/storage'
+import { z } from 'zod'
 
 const router = Router()
 
@@ -24,28 +25,54 @@ router.get('/r2-test', authMiddleware, requireRole(['ADMIN']), async (_req: Auth
   }
 })
 
+const dashboardSchema = z.object({
+  range: z.enum(['7d', '30d', '90d', 'all']).default('30d').optional(),
+}).optional()
+
 router.get('/dashboard', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const [
       totalUsers,
+      totalBuyers,
       totalSellers,
+      totalRiders,
+      totalAdmins,
+      totalShops,
       totalProducts,
+      totalServices,
       totalOrders,
       totalRevenue,
-      pendingVerifications,
+      pendingOrders,
+      completedOrders,
+      cancelledOrders,
+      pendingSellerVerifications,
+      pendingShopApprovals,
+      pendingRiderVerifications,
       activeRiders,
       recentOrders,
       recentUsers,
+      orderStatusBreakdown,
+      revenueBreakdown,
     ] = await Promise.all([
       prisma.user.count(),
+      prisma.user.count({ where: { isSeller: false, isRider: false, isAdmin: false } }),
       prisma.user.count({ where: { isSeller: true } }),
+      prisma.user.count({ where: { isRider: true } }),
+      prisma.user.count({ where: { isAdmin: true } }),
+      prisma.shop.count(),
       prisma.product.count({ where: { status: 'ACTIVE' } }),
+      prisma.service.count({ where: { status: 'ACTIVE' } }),
       prisma.order.count(),
       prisma.order.aggregate({
         _sum: { total: true },
-        where: { status: { in: ['PAID', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED'] } },
+        where: { payment: { status: 'PAID' } },
       }),
-      prisma.sellerVerification.count({ where: { status: 'PENDING' } }),
+      prisma.order.count({ where: { status: 'PENDING_PAYMENT' } }),
+      prisma.order.count({ where: { status: 'DELIVERED' } }),
+      prisma.order.count({ where: { status: 'CANCELLED' } }),
+      prisma.sellerVerification.count({ where: { status: 'PENDING', type: 'SELLER' } }),
+      prisma.shop.count({ where: { verificationStatus: 'PENDING' } }),
+      prisma.sellerVerification.count({ where: { status: 'PENDING', type: 'RIDER' } }),
       prisma.rider.count({ where: { isOnline: true } }),
       prisma.order.findMany({
         take: 10,
@@ -54,29 +81,55 @@ router.get('/dashboard', authMiddleware, requireRole(['ADMIN']), async (req: Aut
           customer: { select: { id: true, name: true, avatar: true } },
           seller: { select: { id: true, name: true, avatar: true } },
           shop: { select: { id: true, name: true } },
+          payment: { select: { status: true, method: true } },
         },
       }),
       prisma.user.findMany({
         take: 10,
         orderBy: { createdAt: 'desc' },
-        select: { id: true, name: true, email: true, avatar: true, isSeller: true, isRider: true, createdAt: true },
+        select: { id: true, name: true, email: true, avatar: true, isSeller: true, isRider: true, isAdmin: true, createdAt: true },
+      }),
+      prisma.order.groupBy({
+        by: ['status'],
+        _count: { id: true },
+        _sum: { total: true },
+      }),
+      prisma.financialLedger.groupBy({
+        by: ['type'],
+        _sum: { amount: true },
+        where: { type: 'PLATFORM_COMMISSION' },
       }),
     ])
+
+    const platformCommission = revenueBreakdown.reduce((sum, item) => sum + Number(item._sum.amount || 0), 0)
 
     return successResponse(res, {
       stats: {
         totalUsers,
+        totalBuyers,
         totalSellers,
+        totalRiders,
+        totalAdmins,
+        totalShops,
         totalProducts,
+        totalServices,
         totalOrders,
-        totalRevenue: totalRevenue._sum.total || 0,
-        pendingVerifications,
+        totalRevenue: Number(totalRevenue._sum.total || 0),
+        pendingOrders,
+        completedOrders,
+        cancelledOrders,
+        pendingSellerVerifications,
+        pendingShopApprovals,
+        pendingRiderVerifications,
         activeRiders,
+        platformCommission,
       },
       recentOrders,
       recentUsers,
+      orderStatusBreakdown,
     })
   } catch (error) {
+    console.error('Dashboard error:', error)
     return errorResponse(res, 'Failed to fetch dashboard', 500)
   }
 })
@@ -86,11 +139,20 @@ router.get('/users', authMiddleware, requireRole(['ADMIN']), async (req: Authent
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 20
     const role = req.query.role as string | undefined
+    const search = req.query.search as string | undefined
 
     const where: any = {}
     if (role === 'seller') where.isSeller = true
     else if (role === 'rider') where.isRider = true
     else if (role === 'admin') where.isAdmin = true
+    else if (role === 'buyer') { where.isSeller = false; where.isRider = false; where.isAdmin = false }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ]
+    }
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -106,6 +168,7 @@ router.get('/users', authMiddleware, requireRole(['ADMIN']), async (req: Authent
           isRider: true,
           isAdmin: true,
           emailVerified: true,
+          phoneVerified: true,
           createdAt: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -124,6 +187,47 @@ router.get('/users', authMiddleware, requireRole(['ADMIN']), async (req: Authent
   }
 })
 
+router.get('/users/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        avatar: true,
+        location: true,
+        isSeller: true,
+        isRider: true,
+        isAdmin: true,
+        emailVerified: true,
+        phoneVerified: true,
+        createdAt: true,
+        updatedAt: true,
+        addresses: true,
+        verification: true,
+        riderProfile: true,
+        _count: {
+          select: {
+            customerOrders: true,
+            sellerOrders: true,
+            products: true,
+            services: true,
+            favorites: true,
+          },
+        },
+      },
+    })
+
+    if (!user) return errorResponse(res, 'User not found', 404)
+
+    return successResponse(res, user)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch user', 500)
+  }
+})
+
 router.patch('/users/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params
@@ -134,7 +238,7 @@ router.patch('/users/:id', authMiddleware, requireRole(['ADMIN']), async (req: A
 
     const updated = await prisma.user.update({
       where: { id },
-      data: { isSeller, isRider, isAdmin },
+      data: { isSeller: !!isSeller, isRider: !!isRider, isAdmin: !!isAdmin },
       select: {
         id: true,
         name: true,
@@ -160,9 +264,22 @@ router.get('/shops', authMiddleware, requireRole(['ADMIN']), async (req: Authent
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 20
+    const search = req.query.search as string | undefined
+    const status = req.query.status as string | undefined
+
+    const where: any = {}
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { slug: { contains: search, mode: 'insensitive' } },
+        { owner: { email: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
+    if (status) where.status = status
 
     const [shops, total] = await Promise.all([
       prisma.shop.findMany({
+        where,
         include: {
           owner: { select: { id: true, name: true, email: true, avatar: true } },
           _count: { select: { products: true, services: true, orders: true } },
@@ -171,15 +288,42 @@ router.get('/shops', authMiddleware, requireRole(['ADMIN']), async (req: Authent
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.shop.count(),
+      prisma.shop.count({ where }),
     ])
 
     return successResponse(res, {
-      shops,
+      shops: shops.map(shop => ({
+        ...shop,
+      publicUrl: `${(req as any).headers?.host?.includes('localhost') ? '' : 'https://'}${shop.slug}.${process.env.MARKETPLACE_DOMAIN || 'pickamgo.com'}`,
+      })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     })
   } catch (error) {
     return errorResponse(res, 'Failed to fetch shops', 500)
+  }
+})
+
+router.get('/shops/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const shop = await prisma.shop.findUnique({
+      where: { id: req.params.id },
+      include: {
+        owner: { select: { id: true, name: true, email: true, avatar: true } },
+        products: { include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } } },
+        services: { include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } } },
+        orders: { take: 5, orderBy: { createdAt: 'desc' }, include: { customer: { select: { id: true, name: true } }, payment: true } },
+        _count: { select: { products: true, services: true, orders: true } },
+      },
+    })
+
+    if (!shop) return errorResponse(res, 'Shop not found', 404)
+
+    return successResponse(res, {
+      ...shop,
+      publicUrl: `${(req as any).headers?.host?.includes('localhost') ? '' : 'https://'}${shop.slug}.${process.env.MARKETPLACE_DOMAIN || 'pickamgo.com'}`,
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch shop', 500)
   }
 })
 
@@ -207,19 +351,35 @@ router.get('/products', authMiddleware, requireRole(['ADMIN']), async (req: Auth
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 20
+    const search = req.query.search as string | undefined
+    const status = req.query.status as string | undefined
+    const category = req.query.category as string | undefined
+
+    const where: any = {}
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { shop: { name: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
+    if (status) where.status = status
+    if (category) where.categoryId = category
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({
+        where,
         include: {
           seller: { select: { id: true, name: true, email: true } },
           shop: { select: { id: true, name: true } },
           category: true,
+          images: { orderBy: { sortOrder: 'asc' }, take: 1 },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.product.count(),
+      prisma.product.count({ where }),
     ])
 
     return successResponse(res, {
@@ -242,12 +402,24 @@ router.patch('/products/:id', authMiddleware, requireRole(['ADMIN']), async (req
     const updated = await prisma.product.update({
       where: { id },
       data: { status },
-      include: { seller: { select: { id: true, name: true } }, shop: { select: { id: true, name: true } } },
+      include: { seller: { select: { id: true, name: true } }, shop: { select: { id: true, name: true } }, category: true },
     })
 
     return successResponse(res, updated, undefined, 'Product updated successfully')
   } catch (error) {
     return errorResponse(res, 'Failed to update product', 500)
+  }
+})
+
+router.delete('/products/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const product = await prisma.product.findUnique({ where: { id: req.params.id } })
+    if (!product) return errorResponse(res, 'Product not found', 404)
+
+    await prisma.product.delete({ where: { id: req.params.id } })
+    return successResponse(res, null, 200, 'Product deleted successfully')
+  } catch (error) {
+    return errorResponse(res, 'Failed to delete product', 500)
   }
 })
 
@@ -266,10 +438,10 @@ router.get('/categories', authMiddleware, requireRole(['ADMIN']), async (req: Au
 
 router.post('/categories', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, emoji, color, parentId } = req.body
+    const { name, icon, color, parentId } = req.body
 
     const category = await prisma.category.create({
-      data: { name, emoji: emoji || '', color: color || '', parentId: parentId || null },
+      data: { name, emoji: icon || '', color: color || '', parentId: parentId || null },
     })
 
     return successResponse(res, category, 201, 'Category created successfully')
@@ -281,11 +453,11 @@ router.post('/categories', authMiddleware, requireRole(['ADMIN']), async (req: A
 router.patch('/categories/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params
-    const { name, emoji, color, parentId, isActive } = req.body
+    const { name, icon, color, parentId, isActive } = req.body
 
     const updated = await prisma.category.update({
       where: { id },
-      data: { name, emoji, color, parentId, isActive },
+      data: { name, emoji: icon, color, parentId, isActive },
     })
 
     return successResponse(res, updated, undefined, 'Category updated successfully')
@@ -296,81 +468,381 @@ router.patch('/categories/:id', authMiddleware, requireRole(['ADMIN']), async (r
 
 router.delete('/categories/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
-    const { id } = req.params
-
-    const category = await prisma.category.findUnique({ where: { id } })
+    const category = await prisma.category.findUnique({ where: { id: req.params.id } })
     if (!category) return errorResponse(res, 'Category not found', 404)
 
-    await prisma.category.delete({ where: { id } })
+    const productCount = await prisma.product.count({ where: { categoryId: req.params.id } })
+    if (productCount > 0) {
+      return errorResponse(res, `Cannot delete category with ${productCount} products. Reassign products first.`, 409)
+    }
 
+    await prisma.category.delete({ where: { id: req.params.id } })
     return successResponse(res, null, 200, 'Category deleted successfully')
   } catch (error) {
     return errorResponse(res, 'Failed to delete category', 500)
   }
 })
 
-router.get('/riders', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+router.get('/orders', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
-    const riders = await prisma.rider.findMany({
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    const status = req.query.status as string | undefined
+    const search = req.query.search as string | undefined
+
+    const where: any = {}
+    if (status) where.status = status
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { shop: { name: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          items: { include: { product: true, service: true } },
+          customer: { select: { id: true, name: true, email: true, phone: true, avatar: true } },
+          seller: { select: { id: true, name: true, email: true } },
+          shop: { select: { id: true, name: true } },
+          rider: { select: { id: true, name: true, email: true } },
+          payment: true,
+          delivery: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.order.count({ where }),
+    ])
+
+    return successResponse(res, {
+      orders,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch orders', 500)
+  }
+})
+
+router.get('/orders/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
       include: {
-        user: { select: { id: true, name: true, email: true, phone: true, avatar: true, location: true } },
+        items: { include: { product: true, service: true } },
+        customer: { select: { id: true, name: true, email: true, phone: true, avatar: true } },
+        seller: { select: { id: true, name: true, email: true } },
+        shop: { select: { id: true, name: true, location: true, latitude: true, longitude: true } },
+        rider: { select: { id: true, name: true, email: true } },
+        payment: true,
+        delivery: true,
+        sellerEarnings: true,
+        riderEarnings: true,
       },
-      orderBy: { createdAt: 'desc' },
     })
 
-    return successResponse(res, riders)
+    if (!order) return errorResponse(res, 'Order not found', 404)
+
+    return successResponse(res, order)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch order', 500)
+  }
+})
+
+router.patch('/orders/:id/status', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+    const { status } = req.body
+
+    const order = await prisma.order.findUnique({ where: { id } })
+    if (!order) return errorResponse(res, 'Order not found', 404)
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { status, updatedAt: new Date() },
+      include: {
+        items: true,
+        customer: { select: { id: true, name: true, email: true } },
+        shop: { select: { id: true, name: true } },
+      },
+    })
+
+    return successResponse(res, updated, undefined, 'Order status updated')
+  } catch (error) {
+    return errorResponse(res, 'Failed to update order status', 500)
+  }
+})
+
+router.get('/riders', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    const search = req.query.search as string | undefined
+
+    const where: any = {}
+    if (search) {
+      where.user = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      }
+    }
+
+    const [riders, total] = await Promise.all([
+      prisma.rider.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true, avatar: true, location: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.rider.count({ where }),
+    ])
+
+    return successResponse(res, {
+      riders,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
   } catch (error) {
     return errorResponse(res, 'Failed to fetch riders', 500)
   }
 })
 
-router.get('/reports', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+router.get('/riders/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
-    const [orderStats, topProducts, topSellers] = await Promise.all([
-      prisma.order.groupBy({
-        by: ['status'],
-        _count: { id: true },
-        _sum: { total: true },
+    const rider = await prisma.rider.findUnique({
+      where: { id: req.params.id },
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true, avatar: true, location: true } },
+      },
+    })
+
+    if (!rider) return errorResponse(res, 'Rider not found', 404)
+
+    const deliveries = await prisma.delivery.findMany({
+      where: { riderId: rider.userId },
+      orderBy: { createdAt: 'desc' },
+      include: { order: { select: { orderNumber: true, status: true, total: true } } },
+    })
+
+    const earnings = await prisma.riderEarnings.findMany({
+      where: { riderId: rider.userId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    })
+
+    return successResponse(res, { ...rider, deliveries, earnings })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch rider', 500)
+  }
+})
+
+router.patch('/riders/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+    const { isOnline, isAvailable, isVerified } = req.body
+
+    const rider = await prisma.rider.findUnique({ where: { id } })
+    if (!rider) return errorResponse(res, 'Rider not found', 404)
+
+    const updated = await prisma.rider.update({
+      where: { id },
+      data: { isOnline: !!isOnline, isAvailable: !!isAvailable, isVerified: !!isVerified },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    })
+
+    return successResponse(res, updated, undefined, 'Rider updated successfully')
+  } catch (error) {
+    return errorResponse(res, 'Failed to update rider', 500)
+  }
+})
+
+router.get('/verifications', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const status = req.query.status as string | undefined
+    const type = req.query.type as string | undefined
+
+    const where: any = {}
+    if (status) where.status = status
+    if (type) where.type = type
+
+    const verifications = await prisma.sellerVerification.findMany({
+      where,
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, phone: true, avatar: true, location: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    return successResponse(res, verifications)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch verifications', 500)
+  }
+})
+
+router.patch('/verifications/:id/status', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+    const { status, rejectionReason } = req.body
+
+    if (!['APPROVED', 'REJECTED', 'SUSPENDED'].includes(status)) {
+      return errorResponse(res, 'Invalid status', 400)
+    }
+
+    const verification = await prisma.sellerVerification.findUnique({ where: { id } })
+    if (!verification) return errorResponse(res, 'Verification not found', 404)
+
+    const updated = await prisma.sellerVerification.update({
+      where: { id },
+      data: {
+        status,
+        rejectionReason: rejectionReason || null,
+        reviewedAt: new Date(),
+        reviewedBy: req.user!.id,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    })
+
+    if (status === 'APPROVED' && verification.type === 'RIDER') {
+      await prisma.rider.updateMany({
+        where: { userId: verification.userId },
+        data: { isVerified: true },
+      })
+    } else if (status === 'APPROVED') {
+      await prisma.user.update({
+        where: { id: verification.userId },
+        data: { isSeller: true },
+      })
+      await prisma.shop.updateMany({
+        where: { ownerId: verification.userId },
+        data: { isVerified: true, verificationStatus: 'APPROVED' },
+      })
+    }
+
+    return successResponse(res, updated, undefined, `Verification ${status.toLowerCase()}`)
+  } catch (error) {
+    return errorResponse(res, 'Failed to update verification status', 500)
+  }
+})
+
+router.get('/payouts', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    const status = req.query.status as string | undefined
+    const search = req.query.search as string | undefined
+
+    const where: any = {}
+    if (status) where.status = status
+    if (search) {
+      where.user = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      }
+    }
+
+    const [payouts, total] = await Promise.all([
+      prisma.payout.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          payoutMethod: { select: { provider: true, phoneNumber: true, type: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
       }),
-      prisma.orderItem.groupBy({
-        by: ['productId', 'name'],
-        _sum: { quantity: true },
-        _max: { price: true },
-        orderBy: { _sum: { quantity: 'desc' } },
-        take: 10,
-      }),
-      prisma.order.groupBy({
-        by: ['sellerId'],
-        _sum: { total: true },
-        _count: { id: true },
-        orderBy: { _sum: { total: 'desc' } },
-        take: 10,
-      }),
+      prisma.payout.count({ where }),
     ])
 
-    const enrichedTopProducts = await Promise.all(
-      (topProducts || []).map(async (item) => {
-        const product = await prisma.product.findUnique({
-          where: { id: item.productId! },
-          select: { shop: { select: { name: true } }, seller: { select: { name: true } } },
-        })
-        return { ...item, product }
-      })
-    )
-
-    const enrichedTopSellers = await Promise.all(
-      (topSellers || []).map(async (item) => {
-        const seller = await prisma.user.findUnique({
-          where: { id: item.sellerId! },
-          select: { name: true, email: true },
-        })
-        return { ...item, seller }
-      })
-    )
-
-    return successResponse(res, { orderStats, topProducts: enrichedTopProducts, topSellers: enrichedTopSellers })
+    return successResponse(res, {
+      payouts,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
   } catch (error) {
-    return errorResponse(res, 'Failed to fetch reports', 500)
+    return errorResponse(res, 'Failed to fetch payouts', 500)
+  }
+})
+
+router.get('/payments', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+    const status = req.query.status as string | undefined
+    const search = req.query.search as string | undefined
+
+    const where: any = {}
+    if (status) where.status = status
+    if (search) {
+      where.OR = [
+        { transactionRef: { contains: search, mode: 'insensitive' } },
+        { order: { orderNumber: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
+
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        include: {
+          order: {
+            select: {
+              orderNumber: true,
+              total: true,
+              customer: { select: { name: true, email: true } },
+              shop: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.payment.count({ where }),
+    ])
+
+    return successResponse(res, {
+      payments,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch payments', 500)
+  }
+})
+
+router.get('/settings', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
+  try {
+    const settings = {
+      platformName: 'PickAmGo',
+      platformCommission: 7,
+      currency: 'GHS',
+      minimumPayout: 50,
+      supportEmail: process.env.ADMIN_NOTIFICATION_EMAIL || 'support@pickamgo.com',
+      features: {
+        googleAuth: !!process.env.GOOGLE_CLIENT_ID,
+        paystack: !!process.env.PAYSTACK_SECRET_KEY,
+        r2: !!process.env.R2_ACCOUNT_ID,
+        email: !!process.env.RESEND_API_KEY,
+      },
+    }
+
+    return successResponse(res, settings)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch settings', 500)
   }
 })
 

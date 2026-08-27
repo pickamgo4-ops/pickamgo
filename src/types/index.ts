@@ -250,7 +250,7 @@ export interface SellerVerification {
   id: string;
   userId: string;
   shopId?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   idType: string;
   idNumber: string;
   idDocumentUrl: string;

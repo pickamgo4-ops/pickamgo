@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Shield, Users, Store, Package, Tag, Bike, FileText, ArrowRight, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Shield, Users, Store, Package, Tag, Bike, FileText, ArrowRight, CheckCircle, Clock, XCircle, Receipt, Settings, ClipboardList } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
 import { Button } from '../../components/ui/Button'
@@ -17,11 +17,23 @@ export default function AdminDashboardPage() {
   const [adminLoading, setAdminLoading] = useState(true)
   const [stats, setStats] = useState({
     totalUsers: 0,
+    totalBuyers: 0,
+    totalSellers: 0,
+    totalRiders: 0,
+    totalAdmins: 0,
     totalShops: 0,
     totalProducts: 0,
+    totalServices: 0,
     totalOrders: 0,
-    pendingVerifications: 0,
-    totalRiders: 0,
+    totalRevenue: 0,
+    pendingOrders: 0,
+    completedOrders: 0,
+    cancelledOrders: 0,
+    pendingSellerVerifications: 0,
+    pendingShopApprovals: 0,
+    pendingRiderVerifications: 0,
+    activeRiders: 0,
+    platformCommission: 0,
   })
   const [recentUsers, setRecentUsers] = useState<any[]>([])
   const [recentOrders, setRecentOrders] = useState<any[]>([])
@@ -46,19 +58,32 @@ export default function AdminDashboardPage() {
       const [dashboardRes, usersRes, ordersRes, verificationsRes] = await Promise.all([
         api.get<any>('/admin/dashboard'),
         api.get<any>('/admin/users?limit=5'),
-        api.get<{ orders: any[] }>('/admin/orders?limit=5'),
-        api.get<SellerVerification[]>('/admin/verifications?status=pending'),
+        api.get<any>('/admin/orders?limit=5'),
+        api.get<SellerVerification[]>('/admin/verifications?status=PENDING'),
       ])
 
       if (dashboardRes.success && dashboardRes.data) {
         const d = dashboardRes.data
+        const s = d.stats || {}
         setStats({
-          totalUsers: d.totalUsers || d.users || 0,
-          totalShops: d.totalShops || d.shops || 0,
-          totalProducts: d.totalProducts || d.products || 0,
-          totalOrders: d.totalOrders || d.orders || 0,
-          pendingVerifications: d.pendingVerifications || 0,
-          totalRiders: d.totalRiders || d.riders || 0,
+          totalUsers: s.totalUsers || 0,
+          totalBuyers: s.totalBuyers || 0,
+          totalSellers: s.totalSellers || 0,
+          totalRiders: s.totalRiders || 0,
+          totalAdmins: s.totalAdmins || 0,
+          totalShops: s.totalShops || 0,
+          totalProducts: s.totalProducts || 0,
+          totalServices: s.totalServices || 0,
+          totalOrders: s.totalOrders || 0,
+          totalRevenue: s.totalRevenue || 0,
+          pendingOrders: s.pendingOrders || 0,
+          completedOrders: s.completedOrders || 0,
+          cancelledOrders: s.cancelledOrders || 0,
+          pendingSellerVerifications: s.pendingSellerVerifications || 0,
+          pendingShopApprovals: s.pendingShopApprovals || 0,
+          pendingRiderVerifications: s.pendingRiderVerifications || 0,
+          activeRiders: s.activeRiders || 0,
+          platformCommission: s.platformCommission || 0,
         })
       }
 
@@ -82,10 +107,10 @@ export default function AdminDashboardPage() {
 
   const handleVerify = async (id: string, status: 'approved' | 'rejected', reason?: string) => {
     try {
-      const response = await api.patch(`/admin/verifications/${id}`, { status, rejectionReason: reason })
+      const response = await api.patch(`/admin/verifications/${id}/status`, { status, rejectionReason: reason })
       if (response.success) {
         setPendingVerifications(prev => prev.filter(v => v.id !== id))
-        setStats(prev => ({ ...prev, pendingVerifications: prev.pendingVerifications - 1 }))
+        setStats(prev => ({ ...prev, pendingSellerVerifications: prev.pendingSellerVerifications - 1 }))
       }
     } catch (err) {
       console.error('Failed to update verification:', err)
@@ -95,6 +120,27 @@ export default function AdminDashboardPage() {
   if (!isAdmin && !adminLoading && !loading) {
     return null
   }
+
+  const statCards = [
+    { label: 'Total Users', value: stats.totalUsers, href: '/admin/users', icon: Users },
+    { label: 'Buyers', value: stats.totalBuyers, href: '/admin/users', icon: Users },
+    { label: 'Sellers', value: stats.totalSellers, href: '/admin/users', icon: Store },
+    { label: 'Riders', value: stats.totalRiders, href: '/admin/riders', icon: Bike },
+    { label: 'Admins', value: stats.totalAdmins, href: '/admin/users', icon: Shield },
+    { label: 'Shops', value: stats.totalShops, href: '/admin/shops', icon: Store },
+    { label: 'Products', value: stats.totalProducts, href: '/admin/products', icon: Package },
+    { label: 'Services', value: stats.totalServices, href: '/admin/products', icon: Tag },
+    { label: 'Orders', value: stats.totalOrders, href: '/admin/orders', icon: ClipboardList },
+    { label: 'Revenue', value: `GH₵${stats.totalRevenue.toFixed(2)}`, href: '/admin/orders', icon: Receipt },
+    { label: 'Pending Orders', value: stats.pendingOrders, href: '/admin/orders', icon: Clock },
+    { label: 'Completed', value: stats.completedOrders, href: '/admin/orders', icon: CheckCircle },
+    { label: 'Cancelled', value: stats.cancelledOrders, href: '/admin/orders', icon: XCircle },
+    { label: 'Seller Verifications', value: stats.pendingSellerVerifications, href: '/admin/verifications', icon: Clock },
+    { label: 'Shop Approvals', value: stats.pendingShopApprovals, href: '/admin/shops', icon: Store },
+    { label: 'Rider Verifications', value: stats.pendingRiderVerifications, href: '/admin/verifications', icon: Bike },
+    { label: 'Active Riders', value: stats.activeRiders, href: '/admin/riders', icon: Bike },
+    { label: 'Commission', value: `GH₵${stats.platformCommission.toFixed(2)}`, href: '/admin/payouts', icon: Receipt },
+  ]
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
@@ -124,30 +170,21 @@ export default function AdminDashboardPage() {
           <>
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <p className="text-2xl font-bold text-warm-900">{stats.totalUsers}</p>
-                <p className="text-xs text-warm-800/60 mt-1">Total Users</p>
-              </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <p className="text-2xl font-bold text-warm-900">{stats.totalShops}</p>
-                <p className="text-xs text-warm-800/60 mt-1">Shops</p>
-              </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <p className="text-2xl font-bold text-warm-900">{stats.totalProducts}</p>
-                <p className="text-xs text-warm-800/60 mt-1">Products</p>
-              </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <p className="text-2xl font-bold text-warm-900">{stats.totalOrders}</p>
-                <p className="text-xs text-warm-800/60 mt-1">Orders</p>
-              </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <p className="text-2xl font-bold text-warm-900">{stats.totalRiders}</p>
-                <p className="text-xs text-warm-800/60 mt-1">Riders</p>
-              </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <p className="text-2xl font-bold text-warm-900">{stats.pendingVerifications}</p>
-                <p className="text-xs text-warm-800/60 mt-1">Pending Reviews</p>
-              </div>
+              {statCards.map((stat) => (
+                <button
+                  key={stat.label}
+                  onClick={() => router.push(stat.href)}
+                  className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200 text-left hover:border-primary/30 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-warm-100 rounded-lg flex items-center justify-center">
+                      <stat.icon size={16} className="text-warm-800" />
+                    </div>
+                    <span className="text-xs text-warm-800/60">{stat.label}</span>
+                  </div>
+                  <p className="text-2xl font-bold text-warm-900">{stat.value}</p>
+                </button>
+              ))}
             </div>
 
             {/* Pending Verifications */}
@@ -251,7 +288,10 @@ export default function AdminDashboardPage() {
                   { icon: Package, label: 'Products', href: '/admin/products' },
                   { icon: Tag, label: 'Categories', href: '/admin/categories' },
                   { icon: Bike, label: 'Riders', href: '/admin/riders' },
+                  { icon: ClipboardList, label: 'Orders', href: '/admin/orders' },
+                  { icon: Receipt, label: 'Payouts', href: '/admin/payouts' },
                   { icon: FileText, label: 'Reports', href: '/admin/reports' },
+                  { icon: Settings, label: 'Settings', href: '/admin/settings' },
                 ].map((item) => (
                   <button
                     key={item.label}
