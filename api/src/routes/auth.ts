@@ -342,4 +342,16 @@ router.post('/reset-password', validateBody(resetPasswordSchema), async (req: Au
   }
 })
 
+router.get('/google-config', async (_req: AuthenticatedRequest, res) => {
+  try {
+    const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
+    return successResponse(res, {
+      clientId: googleClientId,
+      configured: !!googleClientId,
+    })
+  } catch (error) {
+    return successResponse(res, { clientId: '', configured: false })
+  }
+})
+
 export default router

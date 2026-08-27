@@ -603,6 +603,8 @@ router.get('/riders', authMiddleware, requireRole(['ADMIN']), async (req: Authen
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 20
     const search = req.query.search as string | undefined
+    const verified = req.query.verified as string | undefined
+    const online = req.query.online as string | undefined
 
     const where: any = {}
     if (search) {
@@ -613,6 +615,10 @@ router.get('/riders', authMiddleware, requireRole(['ADMIN']), async (req: Authen
         ],
       }
     }
+    if (verified === 'true') where.isVerified = true
+    else if (verified === 'false') where.isVerified = false
+    if (online === 'true') { where.isOnline = true; where.isAvailable = true }
+    else if (online === 'false') { where.OR = [{ isOnline: false }, { isAvailable: false }] }
 
     const [riders, total] = await Promise.all([
       prisma.rider.findMany({
@@ -627,11 +633,19 @@ router.get('/riders', authMiddleware, requireRole(['ADMIN']), async (req: Authen
       prisma.rider.count({ where }),
     ])
 
+    const mapped = riders.map(rider => ({
+      ...rider,
+      deliveriesCount: Number(rider.deliveriesCount) || 0,
+      earnings: Number(rider.earnings) || 0,
+      rating: Number(rider.rating) || 0,
+    }))
+
     return successResponse(res, {
-      riders,
+      riders: mapped,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     })
   } catch (error) {
+    console.error('Failed to fetch riders:', error)
     return errorResponse(res, 'Failed to fetch riders', 500)
   }
 })
@@ -847,17 +861,66 @@ router.get('/payments', authMiddleware, requireRole(['ADMIN']), async (req: Auth
 
 router.get('/settings', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
   try {
+    const dbSettings = await prisma.setting.findMany()
+    const settingMap = new Map(dbSettings.map(s => [s.key, s.value]))
+
     const settings = {
-      platformName: 'PickAmGo',
-      platformCommission: 7,
-      currency: 'GHS',
-      minimumPayout: 50,
-      supportEmail: process.env.ADMIN_NOTIFICATION_EMAIL || 'support@pickamgo.com',
-      features: {
-        googleAuth: !!process.env.GOOGLE_CLIENT_ID,
-        paystack: !!process.env.PAYSTACK_SECRET_KEY,
-        r2: !!process.env.R2_ACCOUNT_ID,
-        email: !!process.env.RESEND_API_KEY,
+      general: {
+        platformName: settingMap.get('platformName') || 'PickAmGo',
+        supportEmail: settingMap.get('supportEmail') || process.env.ADMIN_NOTIFICATION_EMAIL || 'support@pickamgo.com',
+        supportPhone: settingMap.get('supportPhone') || '',
+        defaultCurrency: settingMap.get('defaultCurrency') || 'GHS',
+        defaultCountry: settingMap.get('defaultCountry') || 'Ghana',
+        timezone: settingMap.get('timezone') || 'Africa/Accra',
+        maintenanceMode: settingMap.get('maintenanceMode') === 'true',
+        enableRegistrations: settingMap.get('enableRegistrations') !== 'false',
+      },
+      marketplace: {
+        enableSellers: settingMap.get('enableSellers') !== 'false',
+        enableRiders: settingMap.get('enableRiders') !== 'false',
+        enableGuestCheckout: settingMap.get('enableGuestCheckout') !== 'false',
+        enableShopCreation: settingMap.get('enableShopCreation') !== 'false',
+        enableMessaging: settingMap.get('enableMessaging') !== 'false',
+        enableReviews: settingMap.get('enableReviews') !== 'false',
+        enableWishlist: settingMap.get('enableWishlist') !== 'false',
+        enableFollowing: settingMap.get('enableFollowing') !== 'false',
+        enableBookings: settingMap.get('enableBookings') !== 'false',
+      },
+      commission: {
+        sellerCommission: parseFloat(settingMap.get('sellerCommission') || '7'),
+        riderCommission: parseFloat(settingMap.get('riderCommission') || '0'),
+        minimumWithdrawal: parseFloat(settingMap.get('minimumWithdrawal') || '50'),
+      },
+      payment: {
+        paystackConfigured: !!process.env.PAYSTACK_SECRET_KEY,
+        paymentCurrency: settingMap.get('paymentCurrency') || 'GHS',
+        minimumPayout: parseFloat(settingMap.get('minimumPayout') || '50'),
+      },
+      delivery: {
+        deliveryEnabled: settingMap.get('deliveryEnabled') !== 'false',
+        minimumDeliveryFee: parseFloat(settingMap.get('minimumDeliveryFee') || '0'),
+        maximumDeliveryFee: parseFloat(settingMap.get('maximumDeliveryFee') || '100'),
+        riderApprovalRequired: settingMap.get('riderApprovalRequired') !== 'false',
+      },
+      security: {
+        emailLoginEnabled: settingMap.get('emailLoginEnabled') !== 'false',
+        googleLoginEnabled: !!process.env.GOOGLE_CLIENT_ID,
+        phoneVerificationEnabled: settingMap.get('phoneVerificationEnabled') === 'true',
+      },
+      notifications: {
+        emailNotifications: settingMap.get('emailNotifications') !== 'false',
+        orderNotifications: settingMap.get('orderNotifications') !== 'false',
+        newSellerNotifications: settingMap.get('newSellerNotifications') !== 'false',
+        newRiderNotifications: settingMap.get('newRiderNotifications') !== 'false',
+        paymentNotifications: settingMap.get('paymentNotifications') !== 'false',
+        withdrawalNotifications: settingMap.get('withdrawalNotifications') !== 'false',
+        deliveryNotifications: settingMap.get('deliveryNotifications') !== 'false',
+        supportNotifications: settingMap.get('supportNotifications') !== 'false',
+      },
+      email: {
+        providerConfigured: !!process.env.RESEND_API_KEY,
+        senderEmail: process.env.RESEND_API_KEY ? 'noreply@pickamgo.com' : '',
+        senderName: settingMap.get('senderName') || 'PickAmGo',
       },
     }
 
@@ -867,13 +930,46 @@ router.get('/settings', authMiddleware, requireRole(['ADMIN']), async (_req: Aut
   }
 })
 
+router.patch('/settings', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const updates = req.body as Record<string, any>
+    const updatedBy = req.user?.id || 'system'
+
+    for (const [key, value] of Object.entries(updates)) {
+      const stringValue = typeof value === 'boolean' ? String(value) : String(value)
+      await prisma.setting.upsert({
+        where: { key },
+        update: { value: stringValue, updatedBy },
+        create: { key, value: stringValue, updatedBy },
+      })
+    }
+
+    return successResponse(res, null, 200, 'Settings updated successfully')
+  } catch (error) {
+    console.error('Failed to update settings:', error)
+    return errorResponse(res, 'Failed to update settings', 500)
+  }
+})
+
 router.get('/features', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
   try {
+    const dbSettings = await prisma.setting.findMany()
+    const settingMap = new Map(dbSettings.map(s => [s.key, s.value]))
+
     const features = {
       googleAuth: !!process.env.GOOGLE_CLIENT_ID,
       paystack: !!process.env.PAYSTACK_SECRET_KEY,
       r2: !!process.env.R2_ACCOUNT_ID,
       email: !!process.env.RESEND_API_KEY,
+      enableSellers: settingMap.get('enableSellers') !== 'false',
+      enableRiders: settingMap.get('enableRiders') !== 'false',
+      enableGuestCheckout: settingMap.get('enableGuestCheckout') !== 'false',
+      enableShopCreation: settingMap.get('enableShopCreation') !== 'false',
+      enableMessaging: settingMap.get('enableMessaging') !== 'false',
+      enableReviews: settingMap.get('enableReviews') !== 'false',
+      enableWishlist: settingMap.get('enableWishlist') !== 'false',
+      enableFollowing: settingMap.get('enableFollowing') !== 'false',
+      enableBookings: settingMap.get('enableBookings') !== 'false',
     }
 
     return successResponse(res, features)

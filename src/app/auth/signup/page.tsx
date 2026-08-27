@@ -49,16 +49,29 @@ export default function SignupPage() {
     }
   }, [])
 
-  const initializeGoogleSignIn = () => {
+  const initializeGoogleSignIn = async () => {
     const google = (window as any).google
     if (!google?.accounts?.id) return
-    if (!googleClientId) {
+
+    let clientId = googleClientId
+    if (!clientId) {
+      try {
+        const configRes = await api.get<{ clientId: string; configured: boolean }>('/auth/google-config')
+        if (configRes.success && configRes.data?.configured) {
+          clientId = configRes.data.clientId
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!clientId) {
       setError('Google Sign-In is not configured. Please use email and password or contact support.')
       return
     }
 
     google.accounts.id.initialize({
-      client_id: googleClientId,
+      client_id: clientId,
       callback: handleGoogleCredentialResponse,
       auto_select: false,
       cancel_on_tap_outside: true,
