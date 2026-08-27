@@ -44,6 +44,7 @@ export default function AdminDashboardPage() {
 
   const checkAdminAndLoadData = async () => {
     setAdminLoading(true)
+    setError('')
     try {
       if (!user || (!user.isAdmin && user.role !== 'admin')) {
         return
@@ -51,15 +52,57 @@ export default function AdminDashboardPage() {
 
       setIsAdmin(true)
 
-      const [dashboardRes, usersRes, ordersRes, verificationsRes] = await Promise.all([
-        api.get<any>('/admin/dashboard'),
-        api.get<any>('/admin/users?limit=5'),
-        api.get<any>('/admin/orders?limit=5'),
-        api.get<SellerVerification[]>('/admin/verifications?status=PENDING'),
-      ])
+      let dashboardData: any = null
+      let usersData: any = null
+      let ordersData: any = null
+      let verificationsData: any = null
 
-      if (dashboardRes.success && dashboardRes.data) {
-        const d = dashboardRes.data
+      try {
+        const dashboardRes = await api.get<any>('/admin/dashboard')
+        if (dashboardRes.success && dashboardRes.data) {
+          dashboardData = dashboardRes.data
+        } else {
+          console.error('Dashboard API error:', dashboardRes.error)
+        }
+      } catch (err) {
+        console.error('Dashboard API exception:', err)
+      }
+
+      try {
+        const usersRes = await api.get<any>('/admin/users?limit=5')
+        if (usersRes.success && usersRes.data) {
+          usersData = usersRes.data
+        } else {
+          console.error('Users API error:', usersRes.error)
+        }
+      } catch (err) {
+        console.error('Users API exception:', err)
+      }
+
+      try {
+        const ordersRes = await api.get<any>('/admin/orders?limit=5')
+        if (ordersRes.success && ordersRes.data) {
+          ordersData = ordersRes.data
+        } else {
+          console.error('Orders API error:', ordersRes.error)
+        }
+      } catch (err) {
+        console.error('Orders API exception:', err)
+      }
+
+      try {
+        const verificationsRes = await api.get<SellerVerification[]>('/admin/verifications?status=PENDING')
+        if (verificationsRes.success && verificationsRes.data) {
+          verificationsData = verificationsRes.data
+        } else {
+          console.error('Verifications API error:', verificationsRes.error)
+        }
+      } catch (err) {
+        console.error('Verifications API exception:', err)
+      }
+
+      if (dashboardData) {
+        const d = dashboardData
         const s = d.stats || {}
         setStats({
           totalUsers: s.totalUsers || 0,
@@ -83,20 +126,21 @@ export default function AdminDashboardPage() {
         })
       }
 
-      if (usersRes.success && usersRes.data) {
-        const usersData = Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data.users || [])
-        setRecentUsers(usersData.slice(0, 5))
+      if (usersData) {
+        const usersArr = Array.isArray(usersData) ? usersData : (usersData.users || [])
+        setRecentUsers(usersArr.slice(0, 5))
       }
 
-      if (ordersRes.success && ordersRes.data) {
-        setRecentOrders((ordersRes.data.orders || []).slice(0, 5))
+      if (ordersData) {
+        setRecentOrders((ordersData.orders || []).slice(0, 5))
       }
 
-      if (verificationsRes.success && Array.isArray(verificationsRes.data)) {
-        setPendingVerifications(verificationsRes.data)
+      if (verificationsData && Array.isArray(verificationsData)) {
+        setPendingVerifications(verificationsData)
       }
     } catch (err) {
       console.error('Failed to load admin dashboard:', err)
+      setError('Failed to load dashboard data. Please refresh the page.')
     } finally {
       setAdminLoading(false)
     }
@@ -116,6 +160,29 @@ export default function AdminDashboardPage() {
 
   if (!isAdmin && !adminLoading && !loading) {
     return null
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+            <Shield size={24} className="text-primary" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
+              Admin Dashboard
+            </h1>
+            <p className="text-warm-800/60">Platform overview</p>
+          </div>
+        </div>
+        <Card className="p-12 text-center">
+          <XCircle size={44} className="mx-auto text-red-500 mb-3" />
+          <p className="text-warm-900 font-medium">{error}</p>
+          <Button onClick={checkAdminAndLoadData} className="mt-4">Retry</Button>
+        </Card>
+      </div>
+    )
   }
 
   const statCards = [
