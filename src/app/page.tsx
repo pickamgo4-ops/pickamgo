@@ -1,18 +1,16 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { MapPin, ChevronDown, Heart, Flame, Sparkles, Utensils, Shirt, PackageOpen, Tag, Store, Star, Eye, CheckCircle2 } from 'lucide-react'
+import { MapPin, ChevronDown, Flame, Sparkles, Tag, Star, Eye, CheckCircle2 } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { BottomNav } from '../components/layout/BottomNav'
-import { CategoryGrid } from '../components/layout/CategoryGrid'
 import { ProductCard } from '../components/product/ProductCard'
-import { BeautyCard } from '../components/beauty/BeautyCard'
 import { SectionHeader } from '../components/ui/SectionHeader'
 import { Button } from '../components/ui/Button'
 import { api } from '../lib/api'
 import { getShopUrl } from '../lib/shop-url'
-import { Product, BeautyService, Shop, Category } from '../types'
-import { mapApiProductToFrontend, mapApiServiceToFrontend, mapApiShopToFrontend, mapApiCategoryToFrontend } from '../lib/api-mappers'
+import { Product, Shop } from '../types'
+import { mapApiProductToFrontend, mapApiShopToFrontend } from '../lib/api-mappers'
 import { useRouter } from 'next/navigation'
 import MapboxLocationPicker from '../components/map/MapboxLocationPicker'
 
@@ -24,9 +22,7 @@ export default function HomePage() {
   const [isLocationOpen, setIsLocationOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [products, setProducts] = useState<Product[]>([])
-  const [beautyServices, setBeautyServices] = useState<BeautyService[]>([])
   const [shops, setShops] = useState<Shop[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const generationRef = useRef(0)
@@ -52,14 +48,12 @@ export default function HomePage() {
     try {
       const results = await Promise.allSettled([
         api.get<{ products: any[] }>(`/products?limit=20${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=25` : locationQuery ? `&location=${encodeURIComponent(locationQuery)}` : ''}`),
-        api.get<{ services: any[] }>('/services?limit=10'),
         api.get<{ shops: any[] }>(`/shops?limit=6${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=5` : ''}`),
-        api.get<{ data: any[] }>('/categories'),
       ])
 
       if (currentGeneration !== generationRef.current) return
 
-      const [productsRes, servicesRes, shopsRes, categoriesRes] = results
+      const [productsRes, shopsRes] = results
 
       if (productsRes.status === 'fulfilled' && productsRes.value.success && productsRes.value.data) {
         setProducts((productsRes.value.data.products || []).map(mapApiProductToFrontend))
@@ -70,22 +64,10 @@ export default function HomePage() {
         setLoadError(productsRes.value.error || 'Unable to load products. Please try again.')
       }
 
-      if (servicesRes.status === 'fulfilled' && servicesRes.value.success && servicesRes.value.data) {
-        setBeautyServices((servicesRes.value.data.services || []).map(mapApiServiceToFrontend))
-      } else if (servicesRes.status === 'rejected') {
-        console.error('Services API error:', servicesRes.reason)
-      }
-
       if (shopsRes.status === 'fulfilled' && shopsRes.value.success && shopsRes.value.data) {
         setShops((shopsRes.value.data.shops || []).map(mapApiShopToFrontend))
       } else if (shopsRes.status === 'rejected') {
         console.error('Shops API error:', shopsRes.reason)
-      }
-
-      if (categoriesRes.status === 'fulfilled' && categoriesRes.value.success && Array.isArray(categoriesRes.value.data)) {
-        setCategories(categoriesRes.value.data.map(mapApiCategoryToFrontend))
-      } else if (categoriesRes.status === 'rejected') {
-        console.error('Categories API error:', categoriesRes.reason)
       }
     } catch (error) {
       console.error('Failed to load data:', error)
@@ -121,9 +103,6 @@ export default function HomePage() {
   }
 
   const trendingProducts = products.filter(p => p.isTrending)
-  const beautyProducts = products.filter(p => p.category === 'beauty')
-  const foodProducts = products.filter(p => p.category === 'food')
-  const fashionProducts = products.filter(p => p.category === 'fashion')
   const newProducts = products.filter(p => p.isNew)
   const affordableProducts = products.filter(p => p.price < 50)
   const nearbyProducts = coordinates ? products.slice(0, 4) : []
@@ -205,11 +184,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Categories */}
-        <section className="mb-10">
-          <CategoryGrid categories={categories} />
-        </section>
-
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
@@ -243,72 +217,6 @@ export default function HomePage() {
                 />
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {trendingProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Beauty Near You */}
-            <section className="mb-10">
-              <SectionHeader
-                title="Beauty Near You"
-                emoji={<Sparkles size={20} className="text-pink-500" />}
-                subtitle="Products and services for your glow-up"
-                link="/discover?category=beauty"
-              />
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {beautyProducts.slice(0, 4).map((product) => (
-                  <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />
-                ))}
-              </div>
-
-              {/* Beauty Services Horizontal Scroll */}
-              {beautyServices.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="font-semibold text-lg text-warm-900 mb-3 flex items-center gap-2">
-                    <Sparkles size={20} className="text-primary" />
-                    Beauty Services
-                  </h3>
-                  <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0">
-                    {beautyServices.map((service) => (
-                      <div key={service.id} className="min-w-[260px] md:min-w-[280px]">
-                        <BeautyCard service={service} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* Local Food */}
-            {foodProducts.length > 0 && (
-              <section className="mb-10">
-                <SectionHeader
-                  title="Local Food"
-                  emoji={<Utensils size={20} className="text-orange-500" />}
-                  subtitle="Food and treats near you"
-                  link="/discover?category=food"
-                />
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {foodProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Fresh Fashion */}
-            {fashionProducts.length > 0 && (
-              <section className="mb-10">
-                <SectionHeader
-                  title="Fresh Fashion"
-                  emoji={<Shirt size={20} className="text-purple-500" />}
-                  subtitle="Trending styles near you"
-                  link="/discover?category=fashion"
-                />
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {fashionProducts.map((product) => (
                     <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />
                   ))}
                 </div>
