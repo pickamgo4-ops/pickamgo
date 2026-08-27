@@ -36,6 +36,7 @@ export default function AdminDashboardPage() {
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [pendingVerifications, setPendingVerifications] = useState<SellerVerification[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!authInitialized) return
