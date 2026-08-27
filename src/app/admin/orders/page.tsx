@@ -29,7 +29,6 @@ interface OrderDetail {
   orderNumber: string
   status: string
   total: number
-  subtotal: number
   deliveryFee: number
   paymentStatus: string
   paymentMethod: string
@@ -41,16 +40,50 @@ interface OrderDetail {
   shopName: string
   riderName?: string
   deliveryAddress: string
-  deliveryInstructions?: string
-  latitude?: number
-  longitude?: number
   items: any[]
-  timeline: any[]
   createdAt: string
+}
+
+function mapOrderDetail(o: any): OrderDetail {
+  return {
+    id: o.id,
+    orderNumber: o.orderNumber || o.id,
+    status: o.status || 'PENDING_PAYMENT',
+    total: Number(o.total) || 0,
+    deliveryFee: Number(o.deliveryFee) || 0,
+    paymentStatus: o.payment?.status || 'PENDING_PAYMENT',
+    paymentMethod: o.payment?.method || '-',
+    fulfillmentMethod: o.fulfillmentMethod || '-',
+    customerName: o.customer?.name || o.guestName || 'Guest',
+    customerEmail: o.customer?.email || o.guestEmail || undefined,
+    customerPhone: o.customer?.phone || o.guestPhone || undefined,
+    isGuest: !o.customerId && (!!o.guestName || !!o.guestEmail || !!o.guestPhone),
+    shopName: o.shop?.name || '-',
+    riderName: o.rider?.name || undefined,
+    deliveryAddress: o.deliveryAddress || '-',
+    items: o.items || [],
+    createdAt: o.createdAt,
+  }
 }
 
 const PAYMENT_STATUSES = ['PENDING_PAYMENT', 'PAID', 'FAILED', 'REFUNDED']
 const ORDER_STATUSES = ['PENDING_PAYMENT', 'PAID', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'FAILED']
+
+function mapOrder(o: any): AdminOrder {
+  return {
+    id: o.id,
+    orderNumber: o.orderNumber || o.id,
+    customerName: o.customer?.name || o.guestName || 'Guest',
+    customerEmail: o.customer?.email || o.guestEmail || undefined,
+    isGuest: !o.customerId && (!!o.guestName || !!o.guestEmail || !!o.guestPhone),
+    shopName: o.shop?.name || '-',
+    total: Number(o.total) || 0,
+    paymentStatus: o.payment?.status || o.status || 'PENDING_PAYMENT',
+    status: o.status || 'PENDING_PAYMENT',
+    riderName: o.rider?.name || undefined,
+    createdAt: o.createdAt,
+  }
+}
 
 export default function AdminOrdersPage() {
   const router = useRouter()
@@ -100,7 +133,7 @@ export default function AdminOrdersPage() {
 
       const response = await api.get<any>(`/admin/orders?${params.toString()}`)
       if (response.success && response.data) {
-        setOrders(response.data.orders || [])
+        setOrders((response.data.orders || []).map(mapOrder))
         setTotalPages(response.data.pagination?.totalPages || 1)
         setTotal(response.data.pagination?.total || 0)
       } else {
@@ -118,7 +151,7 @@ export default function AdminOrdersPage() {
     try {
       const response = await api.get<any>(`/admin/orders/${orderId}`)
       if (response.success && response.data) {
-        setSelectedOrder(response.data)
+        setSelectedOrder(mapOrderDetail(response.data))
       }
     } catch {
       console.error('Failed to load order detail')
@@ -138,7 +171,7 @@ export default function AdminOrdersPage() {
 
     setUpdatingStatus(true)
     try {
-      const response = await api.patch(`/admin/orders/${orderId}`, { status: newStatus })
+      const response = await api.patch(`/admin/orders/${orderId}/status`, { status: newStatus })
       if (response.success) {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o))
         if (selectedOrder?.id === orderId) {
@@ -361,7 +394,7 @@ export default function AdminOrdersPage() {
                         {selectedOrder.items.map((item: any, idx: number) => (
                           <div key={idx} className="p-3 bg-warm-50 rounded-xl text-sm flex justify-between">
                             <span className="text-warm-900">{item.product?.name || item.service?.name || 'Item'} x{item.quantity}</span>
-                            <span className="font-medium text-warm-900">GH₵{item.price?.toFixed(2)}</span>
+                             <span className="font-medium text-warm-900">GH₵{Number(item.price).toFixed(2)}</span>
                           </div>
                         ))}
                       </div>

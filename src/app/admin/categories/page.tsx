@@ -22,6 +22,20 @@ interface AdminCategory {
   parent?: { id: string; name: string }
 }
 
+function mapCategory(c: any): AdminCategory {
+  return {
+    id: c.id,
+    name: c.name,
+    icon: c.emoji || c.icon || '',
+    color: c.color || '#FF6B35',
+    productsCount: c._count?.products ?? c.productsCount ?? 0,
+    servicesCount: c._count?.services ?? c.servicesCount ?? 0,
+    isActive: c.isActive !== undefined ? c.isActive : true,
+    createdAt: c.createdAt,
+    parent: c.parent || undefined,
+  }
+}
+
 interface CategoryFormData {
   name: string
   icon: string
@@ -64,7 +78,8 @@ export default function AdminCategoriesPage() {
     try {
       const response = await api.get<any>('/admin/categories')
       if (response.success && response.data) {
-        setCategories(response.data.categories || [])
+        const raw = Array.isArray(response.data) ? response.data : []
+        setCategories(raw.map(mapCategory))
       } else {
         setError(response.error || 'Failed to load categories')
       }

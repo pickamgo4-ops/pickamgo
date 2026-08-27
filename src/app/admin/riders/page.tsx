@@ -42,6 +42,42 @@ interface RiderDetail {
   earningsHistory?: any[]
 }
 
+function mapRider(r: any): AdminRider {
+  return {
+    id: r.id,
+    name: r.user?.name || '-',
+    email: r.user?.email || '-',
+    phone: r.user?.phone || undefined,
+    isOnline: !!r.isOnline,
+    isAvailable: !!r.isAvailable,
+    isVerified: !!r.isVerified,
+    totalDeliveries: r.deliveriesCount ?? 0,
+    rating: Number(r.rating) || 0,
+    totalEarnings: Number(r.earnings) || 0,
+    createdAt: r.createdAt,
+  }
+}
+
+function mapRiderDetail(r: any): RiderDetail {
+  return {
+    id: r.id,
+    name: r.user?.name || '-',
+    email: r.user?.email || '-',
+    phone: r.user?.phone || undefined,
+    isOnline: !!r.isOnline,
+    isAvailable: !!r.isAvailable,
+    isVerified: !!r.isVerified,
+    totalDeliveries: r.deliveriesCount ?? 0,
+    rating: Number(r.rating) || 0,
+    totalEarnings: Number(r.earnings) || 0,
+    vehicleType: r.vehicleType || r.licenseNumber || '-',
+    vehicleNumber: r.licenseNumber || undefined,
+    createdAt: r.createdAt,
+    recentDeliveries: r.deliveries || [],
+    earningsHistory: r.earnings || [],
+  }
+}
+
 export default function AdminRidersPage() {
   const router = useRouter()
   const { user, loading, authInitialized } = useRole()
@@ -89,7 +125,7 @@ export default function AdminRidersPage() {
 
       const response = await api.get<any>(`/admin/riders?${params.toString()}`)
       if (response.success && response.data) {
-        setRiders(response.data.riders || [])
+        setRiders((response.data.riders || []).map(mapRider))
         setTotalPages(response.data.pagination?.totalPages || 1)
         setTotal(response.data.pagination?.total || 0)
       } else {
@@ -107,7 +143,7 @@ export default function AdminRidersPage() {
     try {
       const response = await api.get<any>(`/admin/riders/${riderId}`)
       if (response.success && response.data) {
-        setSelectedRider(response.data)
+        setSelectedRider(mapRiderDetail(response.data))
       }
     } catch {
       console.error('Failed to load rider detail')
@@ -120,16 +156,34 @@ export default function AdminRidersPage() {
     loadRiderDetail(r.id)
   }
 
-  const updateRiderStatus = async (riderId: string, status: string) => {
+  const updateRider = async (riderId: string, action: 'APPROVE' | 'SUSPEND' | 'ONLINE' | 'OFFLINE') => {
     const rider = riders.find(r => r.id === riderId)
     if (!rider) return
-    if (!window.confirm(`Are you sure you want to ${status.toLowerCase()} "${rider.name}"?`)) return
+    const labels: Record<string, string> = { APPROVE: 'approve', SUSPEND: 'suspend', ONLINE: 'set online', OFFLINE: 'set offline' }
+    if (!window.confirm(`Are you sure you want to ${labels[action]} "${rider.name}"?`)) return
 
-    const response = await api.patch(`/admin/riders/${riderId}`, { status })
+    const data: any = {}
+    if (action === 'APPROVE') data.isVerified = true
+    else if (action === 'SUSPEND') data.isVerified = false
+    else if (action === 'ONLINE') data.isOnline = true
+    else if (action === 'OFFLINE') data.isOnline = false
+
+    const response = await api.patch(`/admin/riders/${riderId}`, data)
     if (response.success) {
-      setRiders(prev => prev.map(r => r.id === riderId ? { ...r, ...status === 'APPROVED' ? { isVerified: true } : {} } : r))
+      setRiders(prev => prev.map(r => {
+        if (r.id !== riderId) return r
+        return {
+          ...r,
+          isVerified: data.isVerified !== undefined ? data.isVerified : r.isVerified,
+          isOnline: data.isOnline !== undefined ? data.isOnline : r.isOnline,
+        }
+      }))
       if (selectedRider?.id === riderId) {
-        setSelectedRider(prev => prev ? { ...prev, isVerified: status === 'APPROVED' ? true : prev.isVerified } : null)
+        setSelectedRider(prev => prev ? {
+          ...prev,
+          isVerified: data.isVerified !== undefined ? data.isVerified : prev.isVerified,
+          isOnline: data.isOnline !== undefined ? data.isOnline : prev.isOnline,
+        } : null)
       }
     }
   }
@@ -351,21 +405,21 @@ export default function AdminRidersPage() {
                     <p className="text-xs font-medium text-warm-800/50 uppercase">Actions</p>
                     <div className="flex flex-wrap gap-2">
                       {!selectedRider.isVerified && (
-                        <Button size="sm" onClick={() => updateRiderStatus(selectedRider.id, 'APPROVED')}>
+                        <Button size="sm" onClick={() => updateRider(selectedRider.id, 'APPROVE')}>
                           <CheckCircle size={16} />
                           Approve
                         </Button>
                       )}
-                      <Button size="sm" variant="outline" onClick={() => updateRiderStatus(selectedRider.id, 'SUSPENDED')}>
+                      <Button size="sm" variant="outline" onClick={() => updateRider(selectedRider.id, 'SUSPEND')}>
                         <Ban size={16} />
                         Suspend
                       </Button>
                       {selectedRider.isOnline ? (
-                        <Button size="sm" variant="outline" onClick={() => updateRiderStatus(selectedRider.id, 'OFFLINE')}>
+                        <Button size="sm" variant="outline" onClick={() => updateRider(selectedRider.id, 'OFFLINE')}>
                           Set Offline
                         </Button>
                       ) : (
-                        <Button size="sm" onClick={() => updateRiderStatus(selectedRider.id, 'ONLINE')}>
+                        <Button size="sm" onClick={() => updateRider(selectedRider.id, 'ONLINE')}>
                           Set Online
                         </Button>
                       )}

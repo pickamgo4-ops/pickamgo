@@ -193,7 +193,7 @@ export default function AdminPayoutsPage() {
                           <p className="text-xs text-warm-800/50">{p.user.email}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium text-warm-900">GH₵{p.amount?.toFixed(2)}</td>
+                       <td className="px-4 py-3 font-medium text-warm-900">GH₵{Number(p.amount).toFixed(2)}</td>
                       <td className="px-4 py-3 text-warm-800/70 hidden sm:table-cell">{p.payoutMethod.provider}</td>
                       <td className="px-4 py-3 text-warm-800/70 hidden md:table-cell">{p.payoutMethod.phoneNumber}</td>
                       <td className="px-4 py-3">{getStatusBadge(p.status)}</td>
@@ -239,10 +239,10 @@ export default function AdminPayoutsPage() {
                     <p className="text-sm font-medium text-warm-900 mt-1">{selectedPayout.user.name}</p>
                     <p className="text-xs text-warm-800/60">{selectedPayout.user.email}</p>
                   </div>
-                  <div>
-                    <label className="text-xs font-medium text-warm-800/50 uppercase">Amount</label>
-                    <p className="text-sm font-medium text-warm-900 mt-1">GH₵{selectedPayout.amount?.toFixed(2)}</p>
-                  </div>
+                    <div>
+                      <label className="text-xs font-medium text-warm-800/50 uppercase">Amount</label>
+                      <p className="text-sm font-medium text-warm-900 mt-1">GH₵{Number(selectedPayout.amount).toFixed(2)}</p>
+                    </div>
                   <div>
                     <label className="text-xs font-medium text-warm-800/50 uppercase">Reference</label>
                     <p className="text-sm font-medium text-warm-900 mt-1">{selectedPayout.reference}</p>

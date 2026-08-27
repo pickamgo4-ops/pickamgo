@@ -25,6 +25,45 @@ interface UserDetail {
   orderCount?: number
 }
 
+function deriveRole(u: any): string {
+  if (u.isAdmin) return 'admin'
+  if (u.isRider) return 'rider'
+  if (u.isSeller) return 'seller'
+  return 'buyer'
+}
+
+function mapUser(u: any): AdminUser {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    phone: u.phone || undefined,
+    role: deriveRole(u),
+    isSeller: !!u.isSeller,
+    isRider: !!u.isRider,
+    isAdmin: !!u.isAdmin,
+    isVerified: !!u.emailVerified || !!u.phoneVerified,
+    createdAt: u.createdAt,
+  }
+}
+
+function mapUserDetail(u: any): UserDetail {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    phone: u.phone || '',
+    role: deriveRole(u),
+    isSeller: !!u.isSeller,
+    isRider: !!u.isRider,
+    isAdmin: !!u.isAdmin,
+    isVerified: !!u.emailVerified || !!u.phoneVerified,
+    createdAt: u.createdAt,
+    addresses: u.addresses || [],
+    orderCount: u._count?.customerOrders ?? u.orderCount ?? 0,
+  }
+}
+
 interface AdminUser {
   id: string
   name: string
@@ -83,7 +122,7 @@ export default function AdminUsersPage() {
 
       const response = await api.get<any>(`/admin/users?${params.toString()}`)
       if (response.success && response.data) {
-        setUsers(response.data.users || [])
+        setUsers((response.data.users || []).map(mapUser))
         setTotalPages(response.data.pagination?.totalPages || 1)
         setTotal(response.data.pagination?.total || 0)
       } else {
@@ -101,7 +140,7 @@ export default function AdminUsersPage() {
     try {
       const response = await api.get<any>(`/admin/users/${userId}`)
       if (response.success && response.data) {
-        setSelectedUser(response.data)
+        setSelectedUser(mapUserDetail(response.data))
       }
     } catch {
       console.error('Failed to load user detail')
@@ -341,12 +380,12 @@ export default function AdminUsersPage() {
                     <div>
                       <p className="text-xs font-medium text-warm-800/50 uppercase mb-2">Addresses</p>
                       <div className="space-y-2">
-                        {selectedUser.addresses.map((addr: any) => (
-                          <div key={addr.id} className="p-3 bg-warm-50 rounded-xl text-sm">
-                            <p className="font-medium text-warm-900">{addr.label}</p>
-                            <p className="text-warm-800/70">{addr.street}, {addr.city}</p>
-                          </div>
-                        ))}
+                         {selectedUser.addresses.map((addr: any) => (
+                           <div key={addr.id} className="p-3 bg-warm-50 rounded-xl text-sm">
+                             <p className="font-medium text-warm-900">{addr.label}</p>
+                             <p className="text-warm-800/70">{addr.address}{addr.city ? `, ${addr.city}` : ''}</p>
+                           </div>
+                         ))}
                       </div>
                     </div>
                   )}

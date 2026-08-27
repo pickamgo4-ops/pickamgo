@@ -82,7 +82,7 @@ export default function AdminMessagesPage() {
     setMessagesLoading(true)
     setMessages([])
     try {
-      const response = await api.get<any>(`/messages/conversations/${conversationId}`)
+      const response = await api.get<any>(`/admin/conversations/${conversationId}/messages`)
       if (response.success && response.data) {
         setMessages(response.data.messages || [])
       }

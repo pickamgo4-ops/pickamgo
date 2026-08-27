@@ -36,6 +36,36 @@ interface ProductDetail {
   createdAt: string
 }
 
+function mapProduct(p: any): AdminProduct {
+  return {
+    id: p.id,
+    name: p.name,
+    image: p.images?.[0]?.url || p.image || '/placeholder.png',
+    shop: p.shop ? { id: p.shop.id, name: p.shop.name } : { id: '', name: '-' },
+    category: p.category?.name || p.categoryId || '-',
+    price: Number(p.price) || 0,
+    stock: p.stock ?? 0,
+    status: p.status || 'ACTIVE',
+    createdAt: p.createdAt,
+  }
+}
+
+function mapProductDetail(p: any): ProductDetail {
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description || '',
+    image: p.images?.[0]?.url || p.image || '/placeholder.png',
+    images: p.images?.map((i: any) => i.url) || [],
+    price: Number(p.price) || 0,
+    stock: p.stock ?? 0,
+    status: p.status || 'ACTIVE',
+    category: p.category?.name || p.categoryId || '-',
+    shop: p.shop ? { id: p.shop.id, name: p.shop.name, slug: p.shop.slug || '' } : { id: '', name: '-', slug: '' },
+    createdAt: p.createdAt,
+  }
+}
+
 export default function AdminProductsPage() {
   const router = useRouter()
   const { user, loading, authInitialized } = useRole()
@@ -96,7 +126,7 @@ export default function AdminProductsPage() {
 
       const response = await api.get<any>(`/admin/products?${params.toString()}`)
       if (response.success && response.data) {
-        setProducts(response.data.products || [])
+        setProducts((response.data.products || []).map(mapProduct))
         setTotalPages(response.data.pagination?.totalPages || 1)
         setTotal(response.data.pagination?.total || 0)
       } else {
@@ -114,7 +144,7 @@ export default function AdminProductsPage() {
     try {
       const response = await api.get<any>(`/admin/products/${productId}`)
       if (response.success && response.data) {
-        setSelectedProduct(response.data)
+        setSelectedProduct(mapProductDetail(response.data))
       }
     } catch {
       console.error('Failed to load product detail')

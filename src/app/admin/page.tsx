@@ -101,7 +101,7 @@ export default function AdminDashboardPage() {
     }
   }
 
-  const handleVerify = async (id: string, status: 'approved' | 'rejected', reason?: string) => {
+  const handleVerify = async (id: string, status: 'APPROVED' | 'REJECTED', reason?: string) => {
     try {
       const response = await api.patch(`/admin/verifications/${id}/status`, { status, rejectionReason: reason })
       if (response.success) {
@@ -187,9 +187,9 @@ export default function AdminDashboardPage() {
                           {new Date(order.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <span className="text-sm font-bold text-warm-900">
-                        GH₵{order.total?.toFixed(2) || '0.00'}
-                      </span>
+                        <span className="text-sm font-bold text-warm-900">
+                          GH₵{Number(order.total).toFixed(2)}
+                        </span>
                     </div>
                   ))}
                 </div>
@@ -241,7 +241,7 @@ export default function AdminDashboardPage() {
                         </div>
                         <div className="flex gap-1">
                           <button
-                            onClick={() => handleVerify(ver.id, 'approved')}
+                            onClick={() => handleVerify(ver.id, 'APPROVED')}
                             className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
                           >
                             <CheckCircle size={18} />
@@ -249,7 +249,7 @@ export default function AdminDashboardPage() {
                           <button
                             onClick={() => {
                               const reason = prompt('Rejection reason:')
-                              if (reason !== null) handleVerify(ver.id, 'rejected', reason)
+                              if (reason !== null) handleVerify(ver.id, 'REJECTED', reason)
                             }}
                             className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
                           >
@@ -258,7 +258,7 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
                       <a
-                        href={ver.idDocumentUrl}
+                        href={ver.idFrontUrl || ver.idBackUrl || ver.selfieUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-primary hover:underline"

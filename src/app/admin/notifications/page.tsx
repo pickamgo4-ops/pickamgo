@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, Bell, Eye, Loader2, XCircle, X, CheckCircle } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Bell, Eye, Loader2, XCircle, X, CheckCircle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -32,6 +32,7 @@ export default function AdminNotificationsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [readFilter, setReadFilter] = useState('')
   const [selectedNotification, setSelectedNotification] = useState<AdminNotification | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
 
   useEffect(() => {
     if (!authInitialized) return
@@ -77,6 +78,50 @@ export default function AdminNotificationsPage() {
     }
   }
 
+  const markAsRead = async (notificationId: string) => {
+    setActionLoading(true)
+    try {
+      await api.patch(`/admin/notifications/${notificationId}/read`, {})
+      setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n))
+      if (selectedNotification?.id === notificationId) {
+        setSelectedNotification(prev => prev ? { ...prev, isRead: true } : null)
+      }
+    } catch {
+      console.error('Failed to mark notification as read')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const markAllAsRead = async () => {
+    setActionLoading(true)
+    try {
+      await api.patch('/admin/notifications/read-all', {})
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+    } catch {
+      console.error('Failed to mark all notifications as read')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const deleteNotification = async (notificationId: string) => {
+    if (!window.confirm('Are you sure you want to delete this notification?')) return
+
+    setActionLoading(true)
+    try {
+      await api.delete(`/admin/notifications/${notificationId}`)
+      setNotifications(prev => prev.filter(n => n.id !== notificationId))
+      if (selectedNotification?.id === notificationId) {
+        setSelectedNotification(null)
+      }
+    } catch {
+      console.error('Failed to delete notification')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   const getTypeBadge = (type: string) => {
     const config: Record<string, { variant: any; label: string }> = {
       NEW_BOOKING: { variant: 'deal', label: 'Booking' },
@@ -103,16 +148,22 @@ export default function AdminNotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-          <Bell size={20} className="text-primary" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+            <Bell size={20} className="text-primary" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
+              Notifications
+            </h1>
+            <p className="text-warm-800/60 text-sm">Monitor platform notifications</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-            Notifications
-          </h1>
-          <p className="text-warm-800/60 text-sm">Monitor platform notifications</p>
-        </div>
+        <Button onClick={markAllAsRead} disabled={actionLoading || notifications.every(n => n.isRead)}>
+          <CheckCircle size={16} />
+          Mark all as read
+        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -166,6 +217,7 @@ export default function AdminNotificationsPage() {
                     <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">Message</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Status</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">Date</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-warm-200">
@@ -194,6 +246,28 @@ export default function AdminNotificationsPage() {
                       </td>
                       <td className="px-4 py-3 text-warm-800/60 hidden lg:table-cell">
                         {new Date(n.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {!n.isRead && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); markAsRead(n.id) }}
+                              disabled={actionLoading}
+                              className="p-2 rounded-xl hover:bg-warm-100 text-warm-800"
+                              title="Mark as read"
+                            >
+                              <CheckCircle size={16} />
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteNotification(n.id) }}
+                            disabled={actionLoading}
+                            className="p-2 rounded-xl hover:bg-red-50 text-red-600"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -254,6 +328,18 @@ export default function AdminNotificationsPage() {
                 </div>
                 <div className="text-xs text-warm-800/50">
                   Created: {new Date(selectedNotification.createdAt).toLocaleString()}
+                </div>
+                <div className="flex gap-2">
+                  {!selectedNotification.isRead && (
+                    <Button onClick={() => markAsRead(selectedNotification.id)} disabled={actionLoading}>
+                      <CheckCircle size={16} />
+                      Mark as read
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => deleteNotification(selectedNotification.id)} disabled={actionLoading}>
+                    <Trash2 size={16} />
+                    Delete
+                  </Button>
                 </div>
               </div>
             </Card>

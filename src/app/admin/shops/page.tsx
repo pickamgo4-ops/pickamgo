@@ -38,6 +38,38 @@ interface ShopDetail {
   recentOrders?: any[]
 }
 
+function mapShop(s: any): AdminShop {
+  return {
+    id: s.id,
+    name: s.name,
+    slug: s.slug || '',
+    status: s.status || 'ACTIVE',
+    isVerified: !!s.isVerified,
+    productsCount: s._count?.products ?? 0,
+    ordersCount: s._count?.orders ?? 0,
+    createdAt: s.createdAt,
+    owner: s.owner ? { id: s.owner.id, name: s.owner.name, email: s.owner.email } : { id: '', name: '-', email: '-' },
+  }
+}
+
+function mapShopDetail(s: any): ShopDetail {
+  return {
+    id: s.id,
+    name: s.name,
+    slug: s.slug || '',
+    status: s.status || 'ACTIVE',
+    isVerified: !!s.isVerified,
+    description: s.description || '',
+    productsCount: s._count?.products ?? 0,
+    ordersCount: s._count?.orders ?? 0,
+    createdAt: s.createdAt,
+    owner: s.owner ? { id: s.owner.id, name: s.owner.name, email: s.owner.email, phone: s.owner.phone } : { id: '', name: '-', email: '-' },
+    publicUrl: s.publicUrl || '',
+    products: s.products || [],
+    recentOrders: s.orders || [],
+  }
+}
+
 export default function AdminShopsPage() {
   const router = useRouter()
   const { user, loading, authInitialized } = useRole()
@@ -83,7 +115,7 @@ export default function AdminShopsPage() {
 
       const response = await api.get<any>(`/admin/shops?${params.toString()}`)
       if (response.success && response.data) {
-        setShops(response.data.shops || [])
+        setShops((response.data.shops || []).map(mapShop))
         setTotalPages(response.data.pagination?.totalPages || 1)
         setTotal(response.data.pagination?.total || 0)
       } else {
@@ -101,7 +133,7 @@ export default function AdminShopsPage() {
     try {
       const response = await api.get<any>(`/admin/shops/${shopId}`)
       if (response.success && response.data) {
-        setSelectedShop(response.data)
+        setSelectedShop(mapShopDetail(response.data))
       }
     } catch {
       console.error('Failed to load shop detail')

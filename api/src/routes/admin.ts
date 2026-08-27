@@ -49,6 +49,7 @@ router.get('/dashboard', authMiddleware, requireRole(['ADMIN']), async (req: Aut
       pendingShopApprovals,
       pendingRiderVerifications,
       activeRiders,
+      pendingPayouts,
       recentOrders,
       recentUsers,
       orderStatusBreakdown,
@@ -74,6 +75,7 @@ router.get('/dashboard', authMiddleware, requireRole(['ADMIN']), async (req: Aut
       prisma.shop.count({ where: { verificationStatus: 'PENDING' } }),
       prisma.sellerVerification.count({ where: { status: 'PENDING', type: 'RIDER' } }),
       prisma.rider.count({ where: { isOnline: true } }),
+      prisma.payout.count({ where: { status: 'PENDING' } }),
       prisma.order.findMany({
         take: 10,
         orderBy: { createdAt: 'desc' },
@@ -423,6 +425,25 @@ router.delete('/products/:id', authMiddleware, requireRole(['ADMIN']), async (re
   }
 })
 
+router.get('/products/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id: req.params.id },
+      include: {
+        seller: { select: { id: true, name: true, email: true } },
+        shop: { select: { id: true, name: true, slug: true } },
+        category: true,
+        images: { orderBy: { sortOrder: 'asc' } },
+        variants: { orderBy: { sortOrder: 'asc' } },
+      },
+    })
+    if (!product) return errorResponse(res, 'Product not found', 404)
+    return successResponse(res, product)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch product', 500)
+  }
+})
+
 router.get('/categories', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const categories = await prisma.category.findMany({
@@ -761,7 +782,7 @@ router.get('/payouts', authMiddleware, requireRole(['ADMIN']), async (req: Authe
         where,
         include: {
           user: { select: { id: true, name: true, email: true } },
-          payoutMethod: { select: { provider: true, phoneNumber: true, type: true } },
+          payoutMethod: { select: { provider: true, phoneNumber: true, accountName: true, type: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -1127,6 +1148,48 @@ router.get('/notifications', authMiddleware, requireRole(['ADMIN']), async (req:
     })
   } catch (error) {
     return errorResponse(res, 'Failed to fetch notifications', 500)
+  }
+})
+
+router.patch('/notifications/:id/read', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const notification = await prisma.notification.findUnique({ where: { id: req.params.id } })
+    if (!notification) return errorResponse(res, 'Notification not found', 404)
+
+    const updated = await prisma.notification.update({
+      where: { id: req.params.id },
+      data: { isRead: true },
+    })
+
+    return successResponse(res, updated, undefined, 'Notification marked as read')
+  } catch (error) {
+    return errorResponse(res, 'Failed to update notification', 500)
+  }
+})
+
+router.patch('/notifications/read-all', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    await prisma.notification.updateMany({
+      where: { isRead: false },
+      data: { isRead: true },
+    })
+
+    return successResponse(res, null, 200, 'All notifications marked as read')
+  } catch (error) {
+    return errorResponse(res, 'Failed to update notifications', 500)
+  }
+})
+
+router.delete('/notifications/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const notification = await prisma.notification.findUnique({ where: { id: req.params.id } })
+    if (!notification) return errorResponse(res, 'Notification not found', 404)
+
+    await prisma.notification.delete({ where: { id: req.params.id } })
+
+    return successResponse(res, null, 200, 'Notification deleted successfully')
+  } catch (error) {
+    return errorResponse(res, 'Failed to delete notification', 500)
   }
 })
 

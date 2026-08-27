@@ -247,20 +247,26 @@ export interface ProductVariant {
 }
 
 export interface SellerVerification {
-  id: string;
-  userId: string;
-  shopId?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
-  idType: string;
-  idNumber: string;
-  idDocumentUrl: string;
-  businessName?: string;
-  businessType?: string;
-  rejectionReason?: string;
-  reviewedBy?: string;
-  reviewedAt?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  userId: string
+  fullName?: string
+  phoneNumber?: string
+  shopId?: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'
+  type?: string
+  idType?: string
+  idNumber?: string
+  idFrontUrl?: string
+  idBackUrl?: string
+  selfieUrl?: string
+  businessName?: string
+  businessType?: string
+  businessReg?: string
+  rejectionReason?: string
+  reviewedBy?: string
+  reviewedAt?: string
+  createdAt: string
+  updatedAt?: string
 }
 
 export interface RiderProfile {

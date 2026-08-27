@@ -13,18 +13,20 @@ import { useRole } from '@/contexts/RoleContext'
 interface AdminVerification {
   id: string
   userId: string
-  shopId?: string
   status: string
-  idType: string
-  idNumber: string
-  idDocumentUrl: string
+  type?: string
+  idType?: string
+  idNumber?: string
+  idFrontUrl?: string
+  idBackUrl?: string
+  selfieUrl?: string
   businessName?: string
   businessType?: string
   rejectionReason?: string
   reviewedBy?: string
   reviewedAt?: string
   createdAt: string
-  user: { id: string; name: string; email: string }
+  user: { id: string; name: string; email: string; phone?: string; avatar?: string }
 }
 
 export default function AdminVerificationsPage() {
@@ -75,9 +77,9 @@ export default function AdminVerificationsPage() {
 
       const response = await api.get<any>(`/admin/verifications?${params.toString()}`)
       if (response.success && response.data) {
-        setVerifications(response.data.verifications || [])
+        setVerifications(Array.isArray(response.data) ? response.data : [])
         setTotalPages(response.data.pagination?.totalPages || 1)
-        setTotal(response.data.pagination?.total || 0)
+        setTotal(Array.isArray(response.data) ? response.data.length : 0)
       } else {
         setError(response.error || 'Failed to load verifications')
       }
@@ -93,7 +95,7 @@ export default function AdminVerificationsPage() {
 
     setUpdating(true)
     try {
-      const response = await api.patch(`/admin/verifications/${ver.id}`, { status: 'APPROVED' })
+      const response = await api.patch(`/admin/verifications/${ver.id}/status`, { status: 'APPROVED' })
       if (response.success) {
         setVerifications(prev => prev.filter(v => v.id !== ver.id))
         setSelectedVerification(null)
@@ -112,7 +114,7 @@ export default function AdminVerificationsPage() {
 
     setUpdating(true)
     try {
-      const response = await api.patch(`/admin/verifications/${ver.id}`, { status: 'REJECTED', rejectionReason: reason })
+      const response = await api.patch(`/admin/verifications/${ver.id}/status`, { status: 'REJECTED', rejectionReason: reason })
       if (response.success) {
         setVerifications(prev => prev.filter(v => v.id !== ver.id))
         setSelectedVerification(null)
@@ -315,7 +317,7 @@ export default function AdminVerificationsPage() {
                 <div>
                   <label className="text-xs font-medium text-warm-800/50 uppercase">ID Document</label>
                   <a
-                    href={selectedVerification.idDocumentUrl}
+                    href={selectedVerification.idFrontUrl || selectedVerification.idBackUrl || selectedVerification.selfieUrl || '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
