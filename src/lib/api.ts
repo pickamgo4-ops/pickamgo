@@ -1,6 +1,17 @@
 import { Cart, CartItemWithRelations, Address, Order, RiderDelivery, RiderProfile, SellerVerification, CheckoutOrder, PayoutMethod, Payout, PayoutBalances, DeliverySettings } from '../types'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
+const PRIMARY_API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
+const FALLBACK_API_URL = '/api'
+
+function resolveApiUrl(): string {
+  if (typeof window === 'undefined') return PRIMARY_API_URL
+  const hostname = window.location.hostname
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+  if (isLocalhost) return PRIMARY_API_URL
+  return PRIMARY_API_URL
+}
+
+const API_URL = resolveApiUrl()
 
 export interface ApiResponse<T = any> {
   success: boolean
@@ -45,29 +56,30 @@ async function request<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const url = `${API_URL}${endpoint}`
+  const primaryUrl = `${API_URL}${endpoint}`
+  const fallbackUrl = `${FALLBACK_API_URL}${endpoint}`
   const isFormDataRequest = typeof FormData !== 'undefined' && options.body instanceof FormData
 
-  const config: RequestInit = {
+  const buildConfig = (url: string): RequestInit => ({
     ...options,
     headers: {
       ...(isFormDataRequest ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     },
-  }
+  })
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
   if (token) {
-    config.headers = {
-      ...config.headers,
+    options.headers = {
+      ...options.headers,
       Authorization: `Bearer ${token}`,
     }
   }
 
   if (!token && (endpoint.startsWith('/cart') || endpoint.startsWith('/checkout/guest'))) {
     const guestSessionId = getGuestSessionId()
-    config.headers = {
-      ...config.headers,
+    options.headers = {
+      ...options.headers,
       'x-session-id': guestSessionId,
     }
   }
@@ -75,21 +87,30 @@ async function request<T>(
   try {
     let response: Response | null = null
     let lastError: unknown
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        response = await fetch(url, config)
-        if (response.status < 500 || attempt === 2) break
-        await new Promise(resolve => setTimeout(resolve, 250))
-      } catch (error) {
-        lastError = error
-        if (attempt === 2) throw error
-        await new Promise(resolve => setTimeout(resolve, 250))
-      }
+    const urlsToTry = [primaryUrl]
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    if (isProduction && API_URL !== FALLBACK_API_URL) {
+      urlsToTry.push(fallbackUrl)
     }
+
+    for (const url of urlsToTry) {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          response = await fetch(url, buildConfig(url))
+          if (response.status < 500) break
+          await new Promise(resolve => setTimeout(resolve, 200))
+        } catch (error) {
+          lastError = error
+          await new Promise(resolve => setTimeout(resolve, 200))
+        }
+      }
+      if (response && response.status < 500) break
+    }
+
     if (!response) throw lastError || new Error('No response from API')
     const contentType = response.headers.get('content-type') || ''
     if (!contentType.includes('application/json')) {
-      console.error('API returned non-JSON response:', response.status, response.statusText, 'from', url)
+      console.error('API returned non-JSON response:', response.status, response.statusText, 'from', response.url)
       return {
         success: false,
         error: 'Something went wrong. Please try again later.',
@@ -126,9 +147,10 @@ async function request<T>(
 
     return response.ok ? data : { ...data, success: false }
   } catch (error) {
+    console.error('API request failed:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'An error occurred',
+      error: 'Something went wrong. Please try again later.',
     }
   }
 }
