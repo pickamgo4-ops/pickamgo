@@ -197,7 +197,13 @@ export default function ServicePage() {
               </div>
               <p className="text-sm text-warm-800/60">{service.provider.location}</p>
             </div>
-            <Button variant="outline" size="sm" icon={<MessageCircle size={16} />} onClick={() => router.push(`/messages/${service.provider.id}`)}>
+            <Button variant="outline" size="sm" icon={<MessageCircle size={16} />} onClick={() => {
+              if (!localStorage.getItem('token')) {
+                router.push('/auth/login')
+                return
+              }
+              router.push(`/messages/${service.provider.id}`)
+            }}>
               Message
             </Button>
           </div>

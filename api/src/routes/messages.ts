@@ -17,25 +17,40 @@ async function resolveAccess(currentUserId: string, otherUserId: string, orderId
 
   if (orderId) {
     const order = await prisma.order.findUnique({ where: { id: orderId } })
-    if (!order || !order.customerId || order.fulfillmentMethod !== 'FIND_IT_NEAR_ME_RIDER' || order.riderId === null) return null
-    const isRiderChat = (currentUserId === order.customerId && otherUserId === order.riderId) ||
-      (currentUserId === order.riderId && otherUserId === order.customerId)
-    if (!isRiderChat) return null
-    return { shopId: undefined, orderId: order.id, closedAt: ['CANCELLED', 'DELIVERED', 'FAILED'].includes(order.status) ? new Date() : undefined }
+    if (!order || !order.customerId) return null
+
+    const participants = [order.customerId, order.sellerId, order.riderId].filter(Boolean)
+    const isParticipantPair = participants.includes(currentUserId) && participants.includes(otherUserId)
+    const riderPair = order.riderId && (currentUserId === order.riderId || otherUserId === order.riderId)
+    if (!isParticipantPair || (riderPair && order.riderId === null)) return null
+
+    return {
+      shopId: order.shopId,
+      orderId: order.id,
+      closedAt: ['CANCELLED', 'DELIVERED', 'FAILED'].includes(order.status) ? new Date() : undefined,
+    }
   }
 
-  const shop = await prisma.shop.findFirst({ where: { ownerId: otherUserId } })
-  if (shop) {
+  const shop = await prisma.shop.findFirst({ where: { ownerId: otherUserId, status: 'ACTIVE' } })
+  if (shop && !(await prisma.user.findUnique({ where: { id: currentUserId }, select: { isRider: true } }))?.isRider) {
     return { shopId: shop.id, orderId: undefined, closedAt: undefined }
   }
 
-  const customerOrder = await prisma.order.findFirst({ where: { customerId: currentUserId, sellerId: otherUserId } })
-  if (customerOrder) return { shopId: customerOrder.shopId, orderId: undefined, closedAt: undefined }
+  return null
+}
 
-  const sellerOrder = await prisma.order.findFirst({ where: { sellerId: currentUserId, customerId: otherUserId } })
-  if (sellerOrder) return { shopId: sellerOrder.shopId, orderId: undefined, closedAt: undefined }
+async function canAccessExistingConversation(currentUserId: string, otherUserId: string, conversation: any) {
+  if (!conversation || (conversation.participant1Id !== currentUserId && conversation.participant2Id !== currentUserId)) return false
+  if (conversation.participant1Id !== otherUserId && conversation.participant2Id !== otherUserId) return false
 
-  return { shopId: undefined, orderId: undefined, closedAt: undefined }
+  if (conversation.orderId) {
+    const access = await resolveAccess(currentUserId, otherUserId, conversation.orderId)
+    return !!access
+  }
+
+  if (!conversation.shopId) return false
+  const shop = await prisma.shop.findUnique({ where: { id: conversation.shopId }, select: { ownerId: true, status: true } })
+  return shop?.status === 'ACTIVE' && (shop.ownerId === currentUserId || shop.ownerId === otherUserId)
 }
 
 function otherParticipant(conversation: any, userId: string) {
@@ -98,10 +113,9 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
     const otherUserId = req.params.userId
 
     const orderId = typeof req.query.orderId === 'string' ? req.query.orderId : undefined
-    const access = await resolveAccess(currentUserId, otherUserId, orderId)
     let conversation = await prisma.conversation.findFirst({
       where: {
-        ...(orderId ? { orderId } : { shopId: access?.shopId }),
+        ...(orderId ? { orderId } : {}),
         OR: [{ participant1Id: currentUserId, participant2Id: otherUserId }, { participant1Id: otherUserId, participant2Id: currentUserId }],
       },
       include: {
@@ -111,6 +125,10 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
       },
     })
 
+    const access = await resolveAccess(currentUserId, otherUserId, orderId)
+    if (conversation && !(await canAccessExistingConversation(currentUserId, otherUserId, conversation)) && !access) {
+      return errorResponse(res, 'You are not allowed to access this conversation', 403)
+    }
     if (!conversation && !access) return errorResponse(res, 'You are not allowed to access this conversation', 403)
 
     if (!conversation) {
@@ -160,24 +178,26 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
     const { content, orderId } = req.body
 
     const access = await resolveAccess(currentUserId, otherUserId, orderId)
-    if (!access) return errorResponse(res, 'You are not allowed to message this user', 403)
-    if (access.closedAt) return errorResponse(res, 'This conversation is closed', 403)
-
     let conversation = await prisma.conversation.findFirst({
       where: {
-        ...(orderId ? { orderId } : access.shopId ? { shopId: access.shopId } : {}),
+        ...(orderId ? { orderId } : access?.shopId ? { shopId: access.shopId } : {}),
         OR: [{ participant1Id: currentUserId, participant2Id: otherUserId }, { participant1Id: otherUserId, participant2Id: currentUserId }],
       },
     })
+
+    if (!access && !(conversation && await canAccessExistingConversation(currentUserId, otherUserId, conversation))) {
+      return errorResponse(res, 'You are not allowed to message this user', 403)
+    }
+    if (access?.closedAt || conversation?.closedAt) return errorResponse(res, 'This conversation is closed', 403)
 
     if (!conversation) {
       conversation = await prisma.conversation.create({
         data: {
           participant1Id: currentUserId,
           participant2Id: otherUserId,
-          shopId: access.shopId,
-          orderId: access.orderId,
-          closedAt: access.closedAt,
+          shopId: access?.shopId,
+          orderId: access?.orderId,
+          closedAt: access?.closedAt,
         },
       })
     }

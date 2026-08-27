@@ -675,7 +675,7 @@ model Conversation {
   participant1Id String
   participant2Id String
   shopId         String?
-  orderId        String?  @unique
+  orderId        String?
   closedAt       DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

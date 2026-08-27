@@ -34,11 +34,27 @@ export default function SellerMessagesPage() {
     loadConversations()
   }, [])
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadConversations()
+      if (selectedConversation) {
+        const otherUserId = selectedConversation.participant1.id === currentUserId
+          ? selectedConversation.participant2.id
+          : selectedConversation.participant1.id
+        loadConversation(otherUserId)
+      }
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [selectedConversation, currentUserId])
+
   const loadConversations = async () => {
     try {
       const response = await api.get<Conversation[]>('/messages/conversations')
       if (response.success && response.data) {
-        setConversations(response.data)
+        setConversations(response.data.map((conversation: any) => ({
+          ...conversation,
+          messages: conversation.lastMessage ? [conversation.lastMessage] : conversation.messages || [],
+        })))
       }
     } catch {
       setError('Failed to load conversations')

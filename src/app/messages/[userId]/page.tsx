@@ -25,6 +25,7 @@ export default function ConversationPage() {
   const [error, setError] = useState('')
   const [currentUserId, setCurrentUserId] = useState('')
   const [conversationUser, setConversationUser] = useState<{ name: string; avatar: string } | null>(null)
+  const [canSend, setCanSend] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const getCurrentUserId = () => {
@@ -62,7 +63,7 @@ export default function ConversationPage() {
     if (userId) {
       loadConversation()
     }
-  }, [userId])
+  }, [userId, orderId])
 
   useEffect(() => {
     if (!userId) return
@@ -70,7 +71,7 @@ export default function ConversationPage() {
       refreshConversation()
     }, 10000)
     return () => clearInterval(interval)
-  }, [userId])
+  }, [userId, orderId])
 
   useEffect(() => {
     scrollToBottom()
@@ -88,6 +89,7 @@ export default function ConversationPage() {
       if (response.success && response.data) {
         const msgs = response.data.messages || response.data || []
         setMessages(mapMessages(msgs))
+        setCanSend(response.data.canSend !== false)
 
         const conversation = response.data.conversation
         const participant = conversation?.participant1?.id === userId
@@ -118,6 +120,7 @@ export default function ConversationPage() {
       if (response.success && response.data) {
         const msgs = response.data.messages || response.data || []
         mergeServerMessages(mapMessages(msgs))
+        setCanSend(response.data.canSend !== false)
       }
     } catch (err) {
       console.error('Failed to refresh conversation:', err)
@@ -167,9 +170,7 @@ export default function ConversationPage() {
       }
     } catch (err) {
       console.error('Failed to send message:', err)
-      setMessages(prev => prev.map(msg =>
-        msg.id === tempMessage.id ? { ...msg, status: 'failed' } : msg
-      ))
+      setMessages(prev => prev.map(msg => msg.id === tempMessage.id ? { ...msg, status: 'failed' } : msg))
       setNewMessage(tempMessage.content)
       setError("Message couldn't be sent. Please try again.")
     } finally {
@@ -301,11 +302,13 @@ export default function ConversationPage() {
       {/* Message Input */}
       <div className="sticky bottom-0 bg-warm-50/80 backdrop-blur-md border-t border-warm-200/50">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          {!canSend && <p className="mb-2 text-sm text-warm-800/70">This conversation is closed and cannot receive new messages.</p>}
           <form onSubmit={handleSend} className="flex items-center gap-2">
             <Input
               placeholder="Type a message..."
               value={newMessage}
               onValueChange={setNewMessage}
+              disabled={!canSend}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault();
@@ -317,7 +320,7 @@ export default function ConversationPage() {
             <Button
               type="submit"
               size="sm"
-              disabled={!newMessage.trim() || sending}
+              disabled={!canSend || !newMessage.trim() || sending}
               icon={<Send size={18} />}
             >
               {sending ? 'Sending...' : 'Send'}

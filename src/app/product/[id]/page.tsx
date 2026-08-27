@@ -252,7 +252,13 @@ export default function ProductPage() {
                   Visit Shop
                 </Button>
               )}
-              <Button variant="outline" size="sm" icon={<MessageCircle size={16} />} onClick={() => router.push(`/messages/${product.seller.id}`)}>
+              <Button variant="outline" size="sm" icon={<MessageCircle size={16} />} onClick={() => {
+                if (!localStorage.getItem('token')) {
+                  router.push('/auth/login')
+                  return
+                }
+                router.push(`/messages/${product.seller.id}`)
+              }}>
                 Message
               </Button>
             </div>
