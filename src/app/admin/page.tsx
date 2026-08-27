@@ -84,7 +84,8 @@ export default function AdminDashboardPage() {
       }
 
       if (usersRes.success && usersRes.data) {
-        setRecentUsers(Array.isArray(usersRes.data) ? usersRes.data.slice(0, 5) : [])
+        const usersData = Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data.users || [])
+        setRecentUsers(usersData.slice(0, 5))
       }
 
       if (ordersRes.success && ordersRes.data) {
