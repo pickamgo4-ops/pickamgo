@@ -10,6 +10,7 @@ import { api } from '../../../lib/api'
 import { useRole } from '@/contexts/RoleContext'
 
 type UserRole = 'buyer' | 'seller' | 'rider'
+const DEFAULT_GOOGLE_CLIENT_ID = '806419638142-pkegcrntdkn3abahd3q4ti50fff1uol4.apps.googleusercontent.com'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -26,7 +27,7 @@ export default function SignupPage() {
   const [showGoogleRoleModal, setShowGoogleRoleModal] = useState(false)
   const [googleUser, setGoogleUser] = useState<{ email: string; name: string; avatar: string } | null>(null)
   const [selectedRole, setSelectedRole] = useState<UserRole>('buyer')
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID
 
   useEffect(() => {
     if (typeof window === 'undefined') return
