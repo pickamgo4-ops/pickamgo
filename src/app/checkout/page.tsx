@@ -562,9 +562,10 @@ function CheckoutContent() {
                 />
                 <Input
                   type="email"
-                  placeholder="Email (optional)"
+                  placeholder="Email"
                   value={guestInfo.email}
                   onValueChange={(v) => setGuestInfo({ ...guestInfo, email: v })}
+                  required
                 />
               </div>
             </div>

@@ -13,10 +13,12 @@ import { Shop, Product, BeautyService } from '../../../types'
 import { mapApiShopToFrontend, mapApiProductToFrontend, mapApiServiceToFrontend } from '../../../lib/api-mappers'
 import { defaultShopCustomization, readableTextColor, themeClass } from '../../../lib/shop-themes'
 import MapboxMap from '../../../components/map/MapboxMap'
+import { useTheme } from '../../../components/theme/ThemeProvider'
 
 export default function ShopPage() {
   const params = useParams()
   const router = useRouter()
+  const { theme } = useTheme()
   const [shop, setShop] = useState<Shop | null>(null)
   const [loading, setLoading] = useState(true)
   const [isFollowing, setIsFollowing] = useState(false)
@@ -113,8 +115,8 @@ export default function ShopPage() {
     ? shop.products.filter(product => product.isTrending || product.isNew || product.isDeal)
     : shop.products
   const featuredProduct = shop.products.find(product => product.id === customization.featuredProductId)
-  const surfaceTextColor = readableTextColor(customization.secondaryColor)
-  const primaryTextColor = readableTextColor(customization.primaryColor)
+  const surfaceTextColor = theme === 'dark' ? '#F5F1EA' : readableTextColor(customization.secondaryColor)
+  const primaryTextColor = theme === 'dark' ? '#171614' : readableTextColor(customization.primaryColor)
 
   return (
     <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ '--shop-primary': customization.primaryColor, '--shop-secondary': customization.secondaryColor, '--shop-accent': customization.accentColor, color: surfaceTextColor } as React.CSSProperties}>

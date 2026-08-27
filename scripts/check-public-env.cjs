@@ -2,6 +2,7 @@ const required = [
   'NEXT_PUBLIC_API_URL',
   'NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN',
   'NEXT_PUBLIC_MARKETPLACE_DOMAIN',
+  'NEXT_PUBLIC_GOOGLE_CLIENT_ID',
 ]
 
 const optional = [
