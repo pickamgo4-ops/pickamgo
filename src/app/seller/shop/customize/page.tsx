@@ -62,7 +62,7 @@ export default function SellerCustomizeShopPage() {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/upload/image`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }, body: form, signal: controller.signal })
         clearTimeout(timeout)
         const contentType = response.headers.get('content-type') || ''
-        if (!contentType.includes('application/json')) { setStatus(`Upload failed (${response.status}). Check that the backend is running.`); return }
+        if (!contentType.includes('application/json')) { setStatus('Upload failed. Please try again.'); return }
         const data = await response.json(); if (data.success) update({ [field]: data.data.url }); else setStatus(data.error || 'Upload failed')
       } catch (err) {
         console.error('Upload fetch error:', err)

@@ -89,9 +89,10 @@ async function request<T>(
     if (!response) throw lastError || new Error('No response from API')
     const contentType = response.headers.get('content-type') || ''
     if (!contentType.includes('application/json')) {
+      console.error('API returned non-JSON response:', response.status, response.statusText, 'from', url)
       return {
         success: false,
-        error: `API returned ${response.status} ${response.statusText}. Check that the backend is running.`,
+        error: 'Something went wrong. Please try again later.',
       }
     }
     const data = await response.json()
