@@ -139,8 +139,13 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
       },
     })
 
-    const access = await resolveAccess(currentUserId, otherUserId, orderId)
-    if (conversation && !(await canAccessExistingConversation(currentUserId, otherUserId, conversation)) && !access) {
+    const existingConversationAccess = conversation
+      ? await canAccessExistingConversation(currentUserId, otherUserId, conversation)
+      : false
+    const access = conversation && existingConversationAccess
+      ? { shopId: conversation.shopId, orderId: conversation.orderId, closedAt: conversation.closedAt }
+      : await resolveAccess(currentUserId, otherUserId, orderId)
+    if (conversation && !existingConversationAccess && !access) {
       return errorResponse(res, 'You are not allowed to access this conversation', 403)
     }
     if (!conversation && !access) return errorResponse(res, 'You are not allowed to access this conversation', 403)
@@ -192,15 +197,21 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
     const otherUserId = req.params.userId
     const { content, orderId } = req.body
 
-    const access = await resolveAccess(currentUserId, otherUserId, orderId)
-    let conversation = await prisma.conversation.findFirst({
+    let conversation: any = await prisma.conversation.findFirst({
       where: {
-        ...(orderId ? { orderId } : access?.shopId ? { shopId: access.shopId } : {}),
+        ...(orderId ? { orderId } : {}),
         OR: [{ participant1Id: currentUserId, participant2Id: otherUserId }, { participant1Id: otherUserId, participant2Id: currentUserId }],
       },
     })
 
-    if (!access && !(conversation && await canAccessExistingConversation(currentUserId, otherUserId, conversation))) {
+    const existingConversationAccess = conversation
+      ? await canAccessExistingConversation(currentUserId, otherUserId, conversation)
+      : false
+    const access = conversation && existingConversationAccess
+      ? { shopId: conversation.shopId, orderId: conversation.orderId, closedAt: conversation.closedAt }
+      : await resolveAccess(currentUserId, otherUserId, orderId)
+
+    if (!access && !existingConversationAccess) {
       return errorResponse(res, 'You are not allowed to message this user', 403)
     }
     if (access?.closedAt || conversation?.closedAt) return errorResponse(res, 'This conversation is closed', 403)
