@@ -12,6 +12,8 @@ import { api } from '@/lib/api'
 
 interface Conversation {
   id: string
+  orderId?: string
+  order?: { id: string; orderNumber: string; status: string }
   participant1: { id: string; name: string; avatar: string }
   participant2: { id: string; name: string; avatar: string }
   shop?: { id: string; name: string; logo: string }
@@ -42,7 +44,7 @@ export default function SellerMessagesPage() {
         const otherUserId = selectedConversation.participant1.id === currentUserId
           ? selectedConversation.participant2.id
           : selectedConversation.participant1.id
-        loadConversation(otherUserId)
+        loadConversation(otherUserId, selectedConversation.orderId || selectedConversation.order?.id)
       }
     }, 10000)
     return () => clearInterval(interval)
@@ -54,6 +56,7 @@ export default function SellerMessagesPage() {
       if (response.success && response.data) {
         setConversations(response.data.map((conversation: any) => ({
           ...conversation,
+          orderId: conversation.orderId || conversation.order?.id,
           messages: conversation.messages || (conversation.lastMessage ? [conversation.lastMessage] : []),
         })))
       }
@@ -65,9 +68,10 @@ export default function SellerMessagesPage() {
     }
   }
 
-  const loadConversation = async (userId: string) => {
+  const loadConversation = async (userId: string, orderId?: string) => {
     try {
-      const response = await api.get<{ conversation: Conversation; messages: any[] }>(`/messages/conversations/${userId}`)
+      const query = orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''
+      const response = await api.get<{ conversation: Conversation; messages: any[] }>(`/messages/conversations/${userId}${query}`)
       if (response.success && response.data) {
         setSelectedConversation({
           ...response.data.conversation,
@@ -90,11 +94,17 @@ export default function SellerMessagesPage() {
         ? selectedConversation.participant2.id
         : selectedConversation.participant1.id
 
-      const response = await api.post(`/messages/conversations/${otherUserId}/messages`, { content: cleanMessage })
+      const response = await api.post(`/messages/conversations/${otherUserId}/messages`, {
+        content: cleanMessage,
+        ...(selectedConversation.orderId ? { orderId: selectedConversation.orderId } : {}),
+      })
       if (response.success) {
         setMessage('')
         setRefreshing(true)
-        await Promise.all([loadConversations(), loadConversation(otherUserId)])
+        await Promise.all([
+          loadConversations(),
+          loadConversation(otherUserId, selectedConversation.orderId || selectedConversation.order?.id),
+        ])
       } else {
         setError(response.error || "Message couldn't be sent. Please try again.")
       }
@@ -157,7 +167,7 @@ export default function SellerMessagesPage() {
                     key={conv.id}
                     onClick={() => {
                       setSelectedConversation(conv)
-                      loadConversation(other.id)
+                      loadConversation(other.id, conv.orderId || conv.order?.id)
                     }}
                     className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
                       selectedConversation?.id === conv.id ? 'bg-primary/10' : 'hover:bg-warm-100'
