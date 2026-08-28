@@ -97,9 +97,17 @@ export interface Seller {
 export interface Category {
   id: string;
   name: string;
+  slug: string;
+  description: string;
+  image: string;
   icon: string;
   color: string;
   count: number;
+  isActive: boolean;
+  displayOrder: number;
+  parentId?: string;
+  parent?: { id: string; name: string };
+  children?: Category[];
 }
 
 export interface User {

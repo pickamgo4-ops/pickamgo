@@ -118,9 +118,17 @@ export function mapApiCategoryToFrontend(apiCategory: any): Category {
   return {
     id: apiCategory.id,
     name: apiCategory.name,
-    icon: apiCategory.icon || 'PackageOpen',
+    slug: apiCategory.slug || '',
+    description: apiCategory.description || '',
+    image: apiCategory.image || '',
+    icon: apiCategory.emoji || apiCategory.icon || 'PackageOpen',
     color: apiCategory.color || 'bg-warm-100 text-warm-800',
-    count: apiCategory.productCount || apiCategory.count || 0,
+    count: apiCategory._count?.products || apiCategory.productCount || apiCategory.count || 0,
+    isActive: apiCategory.isActive !== undefined ? apiCategory.isActive : true,
+    displayOrder: apiCategory.displayOrder ?? 0,
+    parentId: apiCategory.parentId,
+    parent: apiCategory.parent,
+    children: apiCategory.children,
   }
 }
 

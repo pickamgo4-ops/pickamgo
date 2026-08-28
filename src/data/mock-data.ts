@@ -1,14 +1,14 @@
 import { Category, Product, BeautyService, Shop, Seller, User, Order, OrderItem, Review } from '../types'
 
 export const categories: Category[] = [
-  { id: 'beauty', name: 'Beauty', icon: 'Sparkles', color: 'bg-pink-100 text-pink-800', count: 245 },
-  { id: 'food', name: 'Food', icon: 'Utensils', color: 'bg-orange-100 text-orange-800', count: 189 },
-  { id: 'fashion', name: 'Fashion', icon: 'Shirt', color: 'bg-purple-100 text-purple-800', count: 312 },
-  { id: 'electronics', name: 'Phones & Tech', icon: 'Smartphone', color: 'bg-blue-100 text-blue-800', count: 156 },
-  { id: 'groceries', name: 'Groceries', icon: 'ShoppingBasket', color: 'bg-green-100 text-green-800', count: 98 },
-  { id: 'home', name: 'Home', icon: 'Home', color: 'bg-yellow-100 text-yellow-800', count: 134 },
-  { id: 'services', name: 'Services', icon: 'Sparkles', color: 'bg-teal-100 text-teal-800', count: 87 },
-  { id: 'more', name: 'More', icon: 'PackageOpen', color: 'bg-gray-100 text-gray-800', count: 203 },
+  { id: 'beauty', name: 'Beauty', slug: 'beauty', description: 'Beauty and personal care', image: '', icon: 'Sparkles', color: 'bg-pink-100 text-pink-800', count: 245, isActive: true, displayOrder: 0 },
+  { id: 'food', name: 'Food', slug: 'food', description: 'Food and beverages', image: '', icon: 'Utensils', color: 'bg-orange-100 text-orange-800', count: 189, isActive: true, displayOrder: 1 },
+  { id: 'fashion', name: 'Fashion', slug: 'fashion', description: 'Fashion and clothing', image: '', icon: 'Shirt', color: 'bg-purple-100 text-purple-800', count: 312, isActive: true, displayOrder: 2 },
+  { id: 'electronics', name: 'Phones & Tech', slug: 'electronics', description: 'Phones and electronics', image: '', icon: 'Smartphone', color: 'bg-blue-100 text-blue-800', count: 156, isActive: true, displayOrder: 3 },
+  { id: 'groceries', name: 'Groceries', slug: 'groceries', description: 'Groceries and essentials', image: '', icon: 'ShoppingBasket', color: 'bg-green-100 text-green-800', count: 98, isActive: true, displayOrder: 4 },
+  { id: 'home', name: 'Home', slug: 'home', description: 'Home and furniture', image: '', icon: 'Home', color: 'bg-yellow-100 text-yellow-800', count: 134, isActive: true, displayOrder: 5 },
+  { id: 'services', name: 'Services', slug: 'services', description: 'Professional services', image: '', icon: 'Sparkles', color: 'bg-teal-100 text-teal-800', count: 87, isActive: true, displayOrder: 6 },
+  { id: 'more', name: 'More', slug: 'more', description: 'More categories', image: '', icon: 'PackageOpen', color: 'bg-gray-100 text-gray-800', count: 203, isActive: true, displayOrder: 7 },
 ]
 
 export const sellers: Seller[] = [

@@ -13,42 +13,60 @@ import { useRole } from '@/contexts/RoleContext'
 interface AdminCategory {
   id: string
   name: string
-  icon: string
+  slug: string
+  description: string
+  image: string
+  emoji: string
   color: string
   productsCount: number
   servicesCount: number
   isActive: boolean
+  displayOrder: number
   createdAt: string
   parent?: { id: string; name: string }
+  children?: AdminCategory[]
 }
 
 function mapCategory(c: any): AdminCategory {
   return {
     id: c.id,
     name: c.name,
-    icon: c.emoji || c.icon || '',
+    slug: c.slug || '',
+    description: c.description || '',
+    image: c.image || '',
+    emoji: c.emoji || c.icon || '',
     color: c.color || '#FF6B35',
     productsCount: c._count?.products ?? c.productsCount ?? 0,
     servicesCount: c._count?.services ?? c.servicesCount ?? 0,
     isActive: c.isActive !== undefined ? c.isActive : true,
+    displayOrder: c.displayOrder ?? 0,
     createdAt: c.createdAt,
     parent: c.parent || undefined,
+    children: c.children || undefined,
   }
 }
 
 interface CategoryFormData {
   name: string
+  slug: string
+  description: string
+  image: string
   icon: string
   color: string
   parentId: string
+  displayOrder: number
   isActive: boolean
 }
 
 const initialForm: CategoryFormData = {
   name: '',
+  slug: '',
+  description: '',
+  image: '',
   icon: '',
   color: '#FF6B35',
   parentId: '',
+  displayOrder: 0,
   isActive: true,
 }
 
@@ -105,9 +123,13 @@ export default function AdminCategoriesPage() {
     setIsCreating(false)
     setForm({
       name: cat.name,
-      icon: cat.icon,
+      slug: cat.slug,
+      description: cat.description,
+      image: cat.image,
+      icon: cat.emoji,
       color: cat.color,
       parentId: cat.parent?.id || '',
+      displayOrder: cat.displayOrder,
       isActive: cat.isActive,
     })
   }
@@ -118,8 +140,12 @@ export default function AdminCategoriesPage() {
     try {
       const payload: any = {
         name: form.name,
-        icon: form.icon,
+        slug: form.slug,
+        description: form.description,
+        image: form.image,
+        emoji: form.icon,
         color: form.color,
+        displayOrder: form.displayOrder,
         isActive: form.isActive,
       }
       if (form.parentId) payload.parentId = form.parentId
@@ -204,9 +230,44 @@ export default function AdminCategoriesPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-warm-900 mb-1.5 block">Icon</label>
+                <label className="text-sm font-medium text-warm-900 mb-1.5 block">Slug</label>
                 <Input
-                  placeholder="e.g. Tag"
+                  placeholder="e.g. phones-tablets"
+                  value={form.slug}
+                  onValueChange={(v) => setForm(prev => ({ ...prev, slug: v }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-warm-900 mb-1.5 block">Display Order</label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={String(form.displayOrder)}
+                  onChange={(e) => setForm(prev => ({ ...prev, displayOrder: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-warm-900 mb-1.5 block">Description</label>
+              <Input
+                placeholder="Short description"
+                value={form.description}
+                onValueChange={(v) => setForm(prev => ({ ...prev, description: v }))}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-warm-900 mb-1.5 block">Image URL</label>
+              <Input
+                placeholder="https://..."
+                value={form.image}
+                onValueChange={(v) => setForm(prev => ({ ...prev, image: v }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-warm-900 mb-1.5 block">Icon / Emoji</label>
+                <Input
+                  placeholder="e.g. 📱"
                   value={form.icon}
                   onValueChange={(v) => setForm(prev => ({ ...prev, icon: v }))}
                 />
@@ -276,8 +337,9 @@ export default function AdminCategoriesPage() {
               <thead className="bg-warm-50 border-b border-warm-200">
                 <tr>
                   <th className="px-4 py-3 font-semibold text-warm-800/70">Name</th>
+                  <th className="px-4 py-3 font-semibold text-warm-800/70">Slug</th>
+                  <th className="px-4 py-3 font-semibold text-warm-800/70">Description</th>
                   <th className="px-4 py-3 font-semibold text-warm-800/70">Icon</th>
-                  <th className="px-4 py-3 font-semibold text-warm-800/70">Color</th>
                   <th className="px-4 py-3 font-semibold text-warm-800/70">Products</th>
                   <th className="px-4 py-3 font-semibold text-warm-800/70">Services</th>
                   <th className="px-4 py-3 font-semibold text-warm-800/70">Active</th>
@@ -288,13 +350,9 @@ export default function AdminCategoriesPage() {
                 {categories.map((cat) => (
                   <tr key={cat.id} className="hover:bg-warm-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-warm-900">{cat.name}</td>
-                    <td className="px-4 py-3 text-warm-800/70">{cat.icon || '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded-full border border-warm-200" style={{ backgroundColor: cat.color }} />
-                        <span className="text-warm-800/70 text-xs">{cat.color}</span>
-                      </div>
-                    </td>
+                    <td className="px-4 py-3 text-warm-800/70 text-xs">{cat.slug || '-'}</td>
+                    <td className="px-4 py-3 text-warm-800/70 text-xs max-w-xs truncate">{cat.description || '-'}</td>
+                    <td className="px-4 py-3 text-warm-800/70 text-lg">{cat.emoji || '-'}</td>
                     <td className="px-4 py-3 text-warm-800/70">{cat.productsCount}</td>
                     <td className="px-4 py-3 text-warm-800/70">{cat.servicesCount}</td>
                     <td className="px-4 py-3">

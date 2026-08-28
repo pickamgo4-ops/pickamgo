@@ -463,8 +463,8 @@ router.get('/products/:id', authMiddleware, requireRole(['ADMIN']), async (req: 
 router.get('/categories', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const categories = await prisma.category.findMany({
-      include: { parent: true, _count: { select: { products: true, services: true } } },
-      orderBy: [{ parentId: 'asc' }, { name: 'asc' }],
+      include: { parent: true, children: true, _count: { select: { products: true, services: true } } },
+      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
     })
 
     return successResponse(res, categories)
@@ -475,10 +475,20 @@ router.get('/categories', authMiddleware, requireRole(['ADMIN']), async (req: Au
 
 router.post('/categories', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, icon, color, parentId } = req.body
+    const { name, slug, description, image, emoji, color, parentId, displayOrder, isActive } = req.body
 
     const category = await prisma.category.create({
-      data: { name, emoji: icon || '', color: color || '', parentId: parentId || null },
+      data: {
+        name,
+        slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+        description: description || '',
+        image: image || '',
+        emoji: emoji || '',
+        color: color || '#FF6B35',
+        parentId: parentId || null,
+        displayOrder: displayOrder ?? 0,
+        isActive: isActive !== undefined ? isActive : true,
+      },
     })
 
     return successResponse(res, category, 201, 'Category created successfully')
@@ -490,11 +500,21 @@ router.post('/categories', authMiddleware, requireRole(['ADMIN']), async (req: A
 router.patch('/categories/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params
-    const { name, icon, color, parentId, isActive } = req.body
+    const { name, slug, description, image, emoji, color, parentId, displayOrder, isActive } = req.body
 
     const updated = await prisma.category.update({
       where: { id },
-      data: { name, emoji: icon, color, parentId, isActive },
+      data: {
+        name,
+        slug,
+        description,
+        image,
+        emoji,
+        color,
+        parentId,
+        displayOrder,
+        isActive,
+      },
     })
 
     return successResponse(res, updated, undefined, 'Category updated successfully')

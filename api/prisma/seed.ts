@@ -138,26 +138,76 @@ async function main() {
   const beautyCategory = await prisma.category.upsert({
     where: { id: 'beauty' },
     update: {},
-    create: { id: 'beauty', name: 'Beauty', emoji: '💅🏽', color: 'bg-pink-100 text-pink-800' },
+    create: { id: 'beauty', name: 'Beauty', slug: 'beauty', description: 'Beauty and personal care', emoji: '💅🏽', color: 'bg-pink-100 text-pink-800', displayOrder: 7 },
   })
 
   const foodCategory = await prisma.category.upsert({
     where: { id: 'food' },
     update: {},
-    create: { id: 'food', name: 'Food', emoji: '🍔', color: 'bg-orange-100 text-orange-800' },
+    create: { id: 'food', name: 'Food', slug: 'food', description: 'Food and beverages', emoji: '🍔', color: 'bg-orange-100 text-orange-800', displayOrder: 0 },
   })
 
   const fashionCategory = await prisma.category.upsert({
     where: { id: 'fashion' },
     update: {},
-    create: { id: 'fashion', name: 'Fashion', emoji: '👕', color: 'bg-purple-100 text-purple-800' },
+    create: { id: 'fashion', name: 'Fashion', slug: 'fashion', description: 'Fashion and clothing', emoji: '👕', color: 'bg-purple-100 text-purple-800', displayOrder: 1 },
   })
 
   const electronicsCategory = await prisma.category.upsert({
     where: { id: 'electronics' },
     update: {},
-    create: { id: 'electronics', name: 'Phones & Tech', emoji: '📱', color: 'bg-blue-100 text-blue-800' },
+    create: { id: 'electronics', name: 'Phones & Tablets', slug: 'electronics', description: 'Smartphones, tablets, and mobile accessories', emoji: '📱', color: 'bg-blue-100 text-blue-800', displayOrder: 3 },
   })
+
+  const categoriesToUpsert = [
+    { id: 'food-drinks', name: 'Food & Drinks', slug: 'food-drinks', description: 'Meals, snacks, groceries, and beverages', emoji: '', color: 'bg-orange-100 text-orange-800', displayOrder: 0 },
+    { id: 'fashion-clothing', name: 'Fashion & Clothing', slug: 'fashion-clothing', description: 'Clothing, shoes, bags, and accessories', emoji: '', color: 'bg-purple-100 text-purple-800', displayOrder: 1 },
+    { id: 'phones-tablets', name: 'Phones & Tablets', slug: 'phones-tablets', description: 'Smartphones, tablets, and mobile accessories', emoji: '', color: 'bg-blue-100 text-blue-800', displayOrder: 2 },
+    { id: 'computers-electronics', name: 'Computers & Electronics', slug: 'computers-electronics', description: 'Laptops, computers, cameras, and electronics', emoji: '', color: 'bg-indigo-100 text-indigo-800', displayOrder: 3 },
+    { id: 'tv-audio-entertainment', name: 'TV, Audio & Entertainment', slug: 'tv-audio-entertainment', description: 'Televisions, speakers, gaming, and media', emoji: '', color: 'bg-red-100 text-red-800', displayOrder: 4 },
+    { id: 'home-furniture', name: 'Home & Furniture', slug: 'home-furniture', description: 'Furniture, decor, and home essentials', emoji: '', color: 'bg-yellow-100 text-yellow-800', displayOrder: 5 },
+    { id: 'home-appliances', name: 'Home Appliances', slug: 'home-appliances', description: 'Refrigerators, washing machines, and appliances', emoji: '', color: 'bg-cyan-100 text-cyan-800', displayOrder: 6 },
+    { id: 'beauty-personal-care', name: 'Beauty & Personal Care', slug: 'beauty-personal-care', description: 'Skincare, makeup, hair, and personal care', emoji: '', color: 'bg-pink-100 text-pink-800', displayOrder: 7 },
+    { id: 'health-wellness', name: 'Health & Wellness', slug: 'health-wellness', description: 'Fitness, supplements, and wellness products', emoji: '', color: 'bg-green-100 text-green-800', displayOrder: 8 },
+    { id: 'baby-kids', name: 'Baby & Kids', slug: 'baby-kids', description: 'Baby clothing, toys, and kids essentials', emoji: '', color: 'bg-amber-100 text-amber-800', displayOrder: 9 },
+    { id: 'sports-fitness', name: 'Sports & Fitness', slug: 'sports-fitness', description: 'Sports equipment, gear, and fitness accessories', emoji: '', color: 'bg-lime-100 text-lime-800', displayOrder: 10 },
+    { id: 'gaming', name: 'Gaming', slug: 'gaming', description: 'Consoles, games, and gaming accessories', emoji: '', color: 'bg-violet-100 text-violet-800', displayOrder: 11 },
+    { id: 'books-music-media', name: 'Books, Music & Media', slug: 'books-music-media', description: 'Books, music, movies, and educational materials', emoji: '', color: 'bg-teal-100 text-teal-800', displayOrder: 12 },
+    { id: 'office-stationery', name: 'Office & Stationery', slug: 'office-stationery', description: 'Office supplies, stationery, and business materials', emoji: '', color: 'bg-slate-100 text-slate-800', displayOrder: 13 },
+    { id: 'automotive', name: 'Automotive', slug: 'automotive', description: 'Cars, motorcycles, parts, and car accessories', emoji: '', color: 'bg-gray-100 text-gray-800', displayOrder: 14 },
+    { id: 'tools-hardware', name: 'Tools & Hardware', slug: 'tools-hardware', description: 'Power tools, hand tools, and building materials', emoji: '', color: 'bg-stone-100 text-stone-800', displayOrder: 15 },
+    { id: 'garden-outdoor', name: 'Garden & Outdoor', slug: 'garden-outdoor', description: 'Plants, gardening tools, and outdoor equipment', emoji: '', color: 'bg-emerald-100 text-emerald-800', displayOrder: 16 },
+    { id: 'agriculture', name: 'Agriculture', slug: 'agriculture', description: 'Farm equipment, seeds, fertilizers, and supplies', emoji: '', color: 'bg-yellow-100 text-yellow-800', displayOrder: 17 },
+    { id: 'pets-animals', name: 'Pets & Animals', slug: 'pets-animals', description: 'Pet food, accessories, and animal supplies', emoji: '', color: 'bg-orange-100 text-orange-800', displayOrder: 18 },
+    { id: 'jewelry-accessories', name: 'Jewelry & Accessories', slug: 'jewelry-accessories', description: 'Rings, necklaces, watches, and fashion accessories', emoji: '', color: 'bg-fuchsia-100 text-fuchsia-800', displayOrder: 19 },
+    { id: 'services', name: 'Services', slug: 'services', description: 'Cleaning, repairs, tutoring, and professional services', emoji: '', color: 'bg-teal-100 text-teal-800', displayOrder: 20 },
+    { id: 'jobs-freelance', name: 'Jobs & Freelance', slug: 'jobs-freelance', description: 'Job listings, freelance, and contract work', emoji: '', color: 'bg-sky-100 text-sky-800', displayOrder: 21 },
+    { id: 'real-estate', name: 'Real Estate', slug: 'real-estate', description: 'Houses, apartments, land, and property for sale or rent', emoji: '', color: 'bg-blue-100 text-blue-800', displayOrder: 22 },
+    { id: 'property-rentals', name: 'Property & Rentals', slug: 'property-rentals', description: 'Equipment, furniture, and vehicle rentals', emoji: '', color: 'bg-indigo-100 text-indigo-800', displayOrder: 23 },
+    { id: 'events-entertainment', name: 'Events & Entertainment', slug: 'events-entertainment', description: 'Event tickets, venues, decorations, and entertainment', emoji: '', color: 'bg-pink-100 text-pink-800', displayOrder: 24 },
+    { id: 'collectibles-hobbies', name: 'Collectibles & Hobbies', slug: 'collectibles-hobbies', description: 'Art, antiques, collectibles, and hobby items', emoji: '', color: 'bg-amber-100 text-amber-800', displayOrder: 25 },
+    { id: 'art-crafts', name: 'Art & Crafts', slug: 'art-crafts', description: 'Art supplies, handmade products, and craft materials', emoji: '', color: 'bg-rose-100 text-rose-800', displayOrder: 26 },
+    { id: 'travel-luggage', name: 'Travel & Luggage', slug: 'travel-luggage', description: 'Suitcases, travel bags, and travel accessories', emoji: '', color: 'bg-sky-100 text-sky-800', displayOrder: 27 },
+    { id: 'security-safety', name: 'Security & Safety', slug: 'security-safety', description: 'Security cameras, alarms, locks, and safety equipment', emoji: '', color: 'bg-slate-100 text-slate-800', displayOrder: 28 },
+    { id: 'industrial-commercial', name: 'Industrial & Commercial Equipment', slug: 'industrial-commercial', description: 'Machinery, generators, and business equipment', emoji: '', color: 'bg-zinc-100 text-zinc-800', displayOrder: 29 },
+    { id: 'religious-cultural', name: 'Religious & Cultural Items', slug: 'religious-cultural', description: 'Religious books, cultural clothing, and ceremonial items', emoji: '', color: 'bg-purple-100 text-purple-800', displayOrder: 30 },
+    { id: 'digital-products', name: 'Digital Products', slug: 'digital-products', description: 'Software, templates, e-books, and online courses', emoji: '', color: 'bg-blue-100 text-blue-800', displayOrder: 31 },
+    { id: 'other', name: 'Other', slug: 'other', description: 'Miscellaneous products and services', emoji: '', color: 'bg-gray-100 text-gray-800', displayOrder: 32 },
+  ]
+
+  for (const cat of categoriesToUpsert) {
+    await prisma.category.upsert({
+      where: { id: cat.id },
+      update: { slug: cat.slug, name: cat.name, description: cat.description, emoji: cat.emoji, color: cat.color, displayOrder: cat.displayOrder },
+      create: cat,
+    })
+  }
+
+  const categoryMap: Record<string, string> = {}
+  for (const cat of categoriesToUpsert) {
+    const record = await prisma.category.findUnique({ where: { id: cat.id } })
+    if (record) categoryMap[cat.id] = record.id
+  }
 
   const product = await prisma.product.create({
     data: {

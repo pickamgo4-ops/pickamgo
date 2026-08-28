@@ -8,10 +8,22 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
   try {
     const categories = await prisma.category.findMany({
       where: { isActive: true },
-      orderBy: { name: 'asc' },
+      include: {
+        children: {
+          where: { isActive: true },
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+      orderBy: { displayOrder: 'asc' },
     })
 
-    return successResponse(res, categories)
+    const topLevel = categories.filter(c => !c.parentId)
+    const tree = topLevel.map(parent => ({
+      ...parent,
+      children: categories.filter(c => c.parentId === parent.id).sort((a, b) => a.displayOrder - b.displayOrder),
+    }))
+
+    return successResponse(res, tree)
   } catch (error) {
     return errorResponse(res, 'Failed to fetch categories', 500)
   }
