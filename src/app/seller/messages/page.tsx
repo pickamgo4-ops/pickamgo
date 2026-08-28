@@ -166,8 +166,13 @@ export default function SellerMessagesPage() {
                   <button
                     key={conv.id}
                     onClick={() => {
+                      const orderId = conv.orderId || conv.order?.id
+                      if (window.matchMedia('(max-width: 767px)').matches) {
+                        router.push(`/messages/${other.id}${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`)
+                        return
+                      }
                       setSelectedConversation(conv)
-                      loadConversation(other.id, conv.orderId || conv.order?.id)
+                      loadConversation(other.id, orderId)
                     }}
                     className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
                       selectedConversation?.id === conv.id ? 'bg-primary/10' : 'hover:bg-warm-100'
