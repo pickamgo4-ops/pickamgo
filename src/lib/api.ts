@@ -308,4 +308,18 @@ export const api = {
   createSellerPromo: (data: any) => api.post<any>('/seller/promos', data),
   updateSellerPromo: (id: string, data: any) => api.patch<any>(`/seller/promos/${id}`, data),
   deleteSellerPromo: (id: string) => api.delete(`/seller/promos/${id}`),
+  getFavorites: (params?: { page?: number; limit?: number; type?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<{ favorites: any[]; pagination: any }>(`/favorites${query}`)
+  },
+  addFavorite: (targetType: 'PRODUCT' | 'SERVICE' | 'SHOP', targetId: string) =>
+    api.post<any>('/favorites', { targetType, targetId }),
+  removeFavorite: (targetType: 'PRODUCT' | 'SERVICE' | 'SHOP', targetId: string) =>
+    api.delete(`/favorites/${targetType}/${targetId}`),
 }

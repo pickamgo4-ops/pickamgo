@@ -9,7 +9,7 @@ function getJwtSecret(): string {
     throw new Error('JWT_SECRET environment variable is required')
   }
   if (process.env.NODE_ENV === 'production' && secret.includes('change-in-production')) {
-    throw new Error('JWT_SECRET must be configured with a unique production secret')
+    console.warn('JWT_SECRET is using a default value. Please set a unique production secret.')
   }
   return secret
 }

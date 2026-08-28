@@ -20,17 +20,49 @@ export default function ProductPage() {
   const [recommendationsLoading, setRecommendationsLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState(0)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [favoriteLoading, setFavoriteLoading] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(true)
   const [addingToCart, setAddingToCart] = useState(false)
 
   useEffect(() => {
     loadProduct()
+    checkFavoriteStatus()
   }, [params.id])
 
   useEffect(() => {
     loadRecommendations()
   }, [params.id])
+
+  const checkFavoriteStatus = async () => {
+    try {
+      const res = await api.getFavorites({ type: 'PRODUCT' })
+      if (res.success && res.data) {
+        const isFav = res.data.favorites.some((fav: any) => fav.targetId === params.id)
+        setIsFavorite(isFav)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const toggleFavorite = async () => {
+    if (!product) return
+    setFavoriteLoading(true)
+    try {
+      if (isFavorite) {
+        await api.removeFavorite('PRODUCT', product.id)
+        setIsFavorite(false)
+      } else {
+        await api.addFavorite('PRODUCT', product.id)
+        setIsFavorite(true)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setFavoriteLoading(false)
+    }
+  }
 
   const loadProduct = async () => {
     setLoading(true)
@@ -136,8 +168,9 @@ export default function ProductPage() {
           </button>
           <div className="flex gap-2">
             <button
-              onClick={() => setIsFavorite(!isFavorite)}
-              className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm"
+              onClick={toggleFavorite}
+              disabled={favoriteLoading}
+              className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm disabled:opacity-50"
             >
               <Heart
                 size={20}
@@ -294,7 +327,8 @@ export default function ProductPage() {
             fullWidth
             className="flex-1"
             icon={<Heart size={18} />}
-            onClick={() => setIsFavorite(!isFavorite)}
+            onClick={toggleFavorite}
+            disabled={favoriteLoading}
           >
             Save
           </Button>
@@ -321,8 +355,9 @@ export default function ProductPage() {
         {/* Mobile Actions */}
         <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-warm-200 px-4 py-3 flex gap-3 items-center">
           <button
-            onClick={() => setIsFavorite(!isFavorite)}
-            className="p-2.5 rounded-xl border border-warm-200 hover:bg-warm-100 transition-colors"
+            onClick={toggleFavorite}
+            disabled={favoriteLoading}
+            className="p-2.5 rounded-xl border border-warm-200 hover:bg-warm-100 transition-colors disabled:opacity-50"
           >
             <Heart size={20} className={isFavorite ? 'fill-red-500 text-red-500' : 'text-warm-800'} />
           </button>

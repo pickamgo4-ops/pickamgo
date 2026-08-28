@@ -5,6 +5,7 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'no-reply@pickamgo.co
 const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || 'PickAmGo'
 const APP_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'
 const ADMIN_NOTIFICATION_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || ''
+const LOGO_URL = process.env.LOGO_URL || `${APP_URL}/logo.png`
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null
 
@@ -62,13 +63,13 @@ export function buildBaseHtml(title: string, body: string): string {
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
     .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    .header { background: linear-gradient(135deg, #FF6B35 0%, #E85D2E 100%); padding: 28px 24px; text-align: center; }
-    .header h1 { color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
-    .header p { color: rgba(255,255,255,0.9); margin: 6px 0 0; font-size: 14px; }
-    .body { padding: 28px 24px; color: #1f2937; }
-    .button { display: inline-block; padding: 12px 28px; background-color: #FF6B35; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 20px; }
+    .header { background: linear-gradient(135deg, #FF6B35 0%, #E85D2E 100%); padding: 24px; text-align: center; }
+    .header img { max-height: 48px; max-width: 160px; object-fit: contain; display: block; margin: 0 auto; }
+    .header h1 { color: #ffffff; margin: 12px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .body { padding: 32px 24px; color: #1f2937; }
+    .button { display: inline-block; padding: 14px 32px; background-color: #FF6B35; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 24px; text-align: center; }
     .button-secondary { background-color: #f3f4f6; color: #374151; }
-    .footer { background-color: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+    .footer { background-color: #f9fafb; padding: 24px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
     .footer a { color: #FF6B35; text-decoration: none; }
     .info-box { background-color: #fff7ed; border-left: 4px solid #FF6B35; padding: 14px 18px; border-radius: 8px; margin: 16px 0; }
     .info-box p { margin: 0; font-size: 14px; color: #4b5563; }
@@ -83,13 +84,14 @@ export function buildBaseHtml(title: string, body: string): string {
     .status-cancelled { background-color: #fee2e2; color: #991b1b; }
     .section { margin-top: 24px; padding-top: 24px; border-top: 1px solid #f3f4f6; }
     .section-title { font-size: 14px; font-weight: 600; color: #9a3412; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .text-link { color: #FF6B35; word-break: break-all; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>PickAmGo</h1>
-      <p>Your local marketplace</p>
+      <img src="${LOGO_URL}" alt="PickAmGo logo" />
+      <h1>${title}</h1>
     </div>
     <div class="body">
       ${body}
@@ -517,11 +519,14 @@ export async function sendPasswordResetEmail(to: string, resetToken: string): Pr
   const resetUrl = `${APP_URL}/auth/reset?token=${resetToken}`
 
   const body = `
-    <h2>Reset Your Password</h2>
-    <p>You requested to reset your password. Click the button below to choose a new password.</p>
-    <a href="${resetUrl}" class="button">Reset Password</a>
+    <h2 style="margin: 0 0 12px; font-size: 20px; color: #111827;">Reset your PickAmGo password</h2>
+    <p style="margin: 0 0 16px; color: #4b5563; line-height: 1.6;">We received a request to reset your password. Click the button below to create a new password.</p>
+    <a href="${resetUrl}" class="button" style="display: inline-block;">Reset Password</a>
+    <p style="margin: 16px 0 8px; color: #6b7280; font-size: 14px;">This link will expire in 1 hour.</p>
+    <p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">If the button doesn't work, copy and paste this link into your browser:</p>
+    <p style="margin: 0 0 16px; word-break: break-all;"><a href="${resetUrl}" class="text-link">${resetUrl}</a></p>
     <div class="info-box">
-      <p>This link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.</p>
+      <p>If you didn't request a password reset, you can safely ignore this email.</p>
     </div>
   `
 
@@ -530,6 +535,31 @@ export async function sendPasswordResetEmail(to: string, resetToken: string): Pr
     subject: 'Reset your PickAmGo password',
     html: buildBaseHtml('Reset Password', body),
     text: `Reset your PickAmGo password: ${resetUrl}. This link expires in 1 hour.`,
+  })
+}
+
+export async function sendReferralEmail(to: string, referral: {
+  referrerName: string
+  referralCode?: string
+}): Promise<SendEmailResult> {
+  const referralUrl = `${APP_URL}/auth/signup?ref=${referral.referralCode || ''}`
+
+  const body = `
+    <h2>You've been invited to PickAmGo!</h2>
+    <p><strong>${referral.referrerName}</strong> invited you to join PickAmGo, your local marketplace for products and services.</p>
+    <p>Discover local sellers, book services, and get things delivered fast. Sign up now and start exploring.</p>
+    <a href="${referralUrl}" class="button">Join PickAmGo</a>
+    ${referral.referralCode ? `<p style="margin-top: 16px; font-size: 14px; color: #6b7280;">Use referral code <strong>${referral.referralCode}</strong> when you sign up.</p>` : ''}
+    <div class="info-box">
+      <p>If you already have an account, you can still explore PickAmGo without signing up again.</p>
+    </div>
+  `
+
+  return sendEmail({
+    to,
+    subject: `You've been invited to PickAmGo by ${referral.referrerName}`,
+    html: buildBaseHtml('You are invited', body),
+    text: `${referral.referrerName} invited you to join PickAmGo. Visit ${referralUrl} to sign up.`,
   })
 }
 

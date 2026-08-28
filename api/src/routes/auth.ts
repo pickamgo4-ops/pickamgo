@@ -251,8 +251,9 @@ router.post('/login', validateBody(loginSchema), async (req: AuthenticatedReques
     }).catch(err => console.error('Failed to send sign-in notification email:', err))
 
     return successResponse(res, { user: userWithoutPassword, token })
-  } catch (error) {
-    return errorResponse(res, 'Login failed', 500)
+  } catch (error: any) {
+    console.error('Login error:', error)
+    return errorResponse(res, 'Login failed. Please try again later.', 500)
   }
 })
 

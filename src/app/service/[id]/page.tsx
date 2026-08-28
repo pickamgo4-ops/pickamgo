@@ -15,6 +15,7 @@ export default function ServicePage() {
   const [service, setService] = useState<BeautyService | null>(null)
   const [selectedImage, setSelectedImage] = useState(0)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [favoriteLoading, setFavoriteLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -24,7 +25,38 @@ export default function ServicePage() {
 
   useEffect(() => {
     loadService()
+    checkFavoriteStatus()
   }, [params.id])
+
+  const checkFavoriteStatus = async () => {
+    try {
+      const res = await api.getFavorites({ type: 'SERVICE' })
+      if (res.success && res.data) {
+        const isFav = res.data.favorites.some((fav: any) => fav.targetId === params.id)
+        setIsFavorite(isFav)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const toggleFavorite = async () => {
+    if (!service) return
+    setFavoriteLoading(true)
+    try {
+      if (isFavorite) {
+        await api.removeFavorite('SERVICE', service.id)
+        setIsFavorite(false)
+      } else {
+        await api.addFavorite('SERVICE', service.id)
+        setIsFavorite(true)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setFavoriteLoading(false)
+    }
+  }
 
   const loadService = async () => {
     setLoading(true)
@@ -114,8 +146,9 @@ export default function ServicePage() {
           </button>
           <div className="flex gap-2">
             <button
-              onClick={() => setIsFavorite(!isFavorite)}
-              className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm"
+              onClick={toggleFavorite}
+              disabled={favoriteLoading}
+              className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm disabled:opacity-50"
             >
               <Heart
                 size={20}
@@ -311,7 +344,8 @@ export default function ServicePage() {
             fullWidth
             className="flex-1"
             icon={<Heart size={18} />}
-            onClick={() => setIsFavorite(!isFavorite)}
+            onClick={toggleFavorite}
+            disabled={favoriteLoading}
           >
             Save
           </Button>
