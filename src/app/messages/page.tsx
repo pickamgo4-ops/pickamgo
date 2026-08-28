@@ -37,8 +37,8 @@ export default function MessagesPage() {
         const mapped = (response.data.conversations || response.data || []).map((conv: any) => ({
           userId: conv.otherParticipant?.id || conv.userId,
           orderId: conv.orderId || conv.order?.id,
-          userName: conv.otherParticipant?.name || conv.userName || conv.name || 'Unknown User',
-          userAvatar: conv.otherParticipant?.avatar || conv.userAvatar || conv.avatar || '',
+          userName: conv.shop?.name || conv.otherParticipant?.name || conv.userName || conv.name || 'Unknown User',
+          userAvatar: conv.shop?.logo || conv.otherParticipant?.avatar || conv.userAvatar || conv.avatar || '',
           lastMessage: conv.lastMessage?.content || conv.lastMessageText || '',
           lastMessageAt: conv.lastMessageAt || conv.updatedAt || new Date().toISOString(),
           unreadCount: conv.unreadCount || 0,
@@ -59,8 +59,8 @@ export default function MessagesPage() {
         const mapped = (response.data.conversations || response.data || []).map((conv: any) => ({
           userId: conv.otherParticipant?.id || conv.userId,
           orderId: conv.orderId || conv.order?.id,
-          userName: conv.otherParticipant?.name || conv.userName || conv.name || 'Unknown User',
-          userAvatar: conv.otherParticipant?.avatar || conv.userAvatar || conv.avatar || '',
+          userName: conv.shop?.name || conv.otherParticipant?.name || conv.userName || conv.name || 'Unknown User',
+          userAvatar: conv.shop?.logo || conv.otherParticipant?.avatar || conv.userAvatar || conv.avatar || '',
           lastMessage: conv.lastMessage?.content || conv.lastMessageText || '',
           lastMessageAt: conv.lastMessageAt || conv.updatedAt || new Date().toISOString(),
           unreadCount: conv.unreadCount || 0,

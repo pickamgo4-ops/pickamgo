@@ -176,36 +176,6 @@ export default function AdminDashboardPage() {
               </a>
             ))}
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="p-6">
-              <h3 className="font-semibold text-warm-900 mb-4">Manage</h3>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { icon: Users, label: 'Users', href: '/admin/users' },
-                  { icon: Store, label: 'Shops', href: '/admin/shops' },
-                  { icon: Package, label: 'Products', href: '/admin/products' },
-                  { icon: Tag, label: 'Categories', href: '/admin/categories' },
-                  { icon: Bike, label: 'Riders', href: '/admin/riders' },
-                  { icon: ClipboardList, label: 'Orders', href: '/admin/orders' },
-                  { icon: Receipt, label: 'Payouts', href: '/admin/payouts' },
-                  { icon: FileText, label: 'Reports', href: '/admin/reports' },
-                  { icon: Settings, label: 'Settings', href: '/admin/settings' },
-                ].map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className="flex items-center gap-3 p-4 rounded-xl border border-warm-200 hover:border-primary/30 hover:bg-primary/5 transition-all"
-                  >
-                    <div className="w-10 h-10 bg-warm-100 rounded-xl flex items-center justify-center">
-                      <item.icon size={20} className="text-warm-800" />
-                    </div>
-                    <span className="font-medium text-sm text-warm-900">{item.label}</span>
-                  </a>
-                ))}
-              </div>
-            </Card>
-          </div>
         </>
       )}
     </div>

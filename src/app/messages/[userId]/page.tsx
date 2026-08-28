@@ -92,6 +92,7 @@ export default function ConversationPage() {
         setCanSend(response.data.canSend !== false)
 
         const conversation = response.data.conversation
+        const shop = conversation?.shop
         const participant = conversation?.participant1?.id === userId
           ? conversation.participant1
           : conversation?.participant2?.id === userId
@@ -99,8 +100,8 @@ export default function ConversationPage() {
             : null
         if (participant) {
           setConversationUser({
-            name: participant.name || 'User',
-            avatar: participant.avatar || '',
+            name: shop?.name || participant.name || 'User',
+            avatar: shop?.logo || participant.avatar || '',
           })
         }
         const nextUserId = getCurrentUserId()

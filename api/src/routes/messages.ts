@@ -58,8 +58,22 @@ async function canAccessExistingConversation(currentUserId: string, otherUserId:
   }
 
   if (!conversation.shopId) return false
-  const shop = await prisma.shop.findUnique({ where: { id: conversation.shopId }, select: { ownerId: true, status: true } })
-  return shop?.status === 'ACTIVE' && (shop.ownerId === currentUserId || shop.ownerId === otherUserId)
+  const shop = await prisma.shop.findFirst({
+    where: {
+      id: conversation.shopId,
+      status: 'ACTIVE',
+      OR: [
+        { ownerId: currentUserId },
+        { ownerId: otherUserId },
+        { products: { some: { sellerId: currentUserId } } },
+        { products: { some: { sellerId: otherUserId } } },
+        { services: { some: { providerId: currentUserId } } },
+        { services: { some: { providerId: otherUserId } } },
+      ],
+    },
+    select: { id: true },
+  })
+  return !!shop
 }
 
 function otherParticipant(conversation: any, userId: string) {
@@ -97,6 +111,7 @@ router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, r
           include: { sender: { select: { id: true, name: true } } },
         },
         order: { select: { id: true, orderNumber: true, status: true } },
+        shop: { select: { id: true, name: true, logo: true } },
         _count: { select: { messages: { where: { isRead: false, senderId: { not: userId } } } } },
       },
       orderBy: { updatedAt: 'desc' },
@@ -131,6 +146,7 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
         participant1: { select: { id: true, name: true, avatar: true } },
         participant2: { select: { id: true, name: true, avatar: true } },
         order: { select: { orderNumber: true, status: true } },
+        shop: { select: { id: true, name: true, logo: true } },
       },
     })
 
@@ -153,6 +169,7 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
           participant1: { select: { id: true, name: true, avatar: true } },
           participant2: { select: { id: true, name: true, avatar: true } },
           order: { select: { orderNumber: true, status: true } },
+          shop: { select: { id: true, name: true, logo: true } },
         },
       })
     }
