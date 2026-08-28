@@ -4,9 +4,11 @@ import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
-import { sendOrderStatusEmail } from '../services/email'
+import { sendOrderStatusEmail, sendPaymentConfirmationEmail, sendRefundEmail, sendReviewRequestEmail } from '../services/email'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 import { generateOrderNumber } from '../utils/orderNumber'
+
+const APP_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'
 
 const router = Router()
 
@@ -369,6 +371,20 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
           status: status.replace(/_/g, ' ').toLowerCase(),
           previousStatus: previousStatus ? previousStatus.replace(/_/g, ' ').toLowerCase() : undefined,
         }).catch(err => console.error('Failed to send order status email:', err))
+
+        if (status === 'DELIVERED') {
+          const existingReview = await prisma.review.findFirst({
+            where: { userId: order.customerId, targetType: 'SHOP', targetId: updated.shopId },
+          })
+
+          if (!existingReview) {
+            sendReviewRequestEmail(customerEmail, {
+              orderNumber: updated.orderNumber,
+              shopName: updated.shop?.name,
+              reviewUrl: `${APP_URL}/shop/${updated.shop?.slug || updated.shopId}`,
+            }).catch(err => console.error('Failed to send review request email:', err))
+          }
+        }
       }
     }
   }

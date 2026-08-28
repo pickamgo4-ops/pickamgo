@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import { authMiddleware } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
+import { sendBookingConfirmationEmail, sendBookingStatusEmail } from '../services/email'
 
 const router = Router()
 
@@ -133,6 +134,7 @@ router.post('/', authMiddleware, validateBody(createBookingSchema), async (req: 
       },
       include: {
         service: { include: { category: true } },
+        customer: { select: { id: true, name: true, email: true, avatar: true } },
         provider: { select: { id: true, name: true, avatar: true } },
         shop: true,
       },
@@ -151,6 +153,17 @@ router.post('/', authMiddleware, validateBody(createBookingSchema), async (req: 
       data: JSON.stringify({ bookingId: booking.id }),
     },
   })
+
+  if (booking.customer?.email) {
+    sendBookingConfirmationEmail(booking.customer.email, {
+      bookingNumber: booking.id.slice(-8).toUpperCase(),
+      serviceName: service.name,
+      date: new Date(date).toLocaleDateString(),
+      time: timeSlot,
+      providerName: booking.provider?.name || 'Provider',
+      location: service.shop?.name,
+    }).catch(err => console.error('Failed to send booking confirmation email:', err))
+  }
 
   return successResponse(res, booking, 201, 'Booking created successfully')
 })
@@ -183,12 +196,12 @@ router.patch('/:id/status', authMiddleware, validateBody(bookingStatusSchema), a
   const updated = await prisma.booking.update({
     where: { id: req.params.id },
     data: { status, updatedAt: new Date() },
-    include: {
-      service: { include: { category: true } },
-      customer: { select: { id: true, name: true, avatar: true } },
-      provider: { select: { id: true, name: true, avatar: true } },
-      shop: true,
-    },
+      include: {
+        service: { include: { category: true } },
+        customer: { select: { id: true, name: true, email: true, avatar: true } },
+        provider: { select: { id: true, name: true, email: true, avatar: true } },
+        shop: true,
+      },
   })
 
   const notifyUserId = status === 'CANCELLED' ? booking.providerId : booking.customerId
@@ -201,6 +214,29 @@ router.patch('/:id/status', authMiddleware, validateBody(bookingStatusSchema), a
       data: JSON.stringify({ bookingId: booking.id, status }),
     },
   })
+
+  if (status === 'CANCELLED') {
+    if (updated.customer?.email) {
+      sendBookingStatusEmail(updated.customer.email, {
+        bookingNumber: booking.id.slice(-8).toUpperCase(),
+        serviceName: updated.service?.name || 'Service',
+        status: 'CANCELLED',
+        date: booking.date,
+        time: booking.timeSlot,
+      }).catch(err => console.error('Failed to send booking cancelled email:', err))
+    }
+  } else if (status === 'CONFIRMED' || status === 'COMPLETED') {
+    const target = status === 'CONFIRMED' ? updated.customer : updated.provider
+    if (target?.email) {
+      sendBookingStatusEmail(target.email, {
+        bookingNumber: booking.id.slice(-8).toUpperCase(),
+        serviceName: updated.service?.name || 'Service',
+        status,
+        date: booking.date,
+        time: booking.timeSlot,
+      }).catch(err => console.error('Failed to send booking status email:', err))
+    }
+  }
 
   return successResponse(res, updated, undefined, 'Booking updated successfully')
 })

@@ -913,3 +913,24 @@ model Setting {
   @@index([category])
   @@index([key])
 }
+
+model EmailLog {
+  id            String   @id @default(cuid())
+  to            String
+  subject       String
+  type          String
+  userId        String?
+  relatedId     String?
+  status        String   @default("pending")
+  messageId     String?
+  error         String?
+  sentAt        DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([relatedId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}

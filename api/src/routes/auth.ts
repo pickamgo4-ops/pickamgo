@@ -6,7 +6,7 @@ import { OAuth2Client } from 'google-auth-library'
 import prisma from '../utils/prisma'
 import { authMiddleware, generateToken } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
-import { sendWelcomeEmail, sendPasswordResetEmail } from '../services/email'
+import { sendWelcomeEmail, sendPasswordResetEmail, sendSignInNotificationEmail } from '../services/email'
 
 const router = Router()
 
@@ -244,6 +244,11 @@ router.post('/login', validateBody(loginSchema), async (req: AuthenticatedReques
     const token = generateToken(user)
 
     const { passwordHash: _, ...userWithoutPassword } = user
+
+    sendSignInNotificationEmail(user.email, user.name, {
+      date: new Date().toLocaleString(),
+      browser: (req as any).get?.('user-agent') || undefined,
+    }).catch(err => console.error('Failed to send sign-in notification email:', err))
 
     return successResponse(res, { user: userWithoutPassword, token })
   } catch (error) {

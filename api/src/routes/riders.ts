@@ -3,7 +3,7 @@ import prisma from '../utils/prisma'
 import { authMiddleware, requireRole } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
-import { sendRiderNotification } from '../services/email'
+import { sendRiderNotification, sendDeliveryStatusEmail, sendDeliveryAssignmentEmail } from '../services/email'
 
 const router = Router()
 
@@ -176,7 +176,14 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
 
   const delivery = await prisma.delivery.findFirst({
     where: { id: req.params.id, riderId: req.user!.id },
-    include: { order: true },
+    include: {
+      order: {
+        include: {
+          customer: { select: { id: true, name: true, email: true } },
+          shop: { include: { owner: { select: { id: true, name: true, email: true } } } },
+        },
+      },
+    },
   })
 
   if (!delivery) return errorResponse(res, 'Delivery not found', 404)
@@ -211,6 +218,27 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
     }
     return nextDelivery
   })
+
+  const customer = delivery.order.customer
+  const seller = delivery.order.shop?.owner
+
+  if (status === 'ACCEPTED' || status === 'ARRIVED_AT_PICKUP' || status === 'PICKED_UP' || status === 'OUT_FOR_DELIVERY' || status === 'DELIVERED' || status === 'CANCELLED') {
+    const riderName = req.user?.name || 'Your rider'
+    if (customer?.email) {
+      sendDeliveryStatusEmail(customer.email, {
+        orderNumber: delivery.order.orderNumber,
+        status,
+        riderName,
+      }).catch(err => console.error('Failed to send delivery status email to customer:', err))
+    }
+    if (seller?.email && status !== 'CANCELLED') {
+      sendDeliveryStatusEmail(seller.email, {
+        orderNumber: delivery.order.orderNumber,
+        status,
+        riderName,
+      }).catch(err => console.error('Failed to send delivery status email to seller:', err))
+    }
+  }
 
   if (status === 'DELIVERED') {
     await prisma.rider.update({

@@ -5,6 +5,7 @@ import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { createTransferRecipient, initiateTransfer, handleWebhook } from '../services/paystack'
 import { calculateSellerEarnings, calculateRiderEarnings, getMinimumPayout } from '../services/earnings'
+import { sendWithdrawalRequestedEmail, sendWithdrawalProcessedEmail } from '../services/email'
 
 const router = Router()
 
@@ -242,6 +243,19 @@ router.post('/withdraw', authMiddleware, validateBody(z.object({
       },
     })
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    })
+
+    if (user?.email) {
+      sendWithdrawalRequestedEmail(user.email, {
+        amount,
+        method: payoutMethod.provider,
+        reference: payout.reference,
+      }).catch(err => console.error('Failed to send withdrawal requested email:', err))
+    }
+
     try {
       const transfer = await initiateTransfer(userId, amount, 'GHS', payoutMethod.provider + '_' + payoutMethod.phoneNumber, reference)
 
@@ -348,6 +362,21 @@ router.post('/webhook', async (req: AuthenticatedRequest, res) => {
               failureReason: newStatus === 'FAILED' ? (result.transfer?.failure_reason || 'Transfer failed') : null,
             },
           })
+
+          const payoutUser = await prisma.user.findUnique({
+            where: { id: payout.userId },
+            select: { email: true, name: true },
+          })
+
+          if (payoutUser?.email) {
+            sendWithdrawalProcessedEmail(payoutUser.email, {
+              amount: Number(payout.amount),
+              status: newStatus,
+              reference: payout.reference,
+              processedAt: new Date().toISOString(),
+              failureReason: newStatus === 'FAILED' ? (result.transfer?.failure_reason || 'Transfer failed') : undefined,
+            }).catch(err => console.error('Failed to send withdrawal processed email:', err))
+          }
 
           if (newStatus === 'FAILED' || newStatus === 'REVERSED') {
             const userEarnings = await prisma.sellerEarnings.findMany({
