@@ -58,22 +58,11 @@ async function canAccessExistingConversation(currentUserId: string, otherUserId:
   }
 
   if (!conversation.shopId) return false
-  const shop = await prisma.shop.findFirst({
-    where: {
-      id: conversation.shopId,
-      status: 'ACTIVE',
-      OR: [
-        { ownerId: currentUserId },
-        { ownerId: otherUserId },
-        { products: { some: { sellerId: currentUserId } } },
-        { products: { some: { sellerId: otherUserId } } },
-        { services: { some: { providerId: currentUserId } } },
-        { services: { some: { providerId: otherUserId } } },
-      ],
-    },
-    select: { id: true },
+  const shop = await prisma.shop.findUnique({
+    where: { id: conversation.shopId },
+    select: { status: true },
   })
-  return !!shop
+  return shop?.status === 'ACTIVE'
 }
 
 function otherParticipant(conversation: any, userId: string) {

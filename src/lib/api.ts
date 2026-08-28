@@ -90,12 +90,15 @@ async function request<T>(
     let lastError: unknown
     const urlsToTry = [primaryUrl]
     const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-    if (isProduction && API_URL !== FALLBACK_API_URL) {
+    const method = (options.method || 'GET').toUpperCase()
+    const isIdempotentRequest = method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
+    if (isProduction && isIdempotentRequest && API_URL !== FALLBACK_API_URL) {
       urlsToTry.push(fallbackUrl)
     }
 
     for (const url of urlsToTry) {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
+      const attempts = isIdempotentRequest ? 2 : 1
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
         try {
           response = await fetch(url, buildConfig(url))
           if (response.status < 500) break
