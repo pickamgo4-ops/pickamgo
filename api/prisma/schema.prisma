@@ -18,8 +18,8 @@ model User {
   isSeller      Boolean  @default(false)
   isRider       Boolean  @default(false)
   isAdmin       Boolean  @default(false)
-  suspended     Boolean  @default(false)
-  banned        Boolean  @default(false)
+  suspended     Boolean? @default(false)
+  banned        Boolean? @default(false)
   emailVerified Boolean  @default(false)
   phoneVerified Boolean  @default(false)
   createdAt     DateTime @default(now())
@@ -233,7 +233,7 @@ model Shop {
   campus                  String?
   latitude                Float?
   longitude               Float?
-  status                  String   @default("ACTIVE")
+  status          String?   @default("ACTIVE")
   verificationStatus      String   @default("PENDING")
   isVerified              Boolean  @default(false)
   isOpen                  Boolean  @default(true)
