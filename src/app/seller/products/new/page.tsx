@@ -35,7 +35,6 @@ export default function CreateProductPage() {
     shopCategoryId: '',
     location: '',
     area: '',
-    campus: '',
     condition: 'new',
     images: '',
   })
@@ -52,7 +51,7 @@ export default function CreateProductPage() {
       if (shopRes.success && shopRes.data?.shop) {
         const shop = shopRes.data.shop
         setShopId(shop.id)
-        setForm(prev => ({ ...prev, location: shop.location || '', area: shop.area || '', campus: shop.campus || '' }))
+        setForm(prev => ({ ...prev, location: shop.location || '', area: shop.area || '' }))
         const [categoriesRes, shopCategoriesRes] = await Promise.all([
           api.get<any>('/categories'),
           api.get<any>(`/shop-categories/shops/${shop.id}`),
@@ -272,12 +271,6 @@ export default function CreateProductPage() {
               placeholder="e.g., Legon"
               value={form.area}
               onChange={(e) => updateField('area', e.target.value)}
-            />
-            <Input
-              label="Campus (optional)"
-              placeholder="e.g., UG"
-              value={form.campus}
-              onChange={(e) => updateField('campus', e.target.value)}
             />
           </div>
 

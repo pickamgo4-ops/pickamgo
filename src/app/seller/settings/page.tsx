@@ -25,7 +25,6 @@ export default function SellerSettingsPage() {
     banner: '',
     location: '',
     area: '',
-    campus: '',
     openingHours: '',
     phone: '',
     email: '',
@@ -53,7 +52,6 @@ export default function SellerSettingsPage() {
           banner: s.banner || '',
           location: s.location || '',
           area: s.area || '',
-          campus: s.campus || '',
           openingHours: s.openingHours || '',
           phone: s.phone || '',
           email: s.email || '',
@@ -192,11 +190,6 @@ export default function SellerSettingsPage() {
                 label="Area"
                 value={form.area}
                 onChange={(e) => updateField('area', e.target.value)}
-              />
-              <Input
-                label="Campus (optional)"
-                value={form.campus}
-                onChange={(e) => updateField('campus', e.target.value)}
               />
             </div>
           </Card>

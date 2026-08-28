@@ -116,17 +116,16 @@ async function main() {
   })
 
   const shop = await prisma.shop.upsert({
-    where: { slug: 'campus-glow' },
+    where: { slug: 'glow-beauty' },
     update: {},
     create: {
-      name: 'Campus Glow',
-      slug: 'campus-glow',
+      name: 'Glow Beauty',
+      slug: 'glow-beauty',
       logo: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=200&h=200&fit=crop',
       banner: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&h=400&fit=crop',
-      description: 'Beauty, nails and skincare for your next glow-up. Serving the Legon campus community since 2022.',
+      description: 'Beauty, nails and skincare for your next glow-up. Serving customers around Accra since 2022.',
       location: 'Legon, Accra',
       area: 'Legon',
-      campus: 'University of Ghana',
       openingHours: '9:00 AM - 8:00 PM',
       status: 'ACTIVE',
       verificationStatus: 'APPROVED',
@@ -173,7 +172,6 @@ async function main() {
       sellerId: demoUser.id,
       location: 'Legon, Accra',
       area: 'Legon',
-      campus: 'University of Ghana',
       isTrending: true,
       isNew: true,
       status: 'ACTIVE',
@@ -227,7 +225,6 @@ async function main() {
       providerId: demoUser.id,
       location: 'Legon, Accra',
       area: 'Legon',
-      campus: 'University of Ghana',
       isVerified: true,
       isTrending: true,
       status: 'ACTIVE',

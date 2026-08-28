@@ -1,7 +1,7 @@
 {
-  "name": "PickAmGo - Your Campus Marketplace",
+  "name": "PickAmGo - Your Online Marketplace",
   "short_name": "PickAmGo",
-  "description": "Shop, sell, and discover everything around your campus with PickAmGo.",
+  "description": "Shop, sell, and discover products and services from businesses and sellers around you.",
   "start_url": "/",
   "display": "standalone",
   "theme_color": "#FF6B35",

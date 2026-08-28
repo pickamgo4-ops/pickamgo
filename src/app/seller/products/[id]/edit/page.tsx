@@ -38,7 +38,6 @@ export default function EditProductPage() {
         shopCategoryId: value.shopCategoryId || '',
         location: value.location,
         area: value.area || '',
-        campus: value.campus || '',
         condition: value.condition,
         images: value.images?.map((image: any) => image.url).join('\n') || '',
       })

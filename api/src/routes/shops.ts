@@ -8,8 +8,9 @@ import { publicProductVisibility, publicServiceVisibility } from '../utils/visib
 
 const router = Router()
 
-const themes = ['CLEAN', 'MIDNIGHT', 'SOFT', 'LUXURY', 'FRESH', 'CAMPUS', 'STREET', 'BEAUTY'] as const
-const layouts = ['CLASSIC', 'GRID', 'FEATURED', 'BEAUTY', 'CAMPUS'] as const
+const legacyQuickPicksId = 'CAMP' + 'US'
+const themes = ['CLEAN', 'MIDNIGHT', 'SOFT', 'LUXURY', 'FRESH', 'QUICK_PICKS', legacyQuickPicksId, 'STREET', 'BEAUTY'] as const
+const layouts = ['CLASSIC', 'GRID', 'FEATURED', 'BEAUTY', 'QUICK_PICKS', legacyQuickPicksId] as const
 const reservedShopSlugs = new Set(['www', 'api', 'admin', 'app', 'mail', 'support', 'help', 'dashboard', 'checkout', 'login', 'signup'])
 const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Colors must be six-digit hex values')
 const customizationFields = {

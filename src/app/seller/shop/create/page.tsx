@@ -23,7 +23,6 @@ export default function CreateShopPage() {
     banner: '',
     location: '',
     area: '',
-    campus: '',
     openingHours: '9:00 AM - 6:00 PM',
     category: '',
     latitude: null as number | null,
@@ -108,7 +107,7 @@ export default function CreateShopPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Shop Name"
-            placeholder="e.g., Campus Glow Beauty"
+            placeholder="e.g., Glow Beauty"
             value={form.name}
             onChange={(e) => updateField('name', e.target.value)}
             required
@@ -185,12 +184,6 @@ export default function CreateShopPage() {
               placeholder="e.g., Legon"
               value={form.area}
               onChange={(e) => updateField('area', e.target.value)}
-            />
-            <Input
-              label="Campus (optional)"
-              placeholder="e.g., UG"
-              value={form.campus}
-              onChange={(e) => updateField('campus', e.target.value)}
             />
           </div>
 

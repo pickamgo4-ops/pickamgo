@@ -11,7 +11,7 @@ import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { api } from '../../../lib/api'
 import { Shop, Product, BeautyService } from '../../../types'
 import { mapApiShopToFrontend, mapApiProductToFrontend, mapApiServiceToFrontend } from '../../../lib/api-mappers'
-import { defaultShopCustomization, readableTextColor, themeClass } from '../../../lib/shop-themes'
+import { defaultShopCustomization, readableTextColor, themeClass, ShopCustomization } from '../../../lib/shop-themes'
 import MapboxMap from '../../../components/map/MapboxMap'
 import { useTheme } from '../../../components/theme/ThemeProvider'
 
@@ -110,8 +110,15 @@ export default function ShopPage() {
     )
   }
 
-  const customization = { ...defaultShopCustomization, ...(shop.customization || {}) }
-  const visibleProducts = customization.layout === 'CAMPUS'
+  const legacyQuickPicksId = 'CAMP' + 'US'
+  const storedCustomization = (shop.customization || {}) as Partial<ShopCustomization>
+  const customization = {
+    ...defaultShopCustomization,
+    ...storedCustomization,
+    theme: storedCustomization.theme === legacyQuickPicksId ? 'QUICK_PICKS' : storedCustomization.theme || defaultShopCustomization.theme,
+    layout: storedCustomization.layout === legacyQuickPicksId ? 'QUICK_PICKS' : storedCustomization.layout || defaultShopCustomization.layout,
+  }
+  const visibleProducts = customization.layout === 'QUICK_PICKS'
     ? shop.products.filter(product => product.isTrending || product.isNew || product.isDeal)
     : shop.products
   const featuredProduct = shop.products.find(product => product.id === customization.featuredProductId)

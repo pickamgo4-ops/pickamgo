@@ -20,10 +20,10 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`),
   title: {
-    default: 'PickAmGo — Your Campus Marketplace',
+    default: 'PickAmGo — Your Online Marketplace',
     template: '%s | PickAmGo',
   },
-  description: 'Shop, sell, and discover everything around your campus with PickAmGo.',
+  description: 'Shop, sell, and discover products and services from businesses and sellers around you.',
   applicationName: 'PickAmGo',
   manifest: '/manifest.json',
   alternates: {
@@ -40,15 +40,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'PickAmGo',
-    title: 'PickAmGo — Your Campus Marketplace',
-    description: 'Shop, sell, and discover everything around your campus with PickAmGo.',
+    title: 'PickAmGo — Your Online Marketplace',
+    description: 'Shop, sell, and discover products and services from businesses and sellers around you.',
     url: '/',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'PickAmGo - Your Campus Marketplace' }],
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'PickAmGo - Your Online Marketplace' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PickAmGo — Your Campus Marketplace',
-    description: 'Shop, sell, and discover everything around your campus with PickAmGo.',
+    title: 'PickAmGo — Your Online Marketplace',
+    description: 'Shop, sell, and discover products and services from businesses and sellers around you.',
     images: ['/og-image.png'],
   },
 }

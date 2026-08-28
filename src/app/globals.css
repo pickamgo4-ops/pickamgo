@@ -178,7 +178,7 @@
 .theme-SOFT { background-color: #FAF5F2; }
 .theme-LUXURY { background-color: #171614; }
 .theme-FRESH { background-color: #EAF7F5; }
-.theme-CAMPUS { background-color: #F4F2FF; }
+.theme-QUICK_PICKS { background-color: #F4F2FF; }
 .theme-STREET { background-color: #171717; }
 .theme-BEAUTY { background-color: #FFF8F5; }
 
@@ -187,7 +187,7 @@
 .dark .theme-SOFT { background-color: #1A1614; }
 .dark .theme-LUXURY { background-color: #0D0C0B; }
 .dark .theme-FRESH { background-color: #0F1D20; }
-.dark .theme-CAMPUS { background-color: #181825; }
+.dark .theme-QUICK_PICKS { background-color: #181825; }
 .dark .theme-STREET { background-color: #0D0D0D; }
 .dark .theme-BEAUTY { background-color: #1A1215; }
 
@@ -203,7 +203,7 @@
 .dark .theme-CLEAN,
 .dark .theme-SOFT,
 .dark .theme-FRESH,
-.dark .theme-CAMPUS,
+.dark .theme-QUICK_PICKS,
 .dark .theme-BEAUTY {
   --shop-secondary: #17151A !important;
   --shop-accent: #2A252B !important;

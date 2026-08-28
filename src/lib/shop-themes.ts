@@ -1,5 +1,5 @@
-export type ShopTheme = 'CLEAN' | 'MIDNIGHT' | 'SOFT' | 'LUXURY' | 'FRESH' | 'CAMPUS' | 'STREET' | 'BEAUTY'
-export type ShopLayout = 'CLASSIC' | 'GRID' | 'FEATURED' | 'BEAUTY' | 'CAMPUS'
+export type ShopTheme = 'CLEAN' | 'MIDNIGHT' | 'SOFT' | 'LUXURY' | 'FRESH' | 'QUICK_PICKS' | 'STREET' | 'BEAUTY'
+export type ShopLayout = 'CLASSIC' | 'GRID' | 'FEATURED' | 'BEAUTY' | 'QUICK_PICKS'
 
 export interface ShopCustomization {
   theme: ShopTheme
@@ -25,7 +25,7 @@ export const themePresets: Array<{ id: ShopTheme; name: string; description: str
   { id: 'SOFT', name: 'Soft', description: 'Calm neutrals for an inviting storefront', colors: ['#B76E79', '#FAF5F2', '#47343A'] },
   { id: 'LUXURY', name: 'Luxury', description: 'Editorial spacing and premium contrast', colors: ['#B08D57', '#171614', '#F4E8D0'] },
   { id: 'FRESH', name: 'Fresh', description: 'Energetic color for everyday finds', colors: ['#168AAD', '#EAF7F5', '#12343B'] },
-  { id: 'CAMPUS', name: 'Campus', description: 'Playful, polished and quick to scan', colors: ['#5B5BD6', '#F4F2FF', '#202047'] },
+  { id: 'QUICK_PICKS', name: 'Quick Picks', description: 'Playful, polished and quick to scan', colors: ['#5B5BD6', '#F4F2FF', '#202047'] },
   { id: 'STREET', name: 'Street', description: 'Bold blocks and high-impact product cards', colors: ['#E63946', '#171717', '#F1FAEE'] },
   { id: 'BEAUTY', name: 'Beauty', description: 'Elegant presentation for products and services', colors: ['#C06C84', '#FFF8F5', '#4A2633'] },
 ]
@@ -42,7 +42,7 @@ export function themeClass(theme: ShopTheme) {
     SOFT: 'theme-SOFT',
     LUXURY: 'theme-LUXURY',
     FRESH: 'theme-FRESH',
-    CAMPUS: 'theme-CAMPUS',
+    QUICK_PICKS: 'theme-QUICK_PICKS',
     STREET: 'theme-STREET',
     BEAUTY: 'theme-BEAUTY',
   }[theme]

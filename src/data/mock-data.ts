@@ -5,7 +5,7 @@ export const categories: Category[] = [
   { id: 'food', name: 'Food', icon: 'Utensils', color: 'bg-orange-100 text-orange-800', count: 189 },
   { id: 'fashion', name: 'Fashion', icon: 'Shirt', color: 'bg-purple-100 text-purple-800', count: 312 },
   { id: 'electronics', name: 'Phones & Tech', icon: 'Smartphone', color: 'bg-blue-100 text-blue-800', count: 156 },
-  { id: 'campus', name: 'Campus', icon: 'GraduationCap', color: 'bg-green-100 text-green-800', count: 98 },
+  { id: 'groceries', name: 'Groceries', icon: 'ShoppingBasket', color: 'bg-green-100 text-green-800', count: 98 },
   { id: 'home', name: 'Home', icon: 'Home', color: 'bg-yellow-100 text-yellow-800', count: 134 },
   { id: 'services', name: 'Services', icon: 'Sparkles', color: 'bg-teal-100 text-teal-800', count: 87 },
   { id: 'more', name: 'More', icon: 'PackageOpen', color: 'bg-gray-100 text-gray-800', count: 203 },
@@ -294,11 +294,11 @@ export const beautyServices: BeautyService[] = [
 export const shops: Shop[] = [
   {
     id: 'shop1',
-    name: 'Campus Glow',
-    slug: 'campus-glow',
+    name: 'Glow Beauty',
+    slug: 'glow-beauty',
     logo: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=200&h=200&fit=crop',
     banner: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&h=400&fit=crop',
-    description: 'Beauty, nails and skincare for your next glow-up. Serving the Legon campus community since 2022.',
+    description: 'Beauty, nails and skincare for your next glow-up. Serving customers around Accra since 2022.',
     category: ['beauty', 'skincare', 'nails'],
     owner: sellers[0],
     location: 'Legon, Accra',

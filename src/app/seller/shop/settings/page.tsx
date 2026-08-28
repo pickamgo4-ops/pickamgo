@@ -25,7 +25,6 @@ export default function ShopSettingsPage() {
     banner: '',
     location: '',
     area: '',
-    campus: '',
     latitude: null as number | null,
     longitude: null as number | null,
     openingHours: '9:00 AM - 6:00 PM',
@@ -49,7 +48,6 @@ export default function ShopSettingsPage() {
           banner: shopData.banner || '',
           location: shopData.location || '',
           area: shopData.area || '',
-          campus: shopData.campus || '',
           latitude: shopData.latitude ?? null,
           longitude: shopData.longitude ?? null,
           openingHours: shopData.openingHours || '9:00 AM - 6:00 PM',
@@ -288,12 +286,6 @@ export default function ShopSettingsPage() {
                     placeholder="e.g., Legon"
                     value={form.area}
                     onChange={(e) => updateField('area', e.target.value)}
-                  />
-                  <Input
-                    label="Campus"
-                    placeholder="e.g., UG"
-                    value={form.campus}
-                    onChange={(e) => updateField('campus', e.target.value)}
                   />
                 </div>
               </div>
