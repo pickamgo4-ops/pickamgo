@@ -32,7 +32,7 @@ async function resolveAccess(currentUserId: string, otherUserId: string, orderId
   }
 
   const shop = await prisma.shop.findFirst({ where: { ownerId: otherUserId, status: 'ACTIVE' } })
-  if (shop && !(await prisma.user.findUnique({ where: { id: currentUserId }, select: { isRider: true } }))?.isRider) {
+  if (shop) {
     return { shopId: shop.id, orderId: undefined, closedAt: undefined }
   }
 
