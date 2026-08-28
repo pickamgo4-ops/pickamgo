@@ -57,12 +57,31 @@ async function canAccessExistingConversation(currentUserId: string, otherUserId:
     return !!access
   }
 
-  if (!conversation.shopId) return false
-  const shop = await prisma.shop.findUnique({
-    where: { id: conversation.shopId },
-    select: { status: true },
+  return true
+}
+
+async function resolveConversationShop(currentUserId: string, otherUserId: string, shopId?: string | null) {
+  if (shopId) {
+    return prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { id: true, name: true, logo: true },
+    })
+  }
+
+  return prisma.shop.findFirst({
+    where: {
+      status: 'ACTIVE',
+      OR: [
+        { ownerId: currentUserId },
+        { ownerId: otherUserId },
+        { products: { some: { sellerId: currentUserId } } },
+        { products: { some: { sellerId: otherUserId } } },
+        { services: { some: { providerId: currentUserId } } },
+        { services: { some: { providerId: otherUserId } } },
+      ],
+    },
+    select: { id: true, name: true, logo: true },
   })
-  return shop?.status === 'ACTIVE'
 }
 
 function otherParticipant(conversation: any, userId: string) {
@@ -169,6 +188,13 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
     }
 
     if (!conversation) return errorResponse(res, 'Conversation could not be loaded', 500)
+
+    if (!conversation.shop) {
+      conversation = {
+        ...conversation,
+        shop: await resolveConversationShop(currentUserId, otherUserId, conversation.shopId),
+      }
+    }
 
     const messages = await prisma.message.findMany({
       where: { conversationId: conversation.id },
