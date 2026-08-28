@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Shield, Users, Store, Package, Tag, Bike, FileText, ArrowRight, CheckCircle, Clock, XCircle, Receipt, Settings, ClipboardList } from 'lucide-react'
+import { Shield, Users, Store, Package, Tag, Bike, FileText, ArrowRight, CheckCircle, Clock, XCircle, Receipt, Settings, ClipboardList, Truck } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
@@ -30,6 +30,11 @@ export default function AdminDashboardPage() {
     pendingShopApprovals: 0,
     pendingRiderVerifications: 0,
     activeRiders: 0,
+    pendingPayouts: 0,
+    completedDeliveries: 0,
+    activeDeliveries: 0,
+    todayOrders: 0,
+    todayRevenue: 0,
     platformCommission: 0,
   })
   const [recentUsers, setRecentUsers] = useState<any[]>([])
@@ -123,6 +128,11 @@ export default function AdminDashboardPage() {
           pendingShopApprovals: s.pendingShopApprovals || 0,
           pendingRiderVerifications: s.pendingRiderVerifications || 0,
           activeRiders: s.activeRiders || 0,
+          pendingPayouts: s.pendingPayouts || 0,
+          completedDeliveries: s.completedDeliveries || 0,
+          activeDeliveries: s.activeDeliveries || 0,
+          todayOrders: s.todayOrders || 0,
+          todayRevenue: s.todayRevenue || 0,
           platformCommission: s.platformCommission || 0,
         })
       }
@@ -189,13 +199,20 @@ export default function AdminDashboardPage() {
   const statCards = [
     { label: 'Total Orders', value: stats.totalOrders, href: '/admin/orders', icon: ClipboardList },
     { label: 'Total Sales', value: `GH₵${stats.totalRevenue.toFixed(2)}`, href: '/admin/payments', icon: Receipt },
+    { label: "Today's Orders", value: stats.todayOrders, href: '/admin/orders', icon: ClipboardList },
+    { label: "Today's Revenue", value: `GH₵${stats.todayRevenue.toFixed(2)}`, href: '/admin/payments', icon: Receipt },
     { label: 'Total Customers', value: stats.totalUsers, href: '/admin/users', icon: Users },
     { label: 'Total Sellers', value: stats.totalSellers, href: '/admin/shops', icon: Store },
     { label: 'Total Riders', value: stats.totalRiders, href: '/admin/riders', icon: Bike },
+    { label: 'Total Shops', value: stats.totalShops, href: '/admin/shops', icon: Store },
+    { label: 'Total Products', value: stats.totalProducts, href: '/admin/products', icon: Package },
     { label: 'Pending Orders', value: stats.pendingOrders, href: '/admin/orders', icon: Clock },
+    { label: 'Completed Deliveries', value: stats.completedDeliveries, href: '/admin/deliveries', icon: Truck },
+    { label: 'Active Deliveries', value: stats.activeDeliveries, href: '/admin/deliveries', icon: Truck },
+    { label: 'Cancelled Orders', value: stats.cancelledOrders, href: '/admin/orders', icon: XCircle },
     { label: 'Pending Seller Approvals', value: stats.pendingSellerVerifications, href: '/admin/verifications', icon: FileText },
     { label: 'Pending Rider Approvals', value: stats.pendingRiderVerifications, href: '/admin/verifications', icon: Bike },
-    { label: 'Pending Payouts', value: 0, href: '/admin/payouts', icon: Receipt },
+    { label: 'Pending Payouts', value: stats.pendingPayouts, href: '/admin/payouts', icon: Receipt },
   ]
 
   return (
