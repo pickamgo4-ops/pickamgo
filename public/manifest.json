@@ -1,0 +1,23 @@
+{
+  "name": "PickAmGo - Your Campus Marketplace",
+  "short_name": "PickAmGo",
+  "description": "Shop, sell, and discover everything around your campus with PickAmGo.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#FF6B35",
+  "background_color": "#FFF8F0",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

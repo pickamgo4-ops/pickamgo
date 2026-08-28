@@ -18,8 +18,39 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: 'PickAmGo - Discover Products, Beauty & Services Around You',
-  description: 'Find products, beauty services, food, fashion and local businesses near you in Ghana.',
+  metadataBase: new URL(`https://${process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'}`),
+  title: {
+    default: 'PickAmGo — Your Campus Marketplace',
+    template: '%s | PickAmGo',
+  },
+  description: 'Shop, sell, and discover everything around your campus with PickAmGo.',
+  applicationName: 'PickAmGo',
+  manifest: '/manifest.json',
+  alternates: {
+    canonical: '/',
+  },
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '32x32' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
+  },
+  openGraph: {
+    type: 'website',
+    siteName: 'PickAmGo',
+    title: 'PickAmGo — Your Campus Marketplace',
+    description: 'Shop, sell, and discover everything around your campus with PickAmGo.',
+    url: '/',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'PickAmGo - Your Campus Marketplace' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'PickAmGo — Your Campus Marketplace',
+    description: 'Shop, sell, and discover everything around your campus with PickAmGo.',
+    images: ['/og-image.png'],
+  },
 }
 
 export default function RootLayout({
