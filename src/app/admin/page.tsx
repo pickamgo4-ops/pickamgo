@@ -1,12 +1,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Shield, Users, Store, Package, Tag, Bike, FileText, ArrowRight, CheckCircle, Clock, XCircle, Receipt, Settings, ClipboardList, Truck } from 'lucide-react'
+import { Shield, Users, Store, Package, Tag, Bike, FileText, Clock, XCircle, Receipt, Settings, ClipboardList, Truck } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { api } from '@/lib/api'
-import { SellerVerification } from '@/types'
 import { useRole } from '@/contexts/RoleContext'
 
 export default function AdminDashboardPage() {
@@ -37,9 +35,6 @@ export default function AdminDashboardPage() {
     todayRevenue: 0,
     platformCommission: 0,
   })
-  const [recentUsers, setRecentUsers] = useState<any[]>([])
-  const [recentOrders, setRecentOrders] = useState<any[]>([])
-  const [pendingVerifications, setPendingVerifications] = useState<SellerVerification[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [error, setError] = useState('')
 
@@ -58,58 +53,9 @@ export default function AdminDashboardPage() {
 
       setIsAdmin(true)
 
-      let dashboardData: any = null
-      let usersData: any = null
-      let ordersData: any = null
-      let verificationsData: any = null
-
-      try {
-        const dashboardRes = await api.get<any>('/admin/dashboard')
-        if (dashboardRes.success && dashboardRes.data) {
-          dashboardData = dashboardRes.data
-        } else {
-          console.error('Dashboard API error:', dashboardRes.error)
-        }
-      } catch (err) {
-        console.error('Dashboard API exception:', err)
-      }
-
-      try {
-        const usersRes = await api.get<any>('/admin/users?limit=5')
-        if (usersRes.success && usersRes.data) {
-          usersData = usersRes.data
-        } else {
-          console.error('Users API error:', usersRes.error)
-        }
-      } catch (err) {
-        console.error('Users API exception:', err)
-      }
-
-      try {
-        const ordersRes = await api.get<any>('/admin/orders?limit=5')
-        if (ordersRes.success && ordersRes.data) {
-          ordersData = ordersRes.data
-        } else {
-          console.error('Orders API error:', ordersRes.error)
-        }
-      } catch (err) {
-        console.error('Orders API exception:', err)
-      }
-
-      try {
-        const verificationsRes = await api.get<SellerVerification[]>('/admin/verifications?status=PENDING')
-        if (verificationsRes.success && verificationsRes.data) {
-          verificationsData = verificationsRes.data
-        } else {
-          console.error('Verifications API error:', verificationsRes.error)
-        }
-      } catch (err) {
-        console.error('Verifications API exception:', err)
-      }
-
-      if (dashboardData) {
-        const d = dashboardData
-        const s = d.stats || {}
+      const dashboardRes = await api.get<any>('/admin/dashboard')
+      if (dashboardRes.success && dashboardRes.data) {
+        const s = dashboardRes.data.stats || {}
         setStats({
           totalUsers: s.totalUsers || 0,
           totalBuyers: s.totalBuyers || 0,
@@ -136,36 +82,11 @@ export default function AdminDashboardPage() {
           platformCommission: s.platformCommission || 0,
         })
       }
-
-      if (usersData) {
-        const usersArr = Array.isArray(usersData) ? usersData : (usersData.users || [])
-        setRecentUsers(usersArr.slice(0, 5))
-      }
-
-      if (ordersData) {
-        setRecentOrders((ordersData.orders || []).slice(0, 5))
-      }
-
-      if (verificationsData && Array.isArray(verificationsData)) {
-        setPendingVerifications(verificationsData)
-      }
     } catch (err) {
       console.error('Failed to load admin dashboard:', err)
       setError('Failed to load dashboard data. Please refresh the page.')
     } finally {
       setAdminLoading(false)
-    }
-  }
-
-  const handleVerify = async (id: string, status: 'APPROVED' | 'REJECTED', reason?: string) => {
-    try {
-      const response = await api.patch(`/admin/verifications/${id}/status`, { status, rejectionReason: reason })
-      if (response.success) {
-        setPendingVerifications(prev => prev.filter(v => v.id !== id))
-        setStats(prev => ({ ...prev, pendingSellerVerifications: prev.pendingSellerVerifications - 1 }))
-      }
-    } catch (err) {
-      console.error('Failed to update verification:', err)
     }
   }
 
@@ -257,106 +178,6 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="p-6">
-              <h3 className="font-semibold text-warm-900 mb-4">Recent Orders</h3>
-              {recentOrders.length === 0 ? (
-                <p className="text-sm text-warm-800/60 text-center py-4">No orders yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {recentOrders.map((order: any) => (
-                    <div key={order.id} className="flex items-center justify-between p-3 bg-warm-50 rounded-xl">
-                      <div>
-                        <p className="font-medium text-sm text-warm-900">
-                          #{order.orderNumber || order.id.slice(-6)}
-                        </p>
-                        <p className="text-xs text-warm-800/60">
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                        <span className="text-sm font-bold text-warm-900">
-                          GH₵{Number(order.total).toFixed(2)}
-                        </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card className="p-6">
-              <h3 className="font-semibold text-warm-900 mb-4">Recent Users</h3>
-              {recentUsers.length === 0 ? (
-                <p className="text-sm text-warm-800/60 text-center py-4">No users yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {recentUsers.map((u: any) => (
-                    <div key={u.id} className="flex items-center justify-between p-3 bg-warm-50 rounded-xl">
-                      <div>
-                        <p className="font-medium text-sm text-warm-900">{u.name}</p>
-                        <p className="text-xs text-warm-800/60">{u.email}</p>
-                      </div>
-                      <span className="text-xs text-warm-800/50">
-                        {new Date(u.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="p-6">
-              <h3 className="font-semibold text-warm-900 mb-4">Pending Approvals</h3>
-              {pendingVerifications.length === 0 ? (
-                <p className="text-sm text-warm-800/60 text-center py-4">No pending verifications</p>
-              ) : (
-                <div className="space-y-3">
-                  {pendingVerifications.slice(0, 5).map((ver) => (
-                    <div key={ver.id} className="p-4 bg-warm-50 rounded-xl border border-warm-200">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-sm text-warm-900">
-                            {ver.businessName || `User ${ver.userId}`}
-                          </p>
-                          <p className="text-xs text-warm-800/60">
-                            {ver.idType} · {ver.idNumber}
-                          </p>
-                          <p className="text-xs text-warm-800/50">
-                            {ver.businessType}
-                          </p>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleVerify(ver.id, 'APPROVED')}
-                            className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-                          >
-                            <CheckCircle size={18} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const reason = prompt('Rejection reason:')
-                              if (reason !== null) handleVerify(ver.id, 'REJECTED', reason)
-                            }}
-                            className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                          >
-                            <XCircle size={18} />
-                          </button>
-                        </div>
-                      </div>
-                      <a
-                        href={ver.idFrontUrl || ver.idBackUrl || ver.selfieUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline"
-                      >
-                        View Document
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
             <Card className="p-6">
               <h3 className="font-semibold text-warm-900 mb-4">Manage</h3>
               <div className="grid grid-cols-2 gap-3">
