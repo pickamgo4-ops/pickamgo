@@ -183,11 +183,17 @@ const PORT = process.env.PORT || 4000
 app.listen(PORT, async () => {
   console.log(`🚀 PickAmGo API running on port ${PORT}`)
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
-  
+
   try {
     await prisma.$queryRaw`SELECT 1`
     console.log('✅ Database connection verified')
   } catch (error) {
     console.error('❌ Database connection failed:', error)
   }
+
+  console.log('📧 Email configuration:', {
+    configured: !!process.env.RESEND_API_KEY,
+    from: process.env.RESEND_FROM_EMAIL || 'no-reply@pickamgo.com',
+    appUrl: process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
+  })
 })

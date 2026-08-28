@@ -1729,6 +1729,20 @@ router.get('/emails/templates', authMiddleware, requireRole(['ADMIN']), async (_
   }
 })
 
+router.get('/emails/config', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
+  try {
+    return successResponse(res, {
+      configured: !!process.env.RESEND_API_KEY,
+      fromEmail: process.env.RESEND_FROM_EMAIL || 'no-reply@pickamgo.com',
+      fromName: process.env.RESEND_FROM_NAME || 'PickAmGo',
+      appUrl: process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
+      logoUrl: process.env.LOGO_URL || `${process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/logo.png`,
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch email configuration', 500)
+  }
+})
+
 router.get('/conversations/:id/messages', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const conversation = await prisma.conversation.findUnique({
