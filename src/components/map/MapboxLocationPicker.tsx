@@ -18,6 +18,7 @@ declare global {
 }
 
 const GHANA_CENTER: [number, number] = [-0.187, 5.6037]
+const MAPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 
 export default function MapboxLocationPicker({
   value,
@@ -50,11 +51,7 @@ export default function MapboxLocationPicker({
   const initMap = useCallback(() => {
     if (!mapContainer.current || typeof window === 'undefined' || !window.mapboxgl) return
 
-    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
-    if (!token) {
-      setError('Mapbox token is missing. Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to your environment variables.')
-      return
-    }
+    const token = MAPBOX_ACCESS_TOKEN
 
     window.mapboxgl.accessToken = token
 
@@ -185,7 +182,7 @@ export default function MapboxLocationPicker({
   }
 
   const reverseGeocode = async (lat: number, lng: number) => {
-    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+    const token = MAPBOX_ACCESS_TOKEN
     const fallbackAddress = 'Location selected'
     if (!token) {
       setError('Address could not be determined. Please check your map configuration or try again.')
@@ -218,7 +215,7 @@ export default function MapboxLocationPicker({
   }
 
   const searchPlaces = async (query: string, limit: number, signal?: AbortSignal) => {
-    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+    const token = MAPBOX_ACCESS_TOKEN
     if (!token) return []
     const params = new URLSearchParams({
       access_token: token,
@@ -241,7 +238,7 @@ export default function MapboxLocationPicker({
   }
 
   const forwardGeocode = async (query: string) => {
-    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+    const token = MAPBOX_ACCESS_TOKEN
     if (!token || !query.trim()) return
 
     setLoading(true)
@@ -291,7 +288,7 @@ export default function MapboxLocationPicker({
     setError('')
     if (suggestionTimerRef.current) clearTimeout(suggestionTimerRef.current)
     suggestionRequestRef.current?.abort()
-    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+    const token = MAPBOX_ACCESS_TOKEN
     const cleanQuery = query.trim()
     if (!token || cleanQuery.length < 3) return
     suggestionTimerRef.current = setTimeout(async () => {
@@ -418,11 +415,6 @@ export default function MapboxLocationPicker({
         className="border border-warm-200"
       />
 
-      {!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN && (
-        <p className="text-xs text-red-600">
-          Mapbox token is missing. Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to your environment variables.
-        </p>
-      )}
     </div>
   )
 }
