@@ -14,6 +14,7 @@ interface Conversation {
   id: string
   participant1: { id: string; name: string; avatar: string }
   participant2: { id: string; name: string; avatar: string }
+  shop?: { id: string; name: string; logo: string }
   messages: { id: string; senderId: string; content: string; isRead: boolean; createdAt: string }[]
 }
 
@@ -53,7 +54,7 @@ export default function SellerMessagesPage() {
       if (response.success && response.data) {
         setConversations(response.data.map((conversation: any) => ({
           ...conversation,
-          messages: conversation.lastMessage ? [conversation.lastMessage] : conversation.messages || [],
+          messages: conversation.messages || (conversation.lastMessage ? [conversation.lastMessage] : []),
         })))
       }
     } catch {
@@ -148,6 +149,8 @@ export default function SellerMessagesPage() {
                 const other = conv.participant1.id === currentUserId ? conv.participant2 : conv.participant1
                 const lastMessage = conv.messages?.[0]
                 const unreadCount = conv.messages?.filter((m) => !m.isRead && m.senderId !== other.id).length || 0
+                const displayName = conv.shop?.name || other.name
+                const displayAvatar = conv.shop?.logo || other.avatar
 
                 return (
                   <button
@@ -160,9 +163,9 @@ export default function SellerMessagesPage() {
                       selectedConversation?.id === conv.id ? 'bg-primary/10' : 'hover:bg-warm-100'
                     }`}
                   >
-                    <Avatar src={other.avatar} fallback={other.name?.[0]} size="md" />
+                    <Avatar src={displayAvatar} fallback={displayName?.[0]} size="md" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-warm-900 truncate">{other.name}</p>
+                      <p className="font-medium text-sm text-warm-900 truncate">{displayName}</p>
                       <p className="text-xs text-warm-800/60 truncate">
                         {lastMessage?.content || 'No messages'}
                       </p>
@@ -191,9 +194,9 @@ export default function SellerMessagesPage() {
             ) : (
               <Card className="p-6 h-96 flex flex-col">
                 <div className="flex items-center gap-3 mb-4 pb-4 border-b border-warm-200">
-                  <Avatar src={otherUser?.avatar} fallback={otherUser?.name?.[0]} size="md" />
+                  <Avatar src={selectedConversation.shop?.logo || otherUser?.avatar} fallback={(selectedConversation.shop?.name || otherUser?.name)?.[0]} size="md" />
                   <div>
-                    <p className="font-medium text-warm-900">{otherUser?.name}</p>
+                    <p className="font-medium text-warm-900">{selectedConversation.shop?.name || otherUser?.name}</p>
                     <p className="text-xs text-warm-800/60">Online</p>
                   </div>
                 </div>
