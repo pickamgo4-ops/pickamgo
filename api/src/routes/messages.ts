@@ -31,7 +31,16 @@ async function resolveAccess(currentUserId: string, otherUserId: string, orderId
     }
   }
 
-  const shop = await prisma.shop.findFirst({ where: { ownerId: otherUserId, status: 'ACTIVE' } })
+  const shop = await prisma.shop.findFirst({
+    where: {
+      status: 'ACTIVE',
+      OR: [
+        { ownerId: otherUserId },
+        { products: { some: { sellerId: otherUserId } } },
+        { services: { some: { providerId: otherUserId } } },
+      ],
+    },
+  })
   if (shop) {
     return { shopId: shop.id, orderId: undefined, closedAt: undefined }
   }
