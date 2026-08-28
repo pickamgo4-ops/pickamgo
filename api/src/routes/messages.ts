@@ -262,13 +262,18 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
       console.error('Failed to create message notification:', error)
     }
 
-    const recipient = await prisma.user.findUnique({ where: { id: otherUserId }, select: { email: true } })
-    if (recipient?.email) {
-      sendNewMessageEmail(recipient.email, req.user!.name).catch(err => console.error('Failed to send message email:', err))
+    try {
+      const recipient = await prisma.user.findUnique({ where: { id: otherUserId }, select: { email: true } })
+      if (recipient?.email) {
+        sendNewMessageEmail(recipient.email, req.user!.name).catch(err => console.error('Failed to send message email:', err))
+      }
+    } catch (error) {
+      console.error('Failed to prepare message email:', error)
     }
 
     return successResponse(res, mapMessage(message, otherUserId), 201, 'Message sent')
   } catch (error) {
+    console.error('Failed to send message:', error)
     return errorResponse(res, 'Failed to send message', 500)
   }
 })
