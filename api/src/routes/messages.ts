@@ -291,7 +291,10 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
     try {
       const recipient = await prisma.user.findUnique({ where: { id: otherUserId }, select: { email: true } })
       if (recipient?.email) {
-        sendNewMessageEmail(recipient.email, req.user!.name).catch(err => console.error('Failed to send message email:', err))
+        const appUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'https://pickamgo.com'
+        const conversationUrl = `${appUrl.replace(/\/$/, '')}/messages/${otherUserId}${conversation.orderId ? `?orderId=${encodeURIComponent(conversation.orderId)}` : ''}`
+        sendNewMessageEmail(recipient.email, req.user!.name, conversationUrl, content)
+          .catch(err => console.error('Failed to send message email:', err))
       }
     } catch (error) {
       console.error('Failed to prepare message email:', error)
