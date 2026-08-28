@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Package, Eye, Loader2, XCircle, X, Trash2, CheckCircle, Ban, Mail, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -90,27 +90,11 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState('')
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null)
   const [userLoading, setUserLoading] = useState(false)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadUsers()
-  }, [authInitialized, user, page, roleFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadUsers(1, searchQuery, roleFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadUsers = async (pageNum = page, search = searchQuery, role = roleFilter) => {
+  const loadUsers = useCallback(async (pageNum: number, search: string, role: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -132,8 +116,18 @@ export default function AdminUsersPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadUsers(page, searchQuery, roleFilter)
+  }, [authInitialized, user, page, searchQuery, roleFilter, loadUsers, router])
 
   const loadUserDetail = async (userId: string) => {
     setUserLoading(true)
@@ -238,7 +232,7 @@ export default function AdminUsersPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadUsers()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadUsers(page, searchQuery, roleFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : users.length === 0 ? (
         <Card className="p-12 text-center">

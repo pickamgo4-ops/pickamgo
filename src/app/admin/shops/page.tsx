@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Store, ExternalLink, CheckCircle, XCircle, Loader2, Package, ShoppingBag, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -83,27 +83,11 @@ export default function AdminShopsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedShop, setSelectedShop] = useState<ShopDetail | null>(null)
   const [shopLoading, setShopLoading] = useState(false)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadShops()
-  }, [authInitialized, user, page, statusFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadShops(1, searchQuery, statusFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadShops = async (pageNum = page, search = searchQuery, status = statusFilter) => {
+  const loadShops = useCallback(async (pageNum: number, search: string, status: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -125,8 +109,18 @@ export default function AdminShopsPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadShops(page, searchQuery, statusFilter)
+  }, [authInitialized, user, page, searchQuery, statusFilter, loadShops, router])
 
   const loadShopDetail = async (shopId: string) => {
     setShopLoading(true)
@@ -230,7 +224,7 @@ export default function AdminShopsPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadShops()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadShops(page, searchQuery, statusFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : shops.length === 0 ? (
         <Card className="p-12 text-center">

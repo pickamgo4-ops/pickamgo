@@ -107,36 +107,27 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     setIsValidating(true)
     refreshUserRef.current = (async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const response = await api.get<any>('/auth/me')
 
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success && data.data) {
-            const u = data.data
-            const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
-            setUser({
-              id: u.id,
-              name: u.name,
-              email: u.email,
-              avatar: u.avatar,
-              location: u.location,
-              role,
-              isSeller: u.isSeller || false,
-              isRider: u.isRider || false,
-              isAdmin: u.isAdmin || false,
-            })
-            await mergeGuestCart()
-          } else {
-            console.warn('Auth server returned an unexpected session response. Keeping current session.')
-          }
-        } else if (response.status === 401) {
+        if (response.success && response.data) {
+          const u = response.data
+          const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
+          setUser({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            avatar: u.avatar,
+            location: u.location,
+            role,
+            isSeller: u.isSeller || false,
+            isRider: u.isRider || false,
+            isAdmin: u.isAdmin || false,
+          })
+          await mergeGuestCart()
+        } else if (response.error === 'Session expired. Please log in again.') {
           clearAuth()
-        } else if (response.status === 429) {
-          console.warn('Rate limited while validating auth session. Keeping current session.')
         } else {
-          console.warn(`Unable to validate auth session (HTTP ${response.status}). Keeping current session.`)
+          console.warn('Auth server returned an unexpected session response. Keeping current session.')
         }
       } catch {
         console.warn('Unable to reach auth server while validating session. Keeping current session.')

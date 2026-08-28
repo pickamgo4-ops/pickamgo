@@ -82,7 +82,7 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-warm-200 transform transition-transform duration-300 ease-in-out
-          md:translate-x-0 md:static md:z-auto md:block
+          md:sticky md:top-0 md:h-screen md:translate-x-0 md:z-auto md:block
           ${open ? 'translate-x-0' : '-translate-x-full'}
           dark:bg-warm-900 dark:border-warm-200
         `}

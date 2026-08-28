@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Package, Eye, Loader2, XCircle, X, Trash2, CheckCircle, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -81,39 +81,11 @@ export default function AdminProductsPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [selectedProduct, setSelectedProduct] = useState<ProductDetail | null>(null)
   const [productLoading, setProductLoading] = useState(false)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadProducts()
-    loadCategories()
-  }, [authInitialized, user, page, statusFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadProducts(1, searchQuery, statusFilter, categoryFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadCategories = async () => {
-    try {
-      const response = await api.get<any[]>('/categories')
-      if (response.success && Array.isArray(response.data)) {
-        setCategories(response.data.map(c => c.name || c.id).filter(Boolean))
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  const loadProducts = async (pageNum = page, search = searchQuery, status = statusFilter, category = categoryFilter) => {
+  const loadProducts = useCallback(async (pageNum: number, search: string, status: string, category: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -136,6 +108,28 @@ export default function AdminProductsPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadProducts(page, searchQuery, statusFilter, categoryFilter)
+    loadCategories()
+  }, [authInitialized, user, page, searchQuery, statusFilter, categoryFilter, loadProducts, router])
+
+  const loadCategories = async () => {
+    try {
+      const response = await api.get<any[]>('/categories')
+      if (response.success && Array.isArray(response.data)) {
+        setCategories(response.data.map(c => c.name || c.id).filter(Boolean))
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -262,7 +256,7 @@ export default function AdminProductsPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadProducts()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadProducts(page, searchQuery, statusFilter, categoryFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : products.length === 0 ? (
         <Card className="p-12 text-center">

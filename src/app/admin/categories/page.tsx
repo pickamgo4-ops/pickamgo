@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Tag, Plus, Edit2, Trash2, Loader2, X, Save, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -62,17 +62,11 @@ export default function AdminCategoriesPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [form, setForm] = useState<CategoryFormData>(initialForm)
   const [saving, setSaving] = useState(false)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadCategories()
-  }, [authInitialized, user])
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -87,8 +81,18 @@ export default function AdminCategoriesPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadCategories()
+  }, [authInitialized, user, loadCategories, router])
 
   const handleCreate = () => {
     setIsCreating(true)
@@ -258,7 +262,7 @@ export default function AdminCategoriesPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={loadCategories} className="mt-4">Retry</Button>
+          <Button onClick={() => loadCategories()} className="mt-4">Retry</Button>
         </Card>
       ) : categories.length === 0 ? (
         <Card className="p-12 text-center">

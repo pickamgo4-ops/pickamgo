@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, MessageSquare, Eye, Loader2, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -34,27 +34,11 @@ export default function AdminMessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<AdminConversation | null>(null)
   const [messages, setMessages] = useState<any[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadConversations()
-  }, [authInitialized, user, page])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadConversations(1, searchQuery)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadConversations = async (pageNum = page, search = searchQuery) => {
+  const loadConversations = useCallback(async (pageNum: number, search: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -75,8 +59,18 @@ export default function AdminMessagesPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadConversations(page, searchQuery)
+  }, [authInitialized, user, page, searchQuery, loadConversations, router])
 
   const loadMessages = async (conversationId: string) => {
     setMessagesLoading(true)
@@ -143,7 +137,7 @@ export default function AdminMessagesPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadConversations()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadConversations(page, searchQuery)} className="mt-4">Retry</Button>
         </Card>
       ) : conversations.length === 0 ? (
         <Card className="p-12 text-center">

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Truck, Eye, Loader2, XCircle, X, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -43,27 +43,11 @@ export default function AdminDeliveriesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedDelivery, setSelectedDelivery] = useState<AdminDelivery | null>(null)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadDeliveries()
-  }, [authInitialized, user, page, statusFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadDeliveries(1, searchQuery, statusFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadDeliveries = async (pageNum = page, search = searchQuery, status = statusFilter) => {
+  const loadDeliveries = useCallback(async (pageNum: number, search: string, status: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -85,8 +69,18 @@ export default function AdminDeliveriesPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadDeliveries(page, searchQuery, statusFilter)
+  }, [authInitialized, user, page, searchQuery, statusFilter, loadDeliveries, router])
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
@@ -159,7 +153,7 @@ export default function AdminDeliveriesPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadDeliveries()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadDeliveries(page, searchQuery, statusFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : deliveries.length === 0 ? (
         <Card className="p-12 text-center">

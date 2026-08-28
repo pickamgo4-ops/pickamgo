@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, FileText, Eye, Loader2, XCircle, X, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -100,27 +100,11 @@ export default function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null)
   const [orderLoading, setOrderLoading] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadOrders()
-  }, [authInitialized, user, page, statusFilter, paymentFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadOrders(1, searchQuery, statusFilter, paymentFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadOrders = async (pageNum = page, search = searchQuery, status = statusFilter, payment = paymentFilter) => {
+  const loadOrders = useCallback(async (pageNum: number, search: string, status: string, payment: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -143,8 +127,18 @@ export default function AdminOrdersPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadOrders(page, searchQuery, statusFilter, paymentFilter)
+  }, [authInitialized, user, page, searchQuery, statusFilter, paymentFilter, loadOrders, router])
 
   const loadOrderDetail = async (orderId: string) => {
     setOrderLoading(true)
@@ -268,7 +262,7 @@ export default function AdminOrdersPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadOrders()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadOrders(page, searchQuery, statusFilter, paymentFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : orders.length === 0 ? (
         <Card className="p-12 text-center">

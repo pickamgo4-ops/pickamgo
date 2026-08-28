@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Star, Eye, Loader2, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -32,27 +32,11 @@ export default function AdminReviewsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [targetTypeFilter, setTargetTypeFilter] = useState('')
   const [selectedReview, setSelectedReview] = useState<AdminReview | null>(null)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadReviews()
-  }, [authInitialized, user, page, targetTypeFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadReviews(1, searchQuery, targetTypeFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadReviews = async (pageNum = page, search = searchQuery, targetType = targetTypeFilter) => {
+  const loadReviews = useCallback(async (pageNum: number, search: string, targetType: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -74,8 +58,18 @@ export default function AdminReviewsPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadReviews(page, searchQuery, targetTypeFilter)
+  }, [authInitialized, user, page, searchQuery, targetTypeFilter, loadReviews, router])
 
   const renderStars = (rating: number) => {
     return (
@@ -149,7 +143,7 @@ export default function AdminReviewsPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadReviews()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadReviews(page, searchQuery, targetTypeFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : reviews.length === 0 ? (
         <Card className="p-12 text-center">

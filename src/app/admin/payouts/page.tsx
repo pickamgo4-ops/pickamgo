@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, DollarSign, Eye, Loader2, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -40,27 +40,11 @@ export default function AdminPayoutsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedPayout, setSelectedPayout] = useState<AdminPayout | null>(null)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadPayouts()
-  }, [authInitialized, user, page, statusFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadPayouts(1, searchQuery, statusFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadPayouts = async (pageNum = page, search = searchQuery, status = statusFilter) => {
+  const loadPayouts = useCallback(async (pageNum: number, search: string, status: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -82,8 +66,18 @@ export default function AdminPayoutsPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadPayouts(page, searchQuery, statusFilter)
+  }, [authInitialized, user, page, searchQuery, statusFilter, loadPayouts, router])
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
@@ -158,7 +152,7 @@ export default function AdminPayoutsPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadPayouts()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadPayouts(page, searchQuery, statusFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : payouts.length === 0 ? (
         <Card className="p-12 text-center">

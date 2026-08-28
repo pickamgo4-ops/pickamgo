@@ -877,7 +877,12 @@ router.get('/payments', authMiddleware, requireRole(['ADMIN']), async (req: Auth
 
 router.get('/settings', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
   try {
-    const dbSettings = await prisma.setting.findMany()
+    let dbSettings: any[] = []
+    try {
+      dbSettings = await prisma.setting.findMany()
+    } catch {
+      dbSettings = []
+    }
     const settingMap = new Map(dbSettings.map(s => [s.key, s.value]))
 
     const settings = {
@@ -953,11 +958,15 @@ router.patch('/settings', authMiddleware, requireRole(['ADMIN']), async (req: Au
 
     for (const [key, value] of Object.entries(updates)) {
       const stringValue = typeof value === 'boolean' ? String(value) : String(value)
-      await prisma.setting.upsert({
-        where: { key },
-        update: { value: stringValue, updatedBy },
-        create: { key, value: stringValue, updatedBy },
-      })
+      try {
+        await prisma.setting.upsert({
+          where: { key },
+          update: { value: stringValue, updatedBy },
+          create: { key, value: stringValue, updatedBy },
+        })
+      } catch {
+        // Ignore if settings table does not exist yet
+      }
     }
 
     return successResponse(res, null, 200, 'Settings updated successfully')

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Bell, Eye, Loader2, XCircle, X, CheckCircle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -33,27 +33,11 @@ export default function AdminNotificationsPage() {
   const [readFilter, setReadFilter] = useState('')
   const [selectedNotification, setSelectedNotification] = useState<AdminNotification | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadNotifications()
-  }, [authInitialized, user, page, readFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadNotifications(1, searchQuery, readFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadNotifications = async (pageNum = page, search = searchQuery, read = readFilter) => {
+  const loadNotifications = useCallback(async (pageNum: number, search: string, read: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -75,8 +59,18 @@ export default function AdminNotificationsPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadNotifications(page, searchQuery, readFilter)
+  }, [authInitialized, user, page, searchQuery, readFilter, loadNotifications, router])
 
   const markAsRead = async (notificationId: string) => {
     setActionLoading(true)
@@ -198,7 +192,7 @@ export default function AdminNotificationsPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadNotifications()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadNotifications(page, searchQuery, readFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : notifications.length === 0 ? (
         <Card className="p-12 text-center">

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Shield, Eye, Loader2, XCircle, CheckCircle, X, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -44,27 +44,11 @@ export default function AdminVerificationsPage() {
   const [selectedVerification, setSelectedVerification] = useState<AdminVerification | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [updating, setUpdating] = useState(false)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadVerifications()
-  }, [authInitialized, user, page, statusFilter, typeFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadVerifications(1, searchQuery, statusFilter, typeFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadVerifications = async (pageNum = page, search = searchQuery, status = statusFilter, type = typeFilter) => {
+  const loadVerifications = useCallback(async (pageNum: number, search: string, status: string, type: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -87,8 +71,18 @@ export default function AdminVerificationsPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadVerifications(page, searchQuery, statusFilter, typeFilter)
+  }, [authInitialized, user, page, searchQuery, statusFilter, typeFilter, loadVerifications, router])
 
   const handleApprove = async (ver: AdminVerification) => {
     if (!window.confirm(`Approve verification for ${ver.user.name}?`)) return
@@ -204,7 +198,7 @@ export default function AdminVerificationsPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadVerifications()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadVerifications(page, searchQuery, statusFilter, typeFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : verifications.length === 0 ? (
         <Card className="p-12 text-center">

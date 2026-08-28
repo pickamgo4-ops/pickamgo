@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Receipt, Eye, Loader2, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -40,27 +40,11 @@ export default function AdminPaymentsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedPayment, setSelectedPayment] = useState<AdminPayment | null>(null)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadPayments()
-  }, [authInitialized, user, page, statusFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadPayments(1, searchQuery, statusFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadPayments = async (pageNum = page, search = searchQuery, status = statusFilter) => {
+  const loadPayments = useCallback(async (pageNum: number, search: string, status: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -82,8 +66,18 @@ export default function AdminPaymentsPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadPayments(page, searchQuery, statusFilter)
+  }, [authInitialized, user, page, searchQuery, statusFilter, loadPayments, router])
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
@@ -154,7 +148,7 @@ export default function AdminPaymentsPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadPayments()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadPayments(page, searchQuery, statusFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : payments.length === 0 ? (
         <Card className="p-12 text-center">

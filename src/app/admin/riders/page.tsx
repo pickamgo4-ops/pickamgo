@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Bike, Eye, Loader2, XCircle, CheckCircle, X, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -92,27 +92,11 @@ export default function AdminRidersPage() {
   const [onlineFilter, setOnlineFilter] = useState('')
   const [selectedRider, setSelectedRider] = useState<RiderDetail | null>(null)
   const [riderLoading, setRiderLoading] = useState(false)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadRiders()
-  }, [authInitialized, user, page, verifiedFilter, onlineFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadRiders(1, searchQuery, verifiedFilter, onlineFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadRiders = async (pageNum = page, search = searchQuery, verified = verifiedFilter, online = onlineFilter) => {
+  const loadRiders = useCallback(async (pageNum: number, search: string, verified: string, online: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -135,8 +119,26 @@ export default function AdminRidersPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadRiders(page, searchQuery, verifiedFilter, onlineFilter)
+  }, [authInitialized, user, page, verifiedFilter, onlineFilter, loadRiders, router])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setPage(1)
+      loadRiders(1, searchQuery, verifiedFilter, onlineFilter)
+    }, 400)
+    return () => clearTimeout(timeout)
+  }, [searchQuery, verifiedFilter, onlineFilter, loadRiders])
 
   const loadRiderDetail = async (riderId: string) => {
     setRiderLoading(true)
@@ -276,7 +278,7 @@ export default function AdminRidersPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadRiders()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadRiders(page, searchQuery, verifiedFilter, onlineFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : riders.length === 0 ? (
         <Card className="p-12 text-center">

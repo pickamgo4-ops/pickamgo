@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Calendar, Eye, Loader2, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -35,27 +35,11 @@ export default function AdminBookingsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    if (!authInitialized) return
-    if (!user || !user.isAdmin) {
-      router.push('/')
-      return
-    }
-    loadBookings()
-  }, [authInitialized, user, page, statusFilter])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setPage(1)
-        loadBookings(1, searchQuery, statusFilter)
-      }
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [searchQuery])
-
-  const loadBookings = async (pageNum = page, search = searchQuery, status = statusFilter) => {
+  const loadBookings = useCallback(async (pageNum: number, search: string, status: string) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setDataLoading(true)
     setError('')
     try {
@@ -77,8 +61,18 @@ export default function AdminBookingsPage() {
       setError('Network error. Please try again.')
     } finally {
       setDataLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadBookings(page, searchQuery, statusFilter)
+  }, [authInitialized, user, page, searchQuery, statusFilter, loadBookings, router])
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
@@ -149,7 +143,7 @@ export default function AdminBookingsPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadBookings()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadBookings(page, searchQuery, statusFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : bookings.length === 0 ? (
         <Card className="p-12 text-center">
