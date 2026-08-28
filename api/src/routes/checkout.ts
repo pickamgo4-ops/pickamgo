@@ -3,11 +3,12 @@ import prisma from '../utils/prisma'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
-import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
+import { createSellerEarnings, createRiderEarnings, getPlatformCommissionRate } from '../services/earnings'
 import { handleWebhook, initializeTransaction, verifyTransaction } from '../services/paystack'
 import { sendOrderConfirmationEmail, sendPaymentConfirmationEmail, sendSellerOrderNotification } from '../services/email'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 import { generateOrderNumber } from '../utils/orderNumber'
+import { validatePromoCode, createPromoRedemption, incrementPromoUsage, type PromoValidationResult } from '../services/promo'
 
 const router = Router()
 
@@ -29,6 +30,7 @@ const checkoutSchema = z.object({
   fulfillmentMethod: z.string().transform(normalizeFulfillmentMethod).default('FIND_IT_NEAR_ME_RIDER'),
   deliveryLatitude: z.number().optional(),
   deliveryLongitude: z.number().optional(),
+  promoCode: z.string().optional(),
 })
 
 const paymentVerificationSchema = z.object({
@@ -121,7 +123,7 @@ router.post('/paystack/initialize', authMiddleware, requireRole(['USER']), valid
 })
 
 router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSchema), async (req: AuthenticatedRequest, res) => {
-  const { items, deliveryType, addressId, notes, paymentMethod, fulfillmentMethod } = req.body
+  const { items, deliveryType, addressId, notes, paymentMethod, fulfillmentMethod, promoCode } = req.body
   const resolvedFulfillmentMethod = deliveryType === 'PICKUP' ? 'CUSTOMER_PICKUP' : normalizeFulfillmentMethod(fulfillmentMethod)
 
   const selectedAddress = addressId
@@ -142,7 +144,8 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
   }
 
   const orderItems: any[] = []
-  const shopGroups: Map<string, { shopId: string; sellerId: string; items: any[]; deliveryFee: number }> = new Map()
+  const shopGroups: Map<string, { shopId: string; sellerId: string; items: any[]; deliveryFee: number; productIds: string[]; categoryIds: string[]; campus: string | null }> = new Map()
+
   for (const item of items) {
     if (!item.productId && !item.serviceId) {
       return errorResponse(res, 'Each item must have a productId or serviceId', 400)
@@ -155,13 +158,16 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
     let serviceId: string | undefined
     let shopId = ''
     let sellerId = ''
+    let productCategoryId: string | undefined
+    let productCampus: string | undefined
 
     if (item.productId) {
       const product = await prisma.product.findUnique({
         where: { id: item.productId },
         include: {
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-          shop: { select: { id: true, ownerId: true } },
+          shop: { select: { id: true, ownerId: true, campus: true } },
+          category: { select: { id: true } },
         },
       })
 
@@ -196,6 +202,8 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       shopId = product.shopId
       sellerId = product.sellerId
       productId = product.id
+      productCategoryId = product.categoryId
+      productCampus = shop.campus || undefined
     }
 
     if (item.serviceId) {
@@ -203,7 +211,8 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
         where: { id: item.serviceId },
         include: {
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-          shop: { select: { id: true, ownerId: true } },
+          shop: { select: { id: true, ownerId: true, campus: true } },
+          category: { select: { id: true } },
         },
       })
 
@@ -222,6 +231,8 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       shopId = service.shopId
       sellerId = service.providerId
       serviceId = service.id
+      productCategoryId = service.categoryId
+      productCampus = shop.campus || undefined
     }
 
     const orderItem = {
@@ -241,16 +252,66 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       const serverDeliveryFee = deliveryType === 'DELIVERY'
         ? Number(shop?.platformDeliveryFee || shop?.sellerDeliveryFee || 0)
         : 0
-      shopGroups.set(shopId, { shopId, sellerId, items: [], deliveryFee: serverDeliveryFee })
+      shopGroups.set(shopId, { shopId, sellerId, items: [], deliveryFee: serverDeliveryFee, productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus || null })
     }
-    shopGroups.get(shopId)!.items.push(orderItem)
+    const group = shopGroups.get(shopId)!
+    group.items.push(orderItem)
+    if (productId) group.productIds.push(productId)
+    if (productCategoryId && !group.categoryIds.includes(productCategoryId)) group.categoryIds.push(productCategoryId)
+    if (productCampus && !group.campus) group.campus = productCampus
+  }
+
+  let promoValidation: PromoValidationResult | null = null
+  if (promoCode) {
+    const firstGroup = shopGroups.values().next().value!
+    const allProductIds = Array.from(new Set(Array.from(shopGroups.values()).flatMap(g => g.productIds)))
+    const allCategoryIds = Array.from(new Set(Array.from(shopGroups.values()).flatMap(g => g.categoryIds)))
+    const shopCampus = firstGroup.campus
+
+    promoValidation = await validatePromoCode({
+      code: promoCode,
+      customerId: req.user!.id,
+      customerType: getCustomerType(req.user!.id),
+      subtotal: Array.from(shopGroups.values()).reduce((sum, g) => sum + g.items.reduce((s, i) => s + i.price * i.quantity, 0), 0),
+      deliveryFee: Array.from(shopGroups.values()).reduce((sum, g) => sum + g.deliveryFee, 0),
+      shopId: firstGroup.shopId,
+      productIds: allProductIds as string[],
+      categoryIds: allCategoryIds as string[],
+      campus: shopCampus || undefined,
+    })
+
+    if (!promoValidation.valid) {
+      return errorResponse(res, promoValidation.error || 'Invalid promo code', 400)
+    }
   }
 
   const orders = await prisma.$transaction(async (tx) => {
     const createdOrders: any[] = []
 
     for (const [shopId, group] of shopGroups) {
-      const shopTotal = group.items.reduce((sum, item) => sum + item.price * item.quantity, 0) + group.deliveryFee
+      const itemsSubtotal = group.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      let orderTotal = itemsSubtotal + group.deliveryFee
+      let orderOriginalSubtotal = itemsSubtotal
+      let orderPromoDiscount = 0
+      let orderDiscountedSubtotal = itemsSubtotal
+
+      if (promoValidation && promoValidation.valid && promoValidation.promo) {
+        const calc = calculateDiscount({
+          discountType: promoValidation.promo.discountType,
+          discountValue: Number(promoValidation.promo.discountValue),
+          maxDiscount: promoValidation.promo.maxDiscount ? Number(promoValidation.promo.maxDiscount) : null,
+          eligibleSubtotal: itemsSubtotal,
+          deliveryFee: group.deliveryFee,
+          discountAppliesTo: promoValidation.promo.discountAppliesTo,
+        })
+        orderPromoDiscount = calc.discountAmount
+        orderDiscountedSubtotal = calc.discountedSubtotal
+        if (promoValidation.promo.discountAppliesTo === 'PRODUCTS_AND_DELIVERY') {
+          orderTotal = orderDiscountedSubtotal + (group.deliveryFee - calc.deliveryDiscount)
+        } else {
+          orderTotal = orderDiscountedSubtotal + group.deliveryFee
+        }
+      }
 
       const newOrder = await tx.order.create({
         data: {
@@ -258,7 +319,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
           customerId: req.user!.id,
           shopId: group.shopId,
           sellerId: group.sellerId,
-          total: shopTotal,
+          total: orderTotal,
           status: 'PENDING_PAYMENT',
           deliveryAddress,
           deliveryLatitude,
@@ -267,6 +328,10 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
           deliveryStatus: 'PENDING',
           fulfillmentMethod: resolvedFulfillmentMethod,
           notes: notes || null,
+          promoCodeId: promoValidation?.valid ? promoValidation.promo!.id : null,
+          promoDiscount: orderPromoDiscount,
+          originalSubtotal: orderOriginalSubtotal,
+          discountedSubtotal: orderDiscountedSubtotal,
         },
       })
 
@@ -307,7 +372,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       await tx.payment.create({
         data: {
           orderId: newOrder.id,
-          amount: shopTotal,
+          amount: orderTotal,
           method: paymentMethod,
           provider: paymentMethod.toUpperCase(),
           transactionRef: `TXN-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -319,15 +384,58 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
           orderId: newOrder.id,
           userId: req.user!.id,
           type: 'ORDER_PAYMENT',
-          amount: shopTotal,
+          amount: orderTotal,
           currency: 'GHS',
           status: 'PENDING',
           reference: newOrder.orderNumber,
-          description: `Order payment for ${newOrder.orderNumber}`,
+          description: promoValidation?.valid && orderPromoDiscount > 0
+            ? `Order payment for ${newOrder.orderNumber} (includes ${promoValidation.promo!.discountType === 'PERCENTAGE' ? promoValidation.promo!.discountValue + '%' : 'GH₵' + promoValidation.promo!.discountValue} discount)`
+            : `Order payment for ${newOrder.orderNumber}`,
         },
       })
 
       await createSellerEarnings(newOrder.id, tx)
+
+      if (promoValidation?.valid && promoValidation.promo) {
+        const commissionRate = await getPlatformCommissionRate()
+        const commission = Math.round(orderOriginalSubtotal * commissionRate * 100) / 100
+        const fundingSource = promoValidation.promo.fundingType
+
+        let sellerPayout = orderDiscountedSubtotal - commission
+        let pickamgoPromoExpense = 0
+        let sellerFundedDiscount = 0
+
+        if (fundingSource === 'SELLER') {
+          sellerFundedDiscount = orderPromoDiscount
+          sellerPayout = orderDiscountedSubtotal - commission
+        } else if (fundingSource === 'PICKAMGO') {
+          pickamgoPromoExpense = orderPromoDiscount
+          sellerPayout = orderOriginalSubtotal - commission
+        }
+
+        sellerPayout = Math.round(sellerPayout * 100) / 100
+        pickamgoPromoExpense = Math.round(pickamgoPromoExpense * 100) / 100
+        sellerFundedDiscount = Math.round(sellerFundedDiscount * 100) / 100
+
+        await tx.promoRedemption.create({
+          data: {
+            promoCodeId: promoValidation.promo.id,
+            orderId: newOrder.id,
+            customerId: req.user!.id,
+            originalSubtotal: orderOriginalSubtotal,
+            discountAmount: orderPromoDiscount,
+            discountedSubtotal: orderDiscountedSubtotal,
+            deliveryDiscount: promoValidation.deliveryDiscount,
+            fundingSource,
+            sellerPayout,
+            pickamgoCommission: commission,
+            pickamgoPromoExpense,
+            sellerFundedDiscount,
+          },
+        })
+
+        await incrementPromoUsage(promoValidation.promo.id, pickamgoPromoExpense)
+      }
 
       if (resolvedFulfillmentMethod === 'FIND_IT_NEAR_ME_RIDER') {
         const shopSettings = await tx.shop.findUnique({
@@ -354,6 +462,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
           },
         })
 
+        await createRiderEarnings(newDelivery.id, tx)
       }
 
       await tx.notification.create({
@@ -361,7 +470,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
           userId: group.sellerId,
           type: 'NEW_ORDER',
           title: 'New Order Received',
-          message: `You have a new order ${newOrder.orderNumber} for GH₵${shopTotal.toFixed(2)}`,
+          message: `You have a new order ${newOrder.orderNumber} for GH₵${orderTotal.toFixed(2)}`,
           data: JSON.stringify({ orderId: newOrder.id }),
         },
       })
@@ -372,55 +481,56 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
     return createdOrders
   })
 
-    const fullOrders = await prisma.order.findMany({
-      where: { id: { in: orders.map(o => o.id) } },
-      include: {
-        items: true,
-        shop: { include: { owner: { select: { id: true, name: true, email: true, avatar: true } } } },
-        payment: true,
-        customer: { select: { id: true, name: true, email: true, avatar: true } },
-        sellerEarnings: true,
-        riderEarnings: true,
-      },
-    })
+  const fullOrders = await prisma.order.findMany({
+    where: { id: { in: orders.map(o => o.id) } },
+    include: {
+      items: true,
+      shop: { include: { owner: { select: { id: true, name: true, email: true, avatar: true } } } },
+      payment: true,
+      customer: { select: { id: true, name: true, email: true, avatar: true } },
+      sellerEarnings: true,
+      riderEarnings: true,
+      redemption: true,
+    },
+  })
 
-    const userCart = await prisma.cart.findUnique({ where: { userId: req.user!.id } })
-    if (userCart) {
-      await prisma.cartItem.deleteMany({ where: { cartId: userCart.id } })
+  const userCart = await prisma.cart.findUnique({ where: { userId: req.user!.id } })
+  if (userCart) {
+    await prisma.cartItem.deleteMany({ where: { cartId: userCart.id } })
+  }
+
+  for (const order of fullOrders) {
+    const customerEmail = order.customer?.email
+    if (customerEmail) {
+      const items = order.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: Number(item.price),
+      }))
+      sendOrderConfirmationEmail(customerEmail, {
+        orderNumber: order.orderNumber,
+        items,
+        total: Number(order.total),
+        deliveryMethod: order.fulfillmentMethod,
+        paymentMethod: order.payment?.method,
+        createdAt: order.createdAt.toISOString(),
+      }).catch(err => console.error('Failed to send order confirmation email:', err))
     }
 
-    for (const order of fullOrders) {
-      const customerEmail = order.customer?.email
-      if (customerEmail) {
-        const items = order.items.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: Number(item.price),
-        }))
-        sendOrderConfirmationEmail(customerEmail, {
-          orderNumber: order.orderNumber,
-          items,
-          total: Number(order.total),
-          deliveryMethod: order.fulfillmentMethod,
-          paymentMethod: order.payment?.method,
-          createdAt: order.createdAt.toISOString(),
-        }).catch(err => console.error('Failed to send order confirmation email:', err))
-      }
-
-      const sellerEmail = order.shop?.owner?.email
-      if (sellerEmail) {
-        const items = order.items.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-        }))
-        sendSellerOrderNotification(sellerEmail, {
-          orderNumber: order.orderNumber,
-          items,
-          buyerName: order.customer?.name || 'Guest',
-          deliveryAddress: order.deliveryAddress,
-        }).catch(err => console.error('Failed to send seller notification email:', err))
-      }
+    const sellerEmail = order.shop?.owner?.email
+    if (sellerEmail) {
+      const items = order.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+      }))
+      sendSellerOrderNotification(sellerEmail, {
+        orderNumber: order.orderNumber,
+        items,
+        buyerName: order.customer?.name || 'Guest',
+        deliveryAddress,
+      }).catch(err => console.error('Failed to send seller notification email:', err))
     }
+  }
 
   if (addressId) {
     const address = await prisma.address.findFirst({
@@ -438,5 +548,43 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
 
   return successResponse(res, { orders: fullOrders }, 201, 'Orders created successfully')
 })
+
+function getCustomerType(customerId: string | undefined | null): 'NEW' | 'EXISTING' | null {
+  if (!customerId) return null
+  const orderCount = prisma.order.count({ where: { customerId } })
+  return 'EXISTING'
+}
+
+function calculateDiscount(params: {
+  discountType: string
+  discountValue: number
+  maxDiscount: number | null
+  eligibleSubtotal: number
+  deliveryFee: number
+  discountAppliesTo: string
+}): { discountAmount: number; deliveryDiscount: number; discountedSubtotal: number } {
+  const { discountType, discountValue, maxDiscount, eligibleSubtotal, deliveryFee, discountAppliesTo } = params
+
+  let discountAmount = 0
+  let deliveryDiscount = 0
+
+  if (discountType === 'PERCENTAGE') {
+    discountAmount = Math.round((eligibleSubtotal * discountValue / 100) * 100) / 100
+    if (maxDiscount !== null && discountAmount > maxDiscount) {
+      discountAmount = maxDiscount
+    }
+  } else {
+    discountAmount = Math.round(discountValue * 100) / 100
+  }
+
+  if (discountAppliesTo === 'PRODUCTS_AND_DELIVERY') {
+    deliveryDiscount = Math.min(discountAmount, deliveryFee)
+    discountAmount = Math.round((discountAmount - deliveryDiscount) * 100) / 100
+  }
+
+  const discountedSubtotal = Math.round((eligibleSubtotal - discountAmount) * 100) / 100
+
+  return { discountAmount, deliveryDiscount, discountedSubtotal }
+}
 
 export default router

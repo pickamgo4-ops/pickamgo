@@ -1,20 +1,24 @@
 import prisma from '../utils/prisma'
 import { Prisma } from '@prisma/client'
 
-const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.05')
-const RIDER_EARNING_RATE = parseFloat(process.env.RIDER_EARNING_RATE || '0.80')
-const MINIMUM_PAYOUT = parseFloat(process.env.MINIMUM_PAYOUT || '20')
+let cachedCommissionRate: number | null = null
 
-export function getPlatformCommissionRate(): number {
-  return PLATFORM_COMMISSION_RATE
+export async function getPlatformCommissionRate(): Promise<number> {
+  if (cachedCommissionRate !== null) return cachedCommissionRate
+  const setting = await prisma.setting.findUnique({
+    where: { key: 'sellerCommission' },
+  })
+  const rate = setting ? parseFloat(setting.value) : 0.07
+  cachedCommissionRate = rate
+  return rate
 }
 
-export function getRiderEarningRate(): number {
-  return RIDER_EARNING_RATE
+export function clearCommissionRateCache(): void {
+  cachedCommissionRate = null
 }
 
 export function getMinimumPayout(): number {
-  return MINIMUM_PAYOUT
+  return parseFloat(process.env.MINIMUM_PAYOUT || '20')
 }
 
 export async function calculateSellerEarnings(orderId: string, client: Prisma.TransactionClient | typeof prisma = prisma) {
@@ -23,6 +27,7 @@ export async function calculateSellerEarnings(orderId: string, client: Prisma.Tr
     include: {
       items: true,
       shop: true,
+      redemption: true,
     },
   })
 
@@ -30,17 +35,30 @@ export async function calculateSellerEarnings(orderId: string, client: Prisma.Tr
     throw new Error('Order not found')
   }
 
-  const platformFeeRate = getPlatformCommissionRate()
-  const grossAmount = Number(order.total)
+  const platformFeeRate = await getPlatformCommissionRate()
+  const grossAmount = Number(order.originalSubtotal || order.total)
   const platformFee = Math.round(grossAmount * platformFeeRate * 100) / 100
   const deliveryFee = Number(order.deliveryFee || 0)
-  const netAmount = Math.round((grossAmount - platformFee) * 100) / 100
+  const promoDiscount = Number(order.promoDiscount || 0)
+
+  let netAmount = grossAmount - platformFee
+
+  if (order.redemption) {
+    if (order.redemption.fundingSource === 'SELLER') {
+      netAmount = Number(order.redemption.discountedSubtotal) - platformFee
+    } else if (order.redemption.fundingSource === 'PICKAMGO') {
+      netAmount = grossAmount - platformFee
+    }
+  }
+
+  netAmount = Math.round(netAmount * 100) / 100
 
   return {
     grossAmount,
     platformFee,
     deliveryFee,
     netAmount,
+    promoDiscount,
   }
 }
 
@@ -56,7 +74,7 @@ export async function calculateRiderEarnings(deliveryId: string, client: Prisma.
     throw new Error('Delivery not found')
   }
 
-  const riderRate = getRiderEarningRate()
+  const riderRate = parseFloat(process.env.RIDER_EARNING_RATE || '0.80')
   const grossAmount = Number(delivery.fee || 0)
   const platformFee = Math.round(grossAmount * (1 - riderRate) * 100) / 100
   const netAmount = Math.round(grossAmount * riderRate * 100) / 100
@@ -78,7 +96,7 @@ export async function createSellerEarnings(orderId: string, client: Prisma.Trans
   }
 
   const earnings = calculateSellerEarnings(orderId, client)
-  const { grossAmount, platformFee, deliveryFee, netAmount } = await earnings
+  const { grossAmount, platformFee, deliveryFee, netAmount, promoDiscount } = await earnings
 
   const existing = await client.sellerEarnings.findUnique({
     where: { orderId },
@@ -96,6 +114,7 @@ export async function createSellerEarnings(orderId: string, client: Prisma.Trans
       platformFee,
       deliveryFee,
       netAmount,
+      promoDiscount,
       status: 'PENDING',
     },
   })

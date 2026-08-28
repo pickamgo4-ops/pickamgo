@@ -59,6 +59,8 @@ model User {
   passwordResetTokens    PasswordResetToken[]
   auditLogs              AuditLog[]
   emailCampaigns         EmailCampaign[]
+  createdPromos          PromoCode[]                @relation("PromoCreatedBy")
+  sellerPromos           PromoCode[]                @relation("PromoSeller")
 }
 
 model Role {
@@ -499,6 +501,10 @@ model Order {
   notes             String?
   fulfillmentMethod String   @default("FIND_IT_NEAR_ME_RIDER") // FIND_IT_NEAR_ME_RIDER, SELLER_OWN_DELIVERY, CUSTOMER_PICKUP
   payoutEligible    Boolean  @default(false)
+  promoCodeId       String?
+  promoDiscount     Decimal  @db.Decimal(12, 2) @default(0)
+  originalSubtotal  Decimal  @db.Decimal(12, 2)
+  discountedSubtotal Decimal @db.Decimal(12, 2)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -514,6 +520,8 @@ model Order {
   riderEarnings  RiderEarnings?
   ledgerEntries  FinancialLedger[]
   conversations  Conversation[]
+  promoCode      PromoCode?         @relation("PromoOrders", fields: [promoCodeId], references: [id])
+  redemption     PromoRedemption?
 
   @@index([customerId])
   @@index([shopId])
@@ -867,18 +875,19 @@ model FinancialLedger {
 }
 
 model SellerEarnings {
-  id          String    @id @default(cuid())
-  sellerId    String
-  orderId     String    @unique
-  grossAmount Decimal @db.Decimal(12, 2)
-  platformFee Decimal @db.Decimal(12, 2)
-  deliveryFee Decimal @db.Decimal(12, 2)
-  netAmount   Decimal @db.Decimal(12, 2)
-  status      String    @default("PENDING") // PENDING, AVAILABLE, WITHDRAWN, REFUNDED
-  availableAt DateTime?
-  withdrawnAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String       @id @default(cuid())
+  sellerId       String
+  orderId        String       @unique
+  grossAmount    Decimal      @db.Decimal(12, 2)
+  platformFee    Decimal      @db.Decimal(12, 2)
+  deliveryFee    Decimal      @db.Decimal(12, 2)
+  netAmount      Decimal      @db.Decimal(12, 2)
+  promoDiscount  Decimal      @db.Decimal(12, 2) @default(0)
+  status         String       @default("PENDING") // PENDING, AVAILABLE, WITHDRAWN, REFUNDED
+  availableAt    DateTime?
+  withdrawnAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   seller User  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -966,22 +975,91 @@ model AuditLog {
 }
 
 model EmailCampaign {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   subject         String
   html            String
   text            String?
   audiences       String
-  recipientCount  Int      @default(0)
-  successCount    Int      @default(0)
-  failedCount     Int      @default(0)
-  status          String   @default("PENDING")
+  recipientCount  Int       @default(0)
+  successCount    Int       @default(0)
+  failedCount     Int       @default(0)
+  status          String    @default("PENDING")
   sentBy          String
   sentAt          DateTime?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
-  sender User @relation(fields: [sentBy], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [sentBy], references: [id])
 
   @@index([sentBy])
+}
+
+model PromoCode {
+  id                   String    @id @default(cuid())
+  code                 String    @unique @db.VarChar(50)
+  campaignName         String?
+  description          String?
+  discountType         String    @default("PERCENTAGE") // PERCENTAGE, FIXED
+  discountValue        Decimal   @db.Decimal(12, 2)
+  maxDiscount          Decimal?  @db.Decimal(12, 2)
+  minimumOrderAmount   Decimal   @db.Decimal(12, 2) @default(0)
+  fundingType          String    @default("SELLER") // SELLER, PICKAMGO
+  usageLimit           Int?
+  usageCount           Int       @default(0)
+  usagePerCustomer     Int?
+  startAt              DateTime
+  endAt                DateTime
+  status               String    @default("DRAFT") // DRAFT, ACTIVE, PAUSED, EXPIRED, EXHAUSTED
+  appliesTo            String?   // JSON: { type: 'ALL'|'SHOPS'|'PRODUCTS'|'CATEGORIES'|'CAMPUSES', values: string[] }
+  shopIds              String?   // JSON array of shop IDs
+  productIds           String?   // JSON array of product IDs
+  categoryIds          String?   // JSON array of category IDs
+  campuses             String?   // JSON array of campus strings
+  customerEligibility  String    @default("EVERYONE") // EVERYONE, NEW_ONLY, EXISTING_ONLY
+  discountAppliesTo    String    @default("PRODUCTS") // PRODUCTS, PRODUCTS_AND_DELIVERY
+  campaignBudget       Decimal?  @db.Decimal(12, 2)
+  campaignSpent        Decimal   @db.Decimal(12, 2) @default(0)
+  createdBy            String
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  createdByUser User           @relation("PromoCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  seller        User?           @relation("PromoSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  redemptions   PromoRedemption[]
+  orders        Order[]         @relation("PromoOrders")
+
+  sellerId String?
+
+  @@index([code])
   @@index([status])
+  @@index([createdBy])
+  @@index([sellerId])
+  @@index([startAt, endAt])
+}
+
+model PromoRedemption {
+  id                  String    @id @default(cuid())
+  promoCodeId         String
+  orderId             String
+  customerId          String?
+  guestIdentifier     String?
+  originalSubtotal    Decimal   @db.Decimal(12, 2)
+  discountAmount      Decimal   @db.Decimal(12, 2)
+  discountedSubtotal  Decimal   @db.Decimal(12, 2)
+  deliveryDiscount    Decimal   @db.Decimal(12, 2) @default(0)
+  fundingSource       String    // SELLER, PICKAMGO
+  sellerPayout        Decimal   @db.Decimal(12, 2)
+  pickamgoCommission  Decimal   @db.Decimal(12, 2)
+  pickamgoPromoExpense Decimal   @db.Decimal(12, 2) @default(0)
+  sellerFundedDiscount Decimal   @db.Decimal(12, 2) @default(0)
+  createdAt           DateTime  @default(now())
+
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId])
+
+  @@index([promoCodeId])
+  @@index([orderId])
+  @@index([customerId])
   @@index([createdAt])
 }

@@ -3,11 +3,12 @@ import prisma from '../utils/prisma'
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
-import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
+import { createSellerEarnings, createRiderEarnings, getPlatformCommissionRate } from '../services/earnings'
 import { sendOrderConfirmationEmail, sendSellerOrderNotification } from '../services/email'
 import { initializeTransaction, verifyTransaction } from '../services/paystack'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 import { generateOrderNumber } from '../utils/orderNumber'
+import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, type PromoValidationResult } from '../services/promo'
 
 const router = Router()
 
@@ -31,6 +32,7 @@ const guestCheckoutSchema = z.object({
   notes: z.string().optional(),
   paymentMethod: z.string().default('paystack'),
   fulfillmentMethod: z.string().transform(normalizeFulfillmentMethod).default('FIND_IT_NEAR_ME_RIDER'),
+  promoCode: z.string().optional(),
 })
 
 const guestPaymentSchema = z.object({ orderId: z.string().min(1), email: z.string().email() })
@@ -65,7 +67,7 @@ router.post('/guest/verify-payment', validateBody(z.object({ orderId: z.string()
 })
 
 router.post('/guest', validateBody(guestCheckoutSchema), async (req: AuthenticatedRequest, res) => {
-  const { items, guestName, guestPhone, guestEmail, deliveryAddress: inputDeliveryAddress, deliveryLatitude, deliveryLongitude, deliveryType, deliveryFee, notes, paymentMethod, fulfillmentMethod } = req.body
+  const { items, guestName, guestPhone, guestEmail, deliveryAddress: inputDeliveryAddress, deliveryLatitude, deliveryLongitude, deliveryType, deliveryFee, notes, paymentMethod, fulfillmentMethod, promoCode } = req.body
   const resolvedFulfillmentMethod = deliveryType === 'PICKUP' ? 'CUSTOMER_PICKUP' : normalizeFulfillmentMethod(fulfillmentMethod)
   const deliveryAddress = deliveryType === 'PICKUP' ? 'Pickup from shop' : inputDeliveryAddress
 
@@ -81,8 +83,7 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
   }
 
   const orderItems: any[] = []
-  const shopGroups: Map<string, { shopId: string; sellerId: string; items: any[] }> = new Map()
-  let total = deliveryFee
+  const shopGroups: Map<string, { shopId: string; sellerId: string; items: any[]; productIds: string[]; categoryIds: string[]; campus: string | null }> = new Map()
 
   for (const item of items) {
     if (!item.productId && !item.serviceId) {
@@ -96,13 +97,16 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
     let serviceId: string | undefined
     let shopId = ''
     let sellerId = ''
+    let productCategoryId: string | undefined
+    let productCampus: string | undefined
 
     if (item.productId) {
       const product = await prisma.product.findUnique({
         where: { id: item.productId },
         include: {
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-          shop: { select: { id: true, ownerId: true } },
+          shop: { select: { id: true, ownerId: true, campus: true } },
+          category: { select: { id: true } },
         },
       })
 
@@ -132,6 +136,8 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
       shopId = product.shopId
       sellerId = product.sellerId
       productId = product.id
+      productCategoryId = product.categoryId
+      productCampus = product.shop?.campus || undefined
     }
 
     if (item.serviceId) {
@@ -139,7 +145,8 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
         where: { id: item.serviceId },
         include: {
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-          shop: { select: { id: true, ownerId: true } },
+          shop: { select: { id: true, ownerId: true, campus: true } },
+          category: { select: { id: true } },
         },
       })
 
@@ -153,10 +160,9 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
       shopId = service.shopId
       sellerId = service.providerId
       serviceId = service.id
+      productCategoryId = service.categoryId
+      productCampus = service.shop?.campus || undefined
     }
-
-    const lineTotal = itemPrice * item.quantity
-    total += lineTotal
 
     const orderItem = {
       productId,
@@ -172,16 +178,67 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
       const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { deliveryAvailable: true, pickupAvailable: true, sellerDeliveryAvailable: true } })
       const methodError = shop && deliveryMethodError(shop, deliveryType, resolvedFulfillmentMethod)
       if (methodError) return errorResponse(res, methodError, 400)
-      shopGroups.set(shopId, { shopId, sellerId, items: [] })
+      shopGroups.set(shopId, { shopId, sellerId, items: [], productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus || null })
     }
-    shopGroups.get(shopId)!.items.push(orderItem)
+    const group = shopGroups.get(shopId)!
+    group.items.push(orderItem)
+    if (productId) group.productIds.push(productId)
+    if (productCategoryId && !group.categoryIds.includes(productCategoryId)) group.categoryIds.push(productCategoryId)
+    if (productCampus && !group.campus) group.campus = productCampus
+  }
+
+  let promoValidation: PromoValidationResult | null = null
+  if (promoCode) {
+    const firstGroup = shopGroups.values().next().value!
+    const allProductIds = Array.from(new Set(Array.from(shopGroups.values()).flatMap(g => g.productIds)))
+    const allCategoryIds = Array.from(new Set(Array.from(shopGroups.values()).flatMap(g => g.categoryIds)))
+    const shopCampus = firstGroup.campus
+
+    promoValidation = await validatePromoCode({
+      code: promoCode,
+      customerId: null,
+      guestIdentifier: (req as any).headers['x-session-id'] as string | undefined,
+      customerType: null,
+      subtotal: Array.from(shopGroups.values()).reduce((sum, g) => sum + g.items.reduce((s, i) => s + i.price * i.quantity, 0), 0),
+      deliveryFee: deliveryType === 'DELIVERY' ? deliveryFee : 0,
+      shopId: firstGroup.shopId,
+      productIds: allProductIds,
+      categoryIds: allCategoryIds,
+      campus: shopCampus || undefined,
+    })
+
+    if (!promoValidation.valid) {
+      return errorResponse(res, promoValidation.error || 'Invalid promo code', 400)
+    }
   }
 
   const orders = await prisma.$transaction(async (tx) => {
     const createdOrders: any[] = []
 
     for (const [shopId, group] of shopGroups) {
-      const shopTotal = group.items.reduce((sum, item) => sum + item.price * item.quantity, 0) + (deliveryType === 'DELIVERY' ? deliveryFee : 0)
+      const itemsSubtotal = group.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      let shopTotal = itemsSubtotal + (deliveryType === 'DELIVERY' ? deliveryFee : 0)
+      let orderOriginalSubtotal = itemsSubtotal
+      let orderPromoDiscount = 0
+      let orderDiscountedSubtotal = itemsSubtotal
+
+      if (promoValidation && promoValidation.valid && promoValidation.promo) {
+        const calc = calculateDiscount({
+          discountType: promoValidation.promo.discountType,
+          discountValue: Number(promoValidation.promo.discountValue),
+          maxDiscount: promoValidation.promo.maxDiscount ? Number(promoValidation.promo.maxDiscount) : null,
+          eligibleSubtotal: itemsSubtotal,
+          deliveryFee: deliveryType === 'DELIVERY' ? deliveryFee : 0,
+          discountAppliesTo: promoValidation.promo.discountAppliesTo,
+        })
+        orderPromoDiscount = calc.discountAmount
+        orderDiscountedSubtotal = calc.discountedSubtotal
+        if (promoValidation.promo.discountAppliesTo === 'PRODUCTS_AND_DELIVERY') {
+          shopTotal = orderDiscountedSubtotal + (deliveryType === 'DELIVERY' ? (deliveryFee - calc.deliveryDiscount) : 0)
+        } else {
+          shopTotal = orderDiscountedSubtotal + (deliveryType === 'DELIVERY' ? deliveryFee : 0)
+        }
+      }
 
       const newOrder = await tx.order.create({
         data: {
@@ -201,6 +258,10 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
           deliveryStatus: 'PENDING',
           fulfillmentMethod: resolvedFulfillmentMethod,
           notes: notes || null,
+          promoCodeId: promoValidation?.valid ? promoValidation.promo!.id : null,
+          promoDiscount: orderPromoDiscount,
+          originalSubtotal: orderOriginalSubtotal,
+          discountedSubtotal: orderDiscountedSubtotal,
         },
       })
 
@@ -251,11 +312,55 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
           currency: 'GHS',
           status: 'PENDING',
           reference: newOrder.orderNumber,
-          description: `Guest order payment for ${newOrder.orderNumber}`,
+          description: promoValidation?.valid && orderPromoDiscount > 0
+            ? `Guest order payment for ${newOrder.orderNumber} (includes ${promoValidation.promo!.discountType === 'PERCENTAGE' ? promoValidation.promo!.discountValue + '%' : 'GH₵' + promoValidation.promo!.discountValue} discount)`
+            : `Guest order payment for ${newOrder.orderNumber}`,
         },
       })
 
       await createSellerEarnings(newOrder.id, tx)
+
+      if (promoValidation?.valid && promoValidation.promo) {
+        const commissionRate = await getPlatformCommissionRate()
+        const commission = Math.round(orderOriginalSubtotal * commissionRate * 100) / 100
+        const fundingSource = promoValidation.promo.fundingType
+
+        let sellerPayout = orderDiscountedSubtotal - commission
+        let pickamgoPromoExpense = 0
+        let sellerFundedDiscount = 0
+
+        if (fundingSource === 'SELLER') {
+          sellerFundedDiscount = orderPromoDiscount
+          sellerPayout = orderDiscountedSubtotal - commission
+        } else if (fundingSource === 'PICKAMGO') {
+          pickamgoPromoExpense = orderPromoDiscount
+          sellerPayout = orderOriginalSubtotal - commission
+        }
+
+        sellerPayout = Math.round(sellerPayout * 100) / 100
+        pickamgoPromoExpense = Math.round(pickamgoPromoExpense * 100) / 100
+        sellerFundedDiscount = Math.round(sellerFundedDiscount * 100) / 100
+
+        await tx.promoRedemption.create({
+          data: {
+            promoCodeId: promoValidation.promo.id,
+            orderId: newOrder.id,
+            customerId: null,
+            guestIdentifier: (req as any).headers['x-session-id'] as string || null,
+            originalSubtotal: orderOriginalSubtotal,
+            discountAmount: orderPromoDiscount,
+            discountedSubtotal: orderDiscountedSubtotal,
+            deliveryDiscount: promoValidation.deliveryDiscount,
+            fundingSource,
+            sellerPayout,
+            pickamgoCommission: commission,
+            pickamgoPromoExpense,
+            sellerFundedDiscount,
+          },
+        })
+
+        await incrementPromoUsage(promoValidation.promo.id, pickamgoPromoExpense)
+      }
 
       if (resolvedFulfillmentMethod === 'FIND_IT_NEAR_ME_RIDER') {
         const shopSettings = await tx.shop.findUnique({
@@ -282,6 +387,7 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
           },
         })
 
+        await createRiderEarnings(newDelivery.id, tx)
       }
 
       await tx.notification.create({
@@ -308,6 +414,7 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
       payment: true,
       sellerEarnings: true,
       riderEarnings: true,
+      redemption: true,
     },
   })
 

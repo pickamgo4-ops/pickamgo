@@ -6,7 +6,7 @@ import {
   Home, LayoutDashboard, Store, Package, Tag, Archive, ShoppingBag, 
   TrendingUp, Star, MessageSquare, Bell, Settings, HelpCircle,
   FileText, MapPin, CheckCircle, ChevronLeft, LogOut, Calendar,
-  DollarSign, Truck
+  DollarSign, Truck, Ticket
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
@@ -52,6 +52,7 @@ const shopSections = [
     items: [
       { href: '/seller/analytics', label: 'Analytics', icon: TrendingUp },
       { href: '/seller/reviews', label: 'Reviews', icon: Star },
+      { href: '/seller/promo-codes', label: 'Promo Codes', icon: Ticket },
     ],
   },
   {

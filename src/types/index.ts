@@ -15,6 +15,7 @@ export interface Product {
     name: string;
     slug: string;
     logo?: string;
+    campus?: string;
   };
   location: string;
   distance: string;
@@ -138,6 +139,24 @@ export interface Order {
   riderId?: string;
   riderName?: string;
   fulfillmentMethod?: 'PLATFORM_DELIVERY' | 'SELLER_DELIVERY' | 'PICKUP';
+  promoDiscount?: number;
+  originalSubtotal?: number;
+  discountedSubtotal?: number;
+  promoCode?: {
+    id: string;
+    code: string;
+    discountType: string;
+    discountValue: number;
+    fundingType: string;
+  };
+  redemption?: {
+    id: string;
+    fundingSource: string;
+    sellerPayout: number;
+    pickamgoCommission: number;
+    pickamgoPromoExpense: number;
+    sellerFundedDiscount: number;
+  };
 }
 
 export interface OrderItem {
@@ -455,4 +474,74 @@ export interface RiderEarnings {
   availableAt?: string;
   withdrawnAt?: string;
   createdAt: string;
+}
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  campaignName?: string;
+  description?: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  maxDiscount?: number;
+  minimumOrderAmount: number;
+  fundingType: 'SELLER' | 'PICKAMGO';
+  usageLimit?: number;
+  usageCount: number;
+  usagePerCustomer?: number;
+  startAt: string;
+  endAt: string;
+  status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'EXHAUSTED';
+  appliesTo?: string;
+  shopIds?: string[];
+  productIds?: string[];
+  categoryIds?: string[];
+  campuses?: string[];
+  customerEligibility: 'EVERYONE' | 'NEW_ONLY' | 'EXISTING_ONLY';
+  discountAppliesTo: 'PRODUCTS' | 'PRODUCTS_AND_DELIVERY';
+  campaignBudget?: number;
+  campaignSpent: number;
+  createdBy: string;
+  sellerId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromoRedemption {
+  id: string;
+  promoCodeId: string;
+  orderId: string;
+  customerId?: string;
+  guestIdentifier?: string;
+  originalSubtotal: number;
+  discountAmount: number;
+  discountedSubtotal: number;
+  deliveryDiscount: number;
+  fundingSource: 'SELLER' | 'PICKAMGO';
+  sellerPayout: number;
+  pickamgoCommission: number;
+  pickamgoPromoExpense: number;
+  sellerFundedDiscount: number;
+  createdAt: string;
+}
+
+export interface PromoStats {
+  totalUses: number;
+  totalDiscount: number;
+  totalEligibleSales: number;
+  totalPickamgoExpense: number;
+  totalSellerFunded: number;
+  totalCommission: number;
+  uniqueCustomers: number;
+  campaignBudget?: number;
+  campaignSpent: number;
+  fundingType?: string;
+}
+
+export interface PlatformPromoStats {
+  activePromos: number;
+  totalUses: number;
+  totalDiscount: number;
+  pickamgoCost: number;
+  revenueFromPromoOrders: number;
 }

@@ -7,6 +7,7 @@ interface ButtonProps {
   className?: string
   onClick?: () => void
   disabled?: boolean
+  loading?: boolean
   icon?: React.ReactNode
   fullWidth?: boolean
   type?: 'button' | 'submit' | 'reset'
@@ -19,6 +20,7 @@ export function Button({
   className = '',
   onClick,
   disabled = false,
+  loading = false,
   icon,
   fullWidth = false,
   type = 'button',
@@ -42,7 +44,7 @@ export function Button({
     <button
       type={type}
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled || loading}
       className={`
         ${baseStyles}
         ${variants[variant]}
@@ -51,7 +53,10 @@ export function Button({
         ${className}
       `}
     >
-      {icon && <span className="flex-shrink-0">{icon}</span>}
+      {loading && (
+        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+      )}
+      {!loading && icon && <span className="flex-shrink-0">{icon}</span>}
       {children}
     </button>
   )

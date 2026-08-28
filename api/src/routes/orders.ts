@@ -61,6 +61,8 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
         delivery: true,
         sellerEarnings: true,
         riderEarnings: true,
+        promoCode: true,
+        redemption: true,
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
@@ -80,14 +82,16 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
     where: { id: req.params.id },
     include: {
       items: { include: { product: true, service: true } },
-      shop: { include: { owner: { select: { id: true, name: true, avatar: true } } } },
+      shop: { include: { owner: { select: { id: true, name: true, email: true, avatar: true } } } },
       seller: { select: { id: true, name: true, avatar: true } },
-      customer: { select: { id: true, name: true, avatar: true, phone: true } },
+      customer: { select: { id: true, name: true, email: true, avatar: true, phone: true } },
       rider: { select: { id: true, name: true, avatar: true } },
       payment: true,
       delivery: true,
       sellerEarnings: true,
       riderEarnings: true,
+      promoCode: true,
+      redemption: true,
     },
   })
 
@@ -184,6 +188,8 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(createOrder
         deliveryFee,
         fulfillmentMethod,
         status: 'PENDING_PAYMENT',
+        originalSubtotal: total - deliveryFee,
+        discountedSubtotal: total - deliveryFee,
       },
     })
 

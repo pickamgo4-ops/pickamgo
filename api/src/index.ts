@@ -33,6 +33,8 @@ import recommendationRoutes from './routes/recommendations'
 import payoutRoutes from './routes/payouts'
 import deliverySettingsRoutes from './routes/delivery-settings'
 import adminRoutes from './routes/admin'
+import promoRoutes from './routes/promo'
+import sellerPromoRoutes from './routes/seller-promo'
 import emailTestRoutes from './routes/email-test'
 import prisma from './utils/prisma'
 
@@ -134,6 +136,8 @@ app.use('/api/messages', messageRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/disputes', disputeRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/promos', promoRoutes)
+app.use('/api/seller/promos', sellerPromoRoutes)
 app.use('/api/payouts', payoutRoutes)
 app.use('/api/seller/delivery-settings', deliverySettingsRoutes)
 

@@ -27,6 +27,7 @@ import {
   ChevronDown,
   ChevronRight,
   Mail,
+  Ticket,
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
@@ -49,6 +50,7 @@ const navItems = [
   { href: '/admin/notifications', label: 'Notifications', icon: Bell },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
   { href: '/admin/emails', label: 'Emails', icon: Mail },
+  { href: '/admin/promo-codes', label: 'Promo Codes', icon: Ticket },
 ]
 
 export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {

@@ -1,4 +1,4 @@
-import { Cart, CartItemWithRelations, Address, Order, RiderDelivery, RiderProfile, SellerVerification, CheckoutOrder, PayoutMethod, Payout, PayoutBalances, DeliverySettings } from '../types'
+import { Cart, CartItemWithRelations, Address, Order, RiderDelivery, RiderProfile, SellerVerification, CheckoutOrder, PayoutMethod, Payout, PayoutBalances, DeliverySettings, PlatformPromoStats } from '../types'
 
 const DEFAULT_PRODUCTION_API_URL = 'https://pickamgo-production.up.railway.app/api'
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL
@@ -277,4 +277,35 @@ export const api = {
   requestWithdrawal: (data: { amount: number; payoutMethodId: string }) => api.post('/payouts/withdraw', data),
   getDeliverySettings: () => api.get<DeliverySettings>('/seller/delivery-settings'),
   updateDeliverySettings: (data: Partial<DeliverySettings>) => api.patch<DeliverySettings>('/seller/delivery-settings', data),
+  validatePromoCode: (code: string, subtotal: number, deliveryFee: number, shopId?: string, productIds?: string[], categoryIds?: string[], campus?: string) =>
+    api.post<{ valid: boolean; code?: string; campaignName?: string; discountType?: string; discountValue?: number; maxDiscount?: number | null; discountAmount: number; deliveryDiscount: number; discountedSubtotal: number }>('/promos/validate', { code, subtotal, deliveryFee, shopId, productIds, categoryIds, campus }),
+  getAdminPromos: (params?: { page?: number; limit?: number; status?: string; search?: string; fundingType?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<{ promos: any[]; pagination: any }>(`/promos${query}`)
+  },
+  getAdminPromo: (id: string) => api.get<any>(`/promos/${id}`),
+  createAdminPromo: (data: any) => api.post<any>('/promos', data),
+  updateAdminPromo: (id: string, data: any) => api.patch<any>(`/promos/${id}`, data),
+  deleteAdminPromo: (id: string) => api.delete(`/promos/${id}`),
+  getPlatformPromoStats: () => api.get<PlatformPromoStats>('/promos/stats/overview'),
+  getSellerPromos: (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<{ promos: any[]; pagination: any }>(`/seller/promos${query}`)
+  },
+  getSellerPromo: (id: string) => api.get<any>(`/seller/promos/${id}`),
+  createSellerPromo: (data: any) => api.post<any>('/seller/promos', data),
+  updateSellerPromo: (id: string, data: any) => api.patch<any>(`/seller/promos/${id}`, data),
+  deleteSellerPromo: (id: string) => api.delete(`/seller/promos/${id}`),
 }

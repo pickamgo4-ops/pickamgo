@@ -2,7 +2,7 @@
 
 import React, { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MapPin, CreditCard, FileText, ShoppingBag, ArrowLeft, CheckCircle, User, Phone, Mail, Truck } from 'lucide-react'
+import { MapPin, CreditCard, FileText, ShoppingBag, ArrowLeft, CheckCircle, User, Phone, Mail, Truck, Ticket, X } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
 import { Button } from '../../components/ui/Button'
@@ -63,6 +63,18 @@ function CheckoutContent() {
   const [signupLoading, setSignupLoading] = useState(false)
   const [signupError, setSignupError] = useState('')
   const [shopSettings, setShopSettings] = useState<Record<string, DeliverySettings>>({})
+  const [promoCode, setPromoCode] = useState('')
+  const [promoApplied, setPromoApplied] = useState<{
+    code: string
+    discountType: string
+    discountValue: number
+    discountAmount: number
+    deliveryDiscount: number
+    discountedSubtotal: number
+    maxDiscount?: number
+  } | null>(null)
+  const [promoLoading, setPromoLoading] = useState(false)
+  const [promoError, setPromoError] = useState('')
 
   useEffect(() => {
     checkAuth()
@@ -244,6 +256,7 @@ function CheckoutContent() {
         fulfillmentMethod,
         deliveryLatitude: guestInfo.deliveryLatitude,
         deliveryLongitude: guestInfo.deliveryLongitude,
+        promoCode: promoApplied ? promoApplied.code : undefined,
       })
 
       if (response.success && response.data) {
@@ -293,6 +306,7 @@ function CheckoutContent() {
         paymentMethod,
         notes: orderNotes,
         fulfillmentMethod,
+        promoCode: promoApplied ? promoApplied.code : undefined,
       })
 
       if (response.success && response.data) {
@@ -321,6 +335,50 @@ function CheckoutContent() {
       return 'SELLER_OWN_DELIVERY'
     }
     return 'FIND_IT_NEAR_ME_RIDER'
+  }
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return
+    setPromoLoading(true)
+    setPromoError('')
+    try {
+      const shopId = cartShopIds[0]
+      const allProductIds = cart?.items.filter(i => i.productId).map(i => i.productId!).filter(Boolean) || []
+      const res = await api.validatePromoCode(
+        promoCode.trim(),
+        subtotal,
+        deliveryFee,
+        shopId,
+        allProductIds.length > 0 ? allProductIds : undefined,
+        undefined,
+        cart?.items[0]?.product?.shop?.campus as string | undefined
+      )
+      if (res.success && res.data?.valid) {
+        setPromoApplied({
+          code: res.data.code || promoCode.trim(),
+          discountType: res.data.discountType || 'PERCENTAGE',
+          discountValue: res.data.discountValue || 0,
+          discountAmount: res.data.discountAmount,
+          deliveryDiscount: res.data.deliveryDiscount,
+          discountedSubtotal: res.data.discountedSubtotal,
+          maxDiscount: res.data.maxDiscount ?? undefined,
+        })
+      } else {
+        setPromoError(res.error || 'Invalid promo code')
+        setPromoApplied(null)
+      }
+    } catch (err) {
+      setPromoError('Failed to validate promo code')
+      setPromoApplied(null)
+    } finally {
+      setPromoLoading(false)
+    }
+  }
+
+  const handleRemovePromo = () => {
+    setPromoCode('')
+    setPromoApplied(null)
+    setPromoError('')
   }
 
   const cartShopIds = Array.from(new Set((cart?.items || []).map(item => item.shopId || item.product?.shop?.id).filter(Boolean)))
@@ -501,8 +559,10 @@ function CheckoutContent() {
   }
 
   const subtotal = cart?.items.reduce((sum, item) => sum + (item.variant?.price || item.price) * item.quantity, 0) || 0
-  const deliveryFee = deliveryType === 'delivery' ? (subtotal > 100 ? 0 : 15) : 0
-  const total = subtotal + deliveryFee
+  const baseDeliveryFee = deliveryType === 'delivery' ? (subtotal > 100 ? 0 : 15) : 0
+  const deliveryFee = promoApplied ? baseDeliveryFee - promoApplied.deliveryDiscount : baseDeliveryFee
+  const discountedSubtotal = promoApplied ? promoApplied.discountedSubtotal : subtotal
+  const total = discountedSubtotal + deliveryFee
   const selectedAddress = addresses.find(a => a.id === selectedAddressId)
   const deliverySummary = deliveryType === 'delivery'
     ? selectedAddress
@@ -683,6 +743,18 @@ function CheckoutContent() {
                   <span className="text-warm-800/70">Subtotal ({cart?.items.length} items)</span>
                   <span className="font-medium text-warm-900">GH₵{subtotal.toFixed(2)}</span>
                 </div>
+                {promoApplied && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-600">Promo discount ({promoApplied.code})</span>
+                    <span className="font-medium text-green-600">-GH₵{promoApplied.discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                {promoApplied && promoApplied.deliveryDiscount > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-600">Delivery discount</span>
+                    <span className="font-medium text-green-600">-GH₵{promoApplied.deliveryDiscount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-warm-800/70">Delivery Fee</span>
                   <span className="font-medium text-warm-900">
@@ -944,12 +1016,104 @@ function CheckoutContent() {
             </div>
           )}
 
-          {/* Payment Method */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-            <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-              <CreditCard size={20} className="text-primary" />
-              Payment Method
-            </h3>
+            {/* Promo Code */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+                <Ticket size={20} className="text-primary" />
+                Promo Code
+              </h3>
+              {promoApplied ? (
+                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <div>
+                    <p className="font-mono font-semibold text-sm text-green-900">{promoApplied.code}</p>
+                    <p className="text-xs text-green-700 mt-0.5">
+                      {promoApplied.discountType === 'PERCENTAGE' ? `${promoApplied.discountValue}%` : `GH₵${promoApplied.discountValue}`} off
+                      {promoApplied.maxDiscount && ` (max GH₵${promoApplied.maxDiscount})`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemovePromo}
+                    className="p-2 rounded-lg hover:bg-green-100 text-green-700"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter promo code"
+                    value={promoCode}
+                    onValueChange={(v) => { setPromoCode(v.toUpperCase()); setPromoError('') }}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    disabled={!promoCode.trim() || promoLoading}
+                    loading={promoLoading}
+                  >
+                    Apply
+                  </Button>
+                </div>
+              )}
+              {promoError && (
+                <p className="text-xs text-red-600 mt-2">{promoError}</p>
+              )}
+            </div>
+
+            {/* Promo Code */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+                <Ticket size={20} className="text-primary" />
+                Promo Code
+              </h3>
+              {promoApplied ? (
+                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <div>
+                    <p className="font-mono font-semibold text-sm text-green-900">{promoApplied.code}</p>
+                    <p className="text-xs text-green-700 mt-0.5">
+                      {promoApplied.discountType === 'PERCENTAGE' ? `${promoApplied.discountValue}%` : `GH₵${promoApplied.discountValue}`} off
+                      {promoApplied.maxDiscount && ` (max GH₵${promoApplied.maxDiscount})`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemovePromo}
+                    className="p-2 rounded-lg hover:bg-green-100 text-green-700"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter promo code"
+                    value={promoCode}
+                    onValueChange={(v) => { setPromoCode(v.toUpperCase()); setPromoError('') }}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    disabled={!promoCode.trim() || promoLoading}
+                    loading={promoLoading}
+                  >
+                    Apply
+                  </Button>
+                </div>
+              )}
+              {promoError && (
+                <p className="text-xs text-red-600 mt-2">{promoError}</p>
+              )}
+            </div>
+
+            {/* Payment Method */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+                <CreditCard size={20} className="text-primary" />
+                Payment Method
+              </h3>
             <div className="space-y-2">
                 {[{ id: 'paystack', label: 'Paystack', desc: 'Secure payment by Ghanaian card or Mobile Money' }].map((method) => (
                 <button
@@ -991,6 +1155,18 @@ function CheckoutContent() {
                 <span className="text-warm-800/70">Subtotal ({cart?.items.length} items)</span>
                 <span className="font-medium text-warm-900">GH₵{subtotal.toFixed(2)}</span>
               </div>
+              {promoApplied && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-green-600">Promo discount ({promoApplied.code})</span>
+                  <span className="font-medium text-green-600">-GH₵{promoApplied.discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {promoApplied && promoApplied.deliveryDiscount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-green-600">Delivery discount</span>
+                  <span className="font-medium text-green-600">-GH₵{promoApplied.deliveryDiscount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-warm-800/70">Delivery Fee</span>
                 <span className="font-medium text-warm-900">
