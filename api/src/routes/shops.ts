@@ -229,7 +229,7 @@ router.get('/:slug', async (req, res) => {
       products: {
         where: publicProductVisibility,
         include: {
-          category: true,
+          category: { select: { id: true, name: true, emoji: true, color: true } },
           images: { orderBy: { sortOrder: 'asc' }, take: 4 },
         },
         orderBy: { createdAt: 'desc' },
@@ -238,7 +238,7 @@ router.get('/:slug', async (req, res) => {
       services: {
         where: publicServiceVisibility,
         include: {
-          category: true,
+          category: { select: { id: true, name: true, emoji: true, color: true } },
           images: { orderBy: { sortOrder: 'asc' }, take: 4 },
           availability: { where: { isAvailable: true }, take: 5 },
         },
@@ -360,7 +360,7 @@ router.get('/:id/products', async (req, res) => {
     prisma.product.findMany({
       where: { ...publicProductVisibility, shopId: req.params.id },
       include: {
-        category: true,
+        category: { select: { id: true, name: true, emoji: true, color: true } },
         images: { orderBy: { sortOrder: 'asc' } },
         seller: { select: { id: true, name: true, avatar: true } },
       },
@@ -385,7 +385,7 @@ router.get('/:id/services', async (req, res) => {
     prisma.service.findMany({
       where: { shopId: req.params.id, status: 'ACTIVE' },
       include: {
-        category: true,
+        category: { select: { id: true, name: true, emoji: true, color: true } },
         images: { orderBy: { sortOrder: 'asc' } },
         provider: { select: { id: true, name: true, avatar: true } },
       },

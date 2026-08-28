@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, Bike, Eye, Loader2, XCircle, CheckCircle, X, Ban } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Bike, Eye, Loader2, XCircle, X, CheckCircle2, Ban, Shield, ShieldOff, UserCheck, UserX, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -15,6 +15,7 @@ interface AdminRider {
   name: string
   email: string
   phone?: string
+  status: string
   isOnline: boolean
   isAvailable: boolean
   isVerified: boolean
@@ -29,6 +30,7 @@ interface RiderDetail {
   name: string
   email: string
   phone?: string
+  status: string
   isOnline: boolean
   isAvailable: boolean
   isVerified: boolean
@@ -48,6 +50,7 @@ function mapRider(r: any): AdminRider {
     name: r.user?.name || '-',
     email: r.user?.email || '-',
     phone: r.user?.phone || undefined,
+    status: r.status || 'ACTIVE',
     isOnline: !!r.isOnline,
     isAvailable: !!r.isAvailable,
     isVerified: !!r.isVerified,
@@ -64,6 +67,7 @@ function mapRiderDetail(r: any): RiderDetail {
     name: r.user?.name || '-',
     email: r.user?.email || '-',
     phone: r.user?.phone || undefined,
+    status: r.status || 'ACTIVE',
     isOnline: !!r.isOnline,
     isAvailable: !!r.isAvailable,
     isVerified: !!r.isVerified,
@@ -78,6 +82,22 @@ function mapRiderDetail(r: any): RiderDetail {
   }
 }
 
+function getStatusBadge(status: string) {
+  const config: Record<string, { variant: any; label: string; icon: any }> = {
+    ACTIVE: { variant: 'verified', label: 'Active', icon: CheckCircle2 },
+    SUSPENDED: { variant: 'default', label: 'Suspended', icon: ShieldOff },
+    BANNED: { variant: 'deal', label: 'Banned', icon: Ban },
+  }
+  const c = config[status] || config.ACTIVE
+  const Icon = c.icon
+  return (
+    <Badge variant={c.variant} className="flex items-center gap-1 w-fit">
+      <Icon size={12} />
+      {c.label}
+    </Badge>
+  )
+}
+
 export default function AdminRidersPage() {
   const router = useRouter()
   const { user, loading, authInitialized } = useRole()
@@ -90,11 +110,15 @@ export default function AdminRidersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [verifiedFilter, setVerifiedFilter] = useState('')
   const [onlineFilter, setOnlineFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [selectedRider, setSelectedRider] = useState<RiderDetail | null>(null)
   const [riderLoading, setRiderLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [actionDialog, setActionDialog] = useState<{ open: boolean; riderId: string; action: string } | null>(null)
+  const [actionReason, setActionReason] = useState('')
   const loadingRef = useRef(false)
 
-  const loadRiders = useCallback(async (pageNum: number, search: string, verified: string, online: string) => {
+  const loadRiders = useCallback(async (pageNum: number, search: string, verified: string, online: string, status: string) => {
     if (loadingRef.current) return
     loadingRef.current = true
     setDataLoading(true)
@@ -106,6 +130,7 @@ export default function AdminRidersPage() {
       if (search) params.set('search', search)
       if (verified) params.set('verified', verified)
       if (online) params.set('online', online)
+      if (status) params.set('status', status)
 
       const response = await api.get<any>(`/admin/riders?${params.toString()}`)
       if (response.success && response.data) {
@@ -129,16 +154,16 @@ export default function AdminRidersPage() {
       router.push('/')
       return
     }
-    loadRiders(page, searchQuery, verifiedFilter, onlineFilter)
-  }, [authInitialized, user, page, verifiedFilter, onlineFilter, loadRiders, router])
+    loadRiders(page, searchQuery, verifiedFilter, onlineFilter, statusFilter)
+  }, [authInitialized, user, page, verifiedFilter, onlineFilter, statusFilter, loadRiders, router])
 
   useEffect(() => {
     const timeout = setTimeout(() => {
       setPage(1)
-      loadRiders(1, searchQuery, verifiedFilter, onlineFilter)
+      loadRiders(1, searchQuery, verifiedFilter, onlineFilter, statusFilter)
     }, 400)
     return () => clearTimeout(timeout)
-  }, [searchQuery, verifiedFilter, onlineFilter, loadRiders])
+  }, [searchQuery, statusFilter, loadRiders, verifiedFilter, onlineFilter])
 
   const loadRiderDetail = async (riderId: string) => {
     setRiderLoading(true)
@@ -158,57 +183,100 @@ export default function AdminRidersPage() {
     loadRiderDetail(r.id)
   }
 
-  const updateRider = async (riderId: string, action: 'APPROVE' | 'SUSPEND' | 'ONLINE' | 'OFFLINE') => {
-    const rider = riders.find(r => r.id === riderId)
-    if (!rider) return
-    const labels: Record<string, string> = { APPROVE: 'approve', SUSPEND: 'suspend', ONLINE: 'set online', OFFLINE: 'set offline' }
-    if (!window.confirm(`Are you sure you want to ${labels[action]} "${rider.name}"?`)) return
-
-    const data: any = {}
-    if (action === 'APPROVE') data.isVerified = true
-    else if (action === 'SUSPEND') data.isVerified = false
-    else if (action === 'ONLINE') data.isOnline = true
-    else if (action === 'OFFLINE') data.isOnline = false
-
-    const response = await api.patch(`/admin/riders/${riderId}`, data)
-    if (response.success) {
-      setRiders(prev => prev.map(r => {
-        if (r.id !== riderId) return r
-        return {
-          ...r,
-          isVerified: data.isVerified !== undefined ? data.isVerified : r.isVerified,
-          isOnline: data.isOnline !== undefined ? data.isOnline : r.isOnline,
+  const executeAction = async () => {
+    if (!actionDialog) return
+    setActionLoading(actionDialog.riderId)
+    try {
+      const endpoint = `/admin/riders/${actionDialog.riderId}/${actionDialog.action.toLowerCase()}`
+      const response = await api.post(endpoint, actionReason ? { reason: actionReason } : {})
+      if (response.success) {
+        setRiders(prev => prev.map(r => {
+          if (r.id !== actionDialog.riderId) return r
+          if (actionDialog.action === 'SUSPEND') return { ...r, status: 'SUSPENDED' }
+          if (actionDialog.action === 'BAN') return { ...r, status: 'BANNED' }
+          if (actionDialog.action === 'REACTIVATE') return { ...r, status: 'ACTIVE' }
+          if (actionDialog.action === 'APPROVE') return { ...r, isVerified: true }
+          if (actionDialog.action === 'REJECT') return { ...r, isVerified: false }
+          return r
+        }))
+        if (selectedRider?.id === actionDialog.riderId) {
+          setSelectedRider(prev => prev ? {
+            ...prev,
+            status: actionDialog.action === 'SUSPEND' ? 'SUSPENDED' : actionDialog.action === 'BAN' ? 'BANNED' : actionDialog.action === 'REACTIVATE' ? 'ACTIVE' : prev.status,
+            isVerified: actionDialog.action === 'APPROVE' ? true : actionDialog.action === 'REJECT' ? false : prev.isVerified,
+          } : null)
         }
-      }))
-      if (selectedRider?.id === riderId) {
-        setSelectedRider(prev => prev ? {
-          ...prev,
-          isVerified: data.isVerified !== undefined ? data.isVerified : prev.isVerified,
-          isOnline: data.isOnline !== undefined ? data.isOnline : prev.isOnline,
-        } : null)
+        setActionDialog(null)
+        setActionReason('')
+      } else {
+        setError(response.error || 'Action failed')
       }
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setActionLoading(null)
     }
   }
 
-  const getVerifiedBadge = (isVerified: boolean) => {
-    return isVerified ? (
-      <Badge variant="verified">Verified</Badge>
-    ) : (
-      <Badge variant="default">Unverified</Badge>
-    )
-  }
+  const renderActions = (rider: AdminRider) => {
+    const isSuspended = rider.status === 'SUSPENDED'
+    const isBanned = rider.status === 'BANNED'
+    const isVerified = rider.isVerified
 
-  const renderStars = (rating: number) => {
     return (
-      <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map(star => (
-          <span
-            key={star}
-            className={`text-xs ${star <= Math.round(rating) ? 'text-yellow-500' : 'text-warm-300'}`}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={(e) => { e.stopPropagation(); handleRiderClick(rider) }}
+          title="View"
+          className="p-2 rounded-lg hover:bg-warm-100 text-warm-800"
+        >
+          <Eye size={16} />
+        </button>
+        {!isVerified && !isSuspended && !isBanned && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setActionDialog({ open: true, riderId: rider.id, action: 'APPROVE' }) }}
+            title="Approve"
+            className="p-2 rounded-lg hover:bg-green-50 text-green-600"
           >
-            ★
-          </span>
-        ))}
+            <UserCheck size={16} />
+          </button>
+        )}
+        {!isVerified && !isSuspended && !isBanned && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setActionDialog({ open: true, riderId: rider.id, action: 'REJECT' }) }}
+            title="Reject"
+            className="p-2 rounded-lg hover:bg-red-50 text-red-600"
+          >
+            <UserX size={16} />
+          </button>
+        )}
+        {!isSuspended && !isBanned && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setActionDialog({ open: true, riderId: rider.id, action: 'SUSPEND' }) }}
+            title="Suspend"
+            className="p-2 rounded-lg hover:bg-yellow-50 text-yellow-600"
+          >
+            <ShieldOff size={16} />
+          </button>
+        )}
+        {!isBanned && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setActionDialog({ open: true, riderId: rider.id, action: 'BAN' }) }}
+            title="Ban"
+            className="p-2 rounded-lg hover:bg-red-50 text-red-600"
+          >
+            <Ban size={16} />
+          </button>
+        )}
+        {(isSuspended || isBanned) && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setActionDialog({ open: true, riderId: rider.id, action: 'REACTIVATE' }) }}
+            title="Reactivate"
+            className="p-2 rounded-lg hover:bg-green-50 text-green-600"
+          >
+            <Shield size={16} />
+          </button>
+        )}
       </div>
     )
   }
@@ -231,7 +299,7 @@ export default function AdminRidersPage() {
         </div>
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-            Riders
+            Riders / Deliverers
           </h1>
           <p className="text-warm-800/60 text-sm">Manage delivery riders</p>
         </div>
@@ -265,6 +333,16 @@ export default function AdminRidersPage() {
           <option value="true">Online</option>
           <option value="false">Offline</option>
         </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+          className="rounded-xl border border-warm-200 px-3 py-3 bg-white text-sm text-warm-900"
+        >
+          <option value="">All account statuses</option>
+          <option value="ACTIVE">Active</option>
+          <option value="SUSPENDED">Suspended</option>
+          <option value="BANNED">Banned</option>
+        </select>
       </div>
 
       {dataLoading ? (
@@ -278,7 +356,7 @@ export default function AdminRidersPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadRiders(page, searchQuery, verifiedFilter, onlineFilter)} className="mt-4">Retry</Button>
+          <Button onClick={() => loadRiders(page, searchQuery, verifiedFilter, onlineFilter, statusFilter)} className="mt-4">Retry</Button>
         </Card>
       ) : riders.length === 0 ? (
         <Card className="p-12 text-center">
@@ -297,6 +375,7 @@ export default function AdminRidersPage() {
                     <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">Deliveries</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">Rating</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">Earnings</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-warm-200">
@@ -314,7 +393,7 @@ export default function AdminRidersPage() {
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <div className="flex flex-wrap gap-1">
-                          {getVerifiedBadge(r.isVerified)}
+                          {getStatusBadge(r.status)}
                           <Badge variant={r.isAvailable ? 'deal' : 'default'}>
                             {r.isAvailable ? 'Available' : 'Busy'}
                           </Badge>
@@ -322,11 +401,23 @@ export default function AdminRidersPage() {
                       </td>
                       <td className="px-4 py-3 text-warm-800/70 hidden sm:table-cell">{r.totalDeliveries}</td>
                       <td className="px-4 py-3 hidden sm:table-cell">
-                        {renderStars(r.rating)}
-                        <span className="text-xs text-warm-800/60 ml-1">{r.rating.toFixed(1)}</span>
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <span
+                              key={star}
+                              className={`text-xs ${star <= Math.round(r.rating) ? 'text-yellow-500' : 'text-warm-300'}`}
+                            >
+                              ★
+                            </span>
+                          ))}
+                          <span className="text-xs text-warm-800/60 ml-1">{r.rating.toFixed(1)}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 font-medium text-warm-900 hidden lg:table-cell">
                         GH₵{r.totalEarnings?.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        {renderActions(r)}
                       </td>
                     </tr>
                   ))}
@@ -394,7 +485,7 @@ export default function AdminRidersPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    {getVerifiedBadge(selectedRider.isVerified)}
+                    {getStatusBadge(selectedRider.status)}
                     <Badge variant={selectedRider.isAvailable ? 'deal' : 'default'}>
                       {selectedRider.isAvailable ? 'Available' : 'Busy'}
                     </Badge>
@@ -406,29 +497,74 @@ export default function AdminRidersPage() {
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-warm-800/50 uppercase">Actions</p>
                     <div className="flex flex-wrap gap-2">
-                      {!selectedRider.isVerified && (
-                        <Button size="sm" onClick={() => updateRider(selectedRider.id, 'APPROVE')}>
-                          <CheckCircle size={16} />
+                      {selectedRider.status === 'ACTIVE' && !selectedRider.isVerified && (
+                        <Button size="sm" onClick={() => setActionDialog({ open: true, riderId: selectedRider.id, action: 'APPROVE' })}>
+                          <UserCheck size={16} />
                           Approve
                         </Button>
                       )}
-                      <Button size="sm" variant="outline" onClick={() => updateRider(selectedRider.id, 'SUSPEND')}>
-                        <Ban size={16} />
-                        Suspend
-                      </Button>
-                      {selectedRider.isOnline ? (
-                        <Button size="sm" variant="outline" onClick={() => updateRider(selectedRider.id, 'OFFLINE')}>
-                          Set Offline
+                      {selectedRider.status === 'ACTIVE' && (
+                        <Button size="sm" variant="outline" onClick={() => setActionDialog({ open: true, riderId: selectedRider.id, action: 'SUSPEND' })}>
+                          <ShieldOff size={16} />
+                          Suspend
                         </Button>
-                      ) : (
-                        <Button size="sm" onClick={() => updateRider(selectedRider.id, 'ONLINE')}>
-                          Set Online
+                      )}
+                      {selectedRider.status !== 'BANNED' && (
+                        <Button size="sm" variant="outline" onClick={() => setActionDialog({ open: true, riderId: selectedRider.id, action: 'BAN' })}>
+                          <Ban size={16} />
+                          Ban
+                        </Button>
+                      )}
+                      {(selectedRider.status === 'SUSPENDED' || selectedRider.status === 'BANNED') && (
+                        <Button size="sm" onClick={() => setActionDialog({ open: true, riderId: selectedRider.id, action: 'REACTIVATE' })}>
+                          <Shield size={16} />
+                          Reactivate
                         </Button>
                       )}
                     </div>
                   </div>
                 </div>
               ) : null}
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {actionDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-md">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle size={20} className="text-yellow-600" />
+                <h3 className="font-display text-xl font-bold text-warm-900">
+                  {actionDialog.action === 'SUSPEND' ? 'Suspend Rider' : actionDialog.action === 'BAN' ? 'Ban Rider' : actionDialog.action === 'REACTIVATE' ? 'Reactivate Rider' : actionDialog.action === 'APPROVE' ? 'Approve Rider' : 'Reject Rider'}
+                </h3>
+              </div>
+              <p className="text-sm text-warm-800/60 mb-4">
+                {actionDialog.action === 'SUSPEND' && 'This will suspend the rider account. The rider will not be able to accept new deliveries.'}
+                {actionDialog.action === 'BAN' && 'This will permanently ban the rider account. The rider will no longer be able to use the platform.'}
+                {actionDialog.action === 'REACTIVATE' && 'This will restore the rider account to active status.'}
+                {actionDialog.action === 'APPROVE' && 'This will approve the rider verification.'}
+                {actionDialog.action === 'REJECT' && 'This will reject the rider verification.'}
+              </p>
+              <div className="mb-4">
+                <label className="text-sm font-medium text-warm-900 mb-1.5 block">Reason (optional)</label>
+                <textarea
+                  value={actionReason}
+                  onChange={(e) => setActionReason(e.target.value)}
+                  placeholder="Enter a reason..."
+                  rows={3}
+                  className="w-full rounded-xl border border-warm-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => { setActionDialog(null); setActionReason('') }}>
+                  Cancel
+                </Button>
+                <Button onClick={executeAction} disabled={!!actionLoading} variant={actionDialog.action === 'BAN' || actionDialog.action === 'SUSPEND' ? 'outline' : 'primary'}>
+                  {actionLoading ? 'Processing...' : `Confirm ${actionDialog.action}`}
+                </Button>
+              </div>
             </Card>
           </div>
         </div>

@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { testR2Connection } from '../services/storage'
+import { sendEmail, buildBaseHtml } from '../services/email'
 import { z } from 'zod'
 
 const router = Router()
@@ -390,7 +391,7 @@ router.get('/products', authMiddleware, requireRole(['ADMIN']), async (req: Auth
         include: {
           seller: { select: { id: true, name: true, email: true } },
           shop: { select: { id: true, name: true } },
-          category: true,
+          category: { select: { id: true, name: true, emoji: true, color: true } },
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
         },
         orderBy: { createdAt: 'desc' },
@@ -420,7 +421,7 @@ router.patch('/products/:id', authMiddleware, requireRole(['ADMIN']), async (req
     const updated = await prisma.product.update({
       where: { id },
       data: { status },
-      include: { seller: { select: { id: true, name: true } }, shop: { select: { id: true, name: true } }, category: true },
+      include: { seller: { select: { id: true, name: true } }, shop: { select: { id: true, name: true } }, category: { select: { id: true, name: true, emoji: true, color: true } } },
     })
 
     return successResponse(res, updated, undefined, 'Product updated successfully')
@@ -448,7 +449,7 @@ router.get('/products/:id', authMiddleware, requireRole(['ADMIN']), async (req: 
       include: {
         seller: { select: { id: true, name: true, email: true } },
         shop: { select: { id: true, name: true, slug: true } },
-        category: true,
+        category: { select: { id: true, name: true, emoji: true, color: true } },
         images: { orderBy: { sortOrder: 'asc' } },
         variants: { orderBy: { sortOrder: 'asc' } },
       },
@@ -1149,7 +1150,7 @@ router.get('/bookings', authMiddleware, requireRole(['ADMIN']), async (req: Auth
       prisma.booking.findMany({
         where,
         include: {
-          service: { include: { category: true, images: true } },
+          service: { include: { category: { select: { id: true, name: true, emoji: true, color: true } }, images: true } },
           customer: { select: { id: true, name: true, email: true, avatar: true } },
           provider: { select: { id: true, name: true, email: true, avatar: true } },
           shop: { include: { owner: { select: { id: true, name: true, avatar: true } } } },
@@ -1331,6 +1332,433 @@ router.delete('/notifications/:id', authMiddleware, requireRole(['ADMIN']), asyn
     return successResponse(res, null, 200, 'Notification deleted successfully')
   } catch (error) {
     return errorResponse(res, 'Failed to delete notification', 500)
+  }
+})
+
+router.post('/riders/:id/suspend', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+    const { reason } = req.body
+
+    const rider = await prisma.rider.findUnique({ where: { id } })
+    if (!rider) return errorResponse(res, 'Rider not found', 404)
+
+    const updated = await prisma.rider.update({
+      where: { id },
+      data: { status: 'SUSPENDED' },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user!.id,
+        actorRole: 'ADMIN',
+        action: 'RIDER_SUSPEND',
+        targetType: 'RIDER',
+        targetId: rider.id,
+        reason: reason || null,
+      },
+    })
+
+    return successResponse(res, updated, undefined, 'Rider suspended successfully')
+  } catch (error) {
+    return errorResponse(res, 'Failed to suspend rider', 500)
+  }
+})
+
+router.post('/riders/:id/ban', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+    const { reason } = req.body
+
+    const rider = await prisma.rider.findUnique({ where: { id } })
+    if (!rider) return errorResponse(res, 'Rider not found', 404)
+
+    const updated = await prisma.rider.update({
+      where: { id },
+      data: { status: 'BANNED' },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user!.id,
+        actorRole: 'ADMIN',
+        action: 'RIDER_BAN',
+        targetType: 'RIDER',
+        targetId: rider.id,
+        reason: reason || null,
+      },
+    })
+
+    return successResponse(res, updated, undefined, 'Rider banned successfully')
+  } catch (error) {
+    return errorResponse(res, 'Failed to ban rider', 500)
+  }
+})
+
+router.post('/riders/:id/reactivate', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+
+    const rider = await prisma.rider.findUnique({ where: { id } })
+    if (!rider) return errorResponse(res, 'Rider not found', 404)
+
+    const updated = await prisma.rider.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user!.id,
+        actorRole: 'ADMIN',
+        action: 'RIDER_REACTIVATE',
+        targetType: 'RIDER',
+        targetId: rider.id,
+      },
+    })
+
+    return successResponse(res, updated, undefined, 'Rider reactivated successfully')
+  } catch (error) {
+    return errorResponse(res, 'Failed to reactivate rider', 500)
+  }
+})
+
+router.post('/riders/:id/approve', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+
+    const rider = await prisma.rider.findUnique({ where: { id } })
+    if (!rider) return errorResponse(res, 'Rider not found', 404)
+
+    const updated = await prisma.rider.update({
+      where: { id },
+      data: { isVerified: true },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user!.id,
+        actorRole: 'ADMIN',
+        action: 'RIDER_APPROVE_VERIFICATION',
+        targetType: 'RIDER',
+        targetId: rider.id,
+      },
+    })
+
+    return successResponse(res, updated, undefined, 'Rider verification approved successfully')
+  } catch (error) {
+    return errorResponse(res, 'Failed to approve rider verification', 500)
+  }
+})
+
+router.post('/riders/:id/reject', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+    const { reason } = req.body
+
+    const rider = await prisma.rider.findUnique({ where: { id } })
+    if (!rider) return errorResponse(res, 'Rider not found', 404)
+
+    const updated = await prisma.rider.update({
+      where: { id },
+      data: { isVerified: false },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user!.id,
+        actorRole: 'ADMIN',
+        action: 'RIDER_REJECT_VERIFICATION',
+        targetType: 'RIDER',
+        targetId: rider.id,
+        reason: reason || null,
+      },
+    })
+
+    return successResponse(res, updated, undefined, 'Rider verification rejected successfully')
+  } catch (error) {
+    return errorResponse(res, 'Failed to reject rider verification', 500)
+  }
+})
+
+router.patch('/users/:id/status', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params
+    const { isSeller, isRider, isAdmin, suspended, banned, reason } = req.body
+
+    const user = await prisma.user.findUnique({ where: { id } })
+    if (!user) return errorResponse(res, 'User not found', 404)
+
+    const updateData: any = {}
+    if (typeof isSeller === 'boolean') updateData.isSeller = isSeller
+    if (typeof isRider === 'boolean') updateData.isRider = isRider
+    if (typeof isAdmin === 'boolean') updateData.isAdmin = isAdmin
+    if (typeof suspended === 'boolean') updateData.suspended = suspended
+    if (typeof banned === 'boolean') updateData.banned = banned
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        avatar: true,
+        location: true,
+        isSeller: true,
+        isRider: true,
+        isAdmin: true,
+        suspended: true,
+        banned: true,
+        emailVerified: true,
+        phoneVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+
+    if (suspended === true) {
+      await prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: 'ADMIN',
+          action: 'USER_SUSPEND',
+          targetType: 'USER',
+          targetId: user.id,
+          reason: reason || null,
+        },
+      })
+    }
+
+    if (banned === true) {
+      await prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: 'ADMIN',
+          action: 'USER_BAN',
+          targetType: 'USER',
+          targetId: user.id,
+          reason: reason || null,
+        },
+      })
+    }
+
+    return successResponse(res, updated, undefined, 'User status updated successfully')
+  } catch (error) {
+    return errorResponse(res, 'Failed to update user status', 500)
+  }
+})
+
+const sendEmailSchema = z.object({
+  audiences: z.array(z.enum(['buyers', 'sellers', 'riders', 'selected'])),
+  subject: z.string().min(1),
+  html: z.string().min(1),
+  text: z.string().optional(),
+  selectedUserIds: z.array(z.string()).optional(),
+  testEmail: z.string().email().optional(),
+})
+
+router.post('/emails/send', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const parsed = sendEmailSchema.parse(req.body)
+    const { audiences, subject, html, text, selectedUserIds, testEmail } = parsed
+
+    if (testEmail) {
+      const result = await sendEmail({
+        to: testEmail,
+        subject,
+        html: html.replace('{{name}}', 'Test User'),
+        text: text ? text.replace('{{name}}', 'Test User') : undefined,
+      })
+      return successResponse(res, { ...result, message: 'Test email sent' })
+    }
+
+    const where: any = {}
+    if (audiences.includes('selected') && selectedUserIds && selectedUserIds.length > 0) {
+      where.id = { in: selectedUserIds }
+    } else {
+      const conditions: any[] = []
+      if (audiences.includes('buyers')) conditions.push({ isSeller: false, isRider: false, isAdmin: false })
+      if (audiences.includes('sellers')) conditions.push({ isSeller: true })
+      if (audiences.includes('riders')) conditions.push({ isRider: true })
+      if (conditions.length > 0) {
+        where.OR = conditions
+      }
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      select: { id: true, email: true, name: true },
+    })
+
+    const recipients = users.filter(u => u.email)
+    const totalRecipients = recipients.length
+
+    const campaign = await prisma.emailCampaign.create({
+      data: {
+        subject,
+        html,
+        text: text || null,
+        audiences: JSON.stringify(audiences),
+        recipientCount: totalRecipients,
+        sentBy: req.user!.id,
+        status: 'PENDING',
+      },
+    })
+
+    const batchSize = 50
+    const batches: typeof recipients[] = []
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      batches.push(recipients.slice(i, i + batchSize))
+    }
+
+    let successCount = 0
+    let failedCount = 0
+    const errors: string[] = []
+
+    const processBatch = async (batch: typeof recipients): Promise<{ success: number; failed: number; errors: string[] }> => {
+      let batchSuccess = 0
+      let batchFailed = 0
+      const batchErrors: string[] = []
+
+      await Promise.allSettled(
+        batch.map(async (user) => {
+          const result = await sendEmail({
+            to: user.email!,
+            subject,
+            html: html.replace('{{name}}', user.name || 'User'),
+            text: text ? text.replace('{{name}}', user.name || 'User') : undefined,
+          })
+
+          if (result.success) {
+            batchSuccess++
+          } else {
+            batchFailed++
+            batchErrors.push(user.email)
+          }
+        })
+      )
+
+      return { success: batchSuccess, failed: batchFailed, errors: batchErrors }
+    }
+
+    for (let i = 0; i < batches.length; i++) {
+      const result = await processBatch(batches[i])
+      successCount += result.success
+      failedCount += result.errors.length
+      errors.push(...result.errors)
+
+      if (i < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+    }
+
+    await prisma.emailCampaign.update({
+      where: { id: campaign.id },
+      data: {
+        status: 'SENT',
+        successCount,
+        failedCount,
+        sentAt: new Date(),
+        recipientCount: totalRecipients,
+      },
+    })
+
+    return successResponse(res, {
+      totalRecipients,
+      successCount,
+      failedCount,
+      errors,
+      campaignId: campaign.id,
+    })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return errorResponse(res, error.errors.map(e => e.message).join(', '), 400)
+    }
+    return errorResponse(res, 'Failed to send emails', 500)
+  }
+})
+
+router.get('/emails/history', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 20
+
+    const [campaigns, total] = await Promise.all([
+      prisma.emailCampaign.findMany({
+        include: {
+          sender: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.emailCampaign.count(),
+    ])
+
+    return successResponse(res, {
+      campaigns,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch email history', 500)
+  }
+})
+
+router.get('/emails/templates', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
+  try {
+    const templates = [
+      { id: 'general', name: 'General Announcement', subject: 'Important Update from PickAmGo', body: '<p>Dear {{name}},</p><p>We have an important announcement to share with you.</p>' },
+      { id: 'promotion', name: 'Promotion', subject: 'Exclusive Offers Just for You!', body: '<p>Dear {{name}},</p><p>Check out our latest promotions and offers.</p>' },
+      { id: 'important', name: 'Important Update', subject: 'Important Update Regarding Your Account', body: '<p>Dear {{name}},</p><p>Please review the following important update.</p>' },
+      { id: 'maintenance', name: 'Maintenance Notice', subject: 'Scheduled Maintenance Notice', body: '<p>Dear {{name}},</p><p>Our platform will be undergoing scheduled maintenance.</p>' },
+      { id: 'seller', name: 'Seller Announcement', subject: 'Updates for PickAmGo Sellers', body: '<p>Dear {{name}},</p><p>Here are the latest updates for sellers on PickAmGo.</p>' },
+      { id: 'rider', name: 'Rider Announcement', subject: 'Updates for PickAmGo Riders', body: '<p>Dear {{name}},</p><p>Here are the latest updates for riders on PickAmGo.</p>' },
+      { id: 'buyer', name: 'Buyer Announcement', subject: 'Updates for PickAmGo Buyers', body: '<p>Dear {{name}},</p><p>Here are the latest updates for buyers on PickAmGo.</p>' },
+    ]
+
+    return successResponse(res, templates)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch email templates', 500)
+  }
+})
+
+router.get('/conversations/:id/messages', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: req.params.id },
+      include: {
+        participant1: { select: { id: true, name: true, email: true, avatar: true, isSeller: true, isRider: true, isAdmin: true } },
+        participant2: { select: { id: true, name: true, email: true, avatar: true, isSeller: true, isRider: true, isAdmin: true } },
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            sender: {
+              select: { id: true, name: true, email: true, avatar: true },
+            },
+          },
+        },
+      },
+    })
+
+    if (!conversation) return errorResponse(res, 'Conversation not found', 404)
+
+    return successResponse(res, {
+      id: conversation.id,
+      participant1: conversation.participant1,
+      participant2: conversation.participant2,
+      shopId: conversation.shopId,
+      orderId: conversation.orderId,
+      messages: conversation.messages,
+    })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch conversation messages', 500)
   }
 })
 

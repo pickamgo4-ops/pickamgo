@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, Package, Eye, Loader2, XCircle, X, Trash2, CheckCircle, Ban, Mail, Phone } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Package, Eye, Loader2, XCircle, X, Trash2, CheckCircle2, Ban, Shield, ShieldOff, UserCheck, UserX, AlertTriangle, Mail, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -20,9 +20,26 @@ interface UserDetail {
   isRider: boolean
   isAdmin: boolean
   isVerified: boolean
+  suspended?: boolean
+  banned?: boolean
   createdAt: string
   addresses?: any[]
   orderCount?: number
+}
+
+interface AdminUser {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  role: string
+  isSeller: boolean
+  isRider: boolean
+  isAdmin: boolean
+  isVerified: boolean
+  suspended?: boolean
+  banned?: boolean
+  createdAt: string
 }
 
 function deriveRole(u: any): string {
@@ -43,6 +60,8 @@ function mapUser(u: any): AdminUser {
     isRider: !!u.isRider,
     isAdmin: !!u.isAdmin,
     isVerified: !!u.emailVerified || !!u.phoneVerified,
+    suspended: !!u.suspended,
+    banned: !!u.banned,
     createdAt: u.createdAt,
   }
 }
@@ -58,23 +77,30 @@ function mapUserDetail(u: any): UserDetail {
     isRider: !!u.isRider,
     isAdmin: !!u.isAdmin,
     isVerified: !!u.emailVerified || !!u.phoneVerified,
+    suspended: !!u.suspended,
+    banned: !!u.banned,
     createdAt: u.createdAt,
     addresses: u.addresses || [],
     orderCount: u._count?.customerOrders ?? u.orderCount ?? 0,
   }
 }
 
-interface AdminUser {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  role: string
-  isSeller: boolean
-  isRider: boolean
-  isAdmin: boolean
-  isVerified: boolean
-  createdAt: string
+function getRoleBadge(role: string) {
+  const config: Record<string, { variant: any; label: string }> = {
+    buyer: { variant: 'default', label: 'Buyer' },
+    seller: { variant: 'deal', label: 'Seller' },
+    rider: { variant: 'delivery', label: 'Rider' },
+    admin: { variant: 'verified', label: 'Admin' },
+  }
+  const c = config[role] || config.buyer
+  return <Badge variant={c.variant}>{c.label}</Badge>
+}
+
+function getStatusBadge(user: AdminUser) {
+  if (user.banned) return <Badge variant="deal">Banned</Badge>
+  if (user.suspended) return <Badge variant="default">Suspended</Badge>
+  if (user.isVerified) return <Badge variant="verified">Verified</Badge>
+  return <Badge variant="default">Unverified</Badge>
 }
 
 export default function AdminUsersPage() {
@@ -90,6 +116,9 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState('')
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null)
   const [userLoading, setUserLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [actionDialog, setActionDialog] = useState<{ open: boolean; userId: string; action: string } | null>(null)
+  const [actionReason, setActionReason] = useState('')
   const loadingRef = useRef(false)
 
   const loadUsers = useCallback(async (pageNum: number, search: string, role: string) => {
@@ -129,6 +158,14 @@ export default function AdminUsersPage() {
     loadUsers(page, searchQuery, roleFilter)
   }, [authInitialized, user, page, searchQuery, roleFilter, loadUsers, router])
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setPage(1)
+      loadUsers(1, searchQuery, roleFilter)
+    }, 400)
+    return () => clearTimeout(timeout)
+  }, [searchQuery, roleFilter, loadUsers])
+
   const loadUserDetail = async (userId: string) => {
     setUserLoading(true)
     try {
@@ -160,6 +197,39 @@ export default function AdminUsersPage() {
       if (selectedUser?.id === userId) {
         setSelectedUser(prev => prev ? { ...prev, [field]: !current } : null)
       }
+    }
+  }
+
+  const executeUserAction = async () => {
+    if (!actionDialog) return
+    setActionLoading(actionDialog.userId)
+    try {
+      const response = await api.patch(`/admin/users/${actionDialog.userId}/status`, {
+        suspended: actionDialog.action === 'SUSPEND',
+        banned: actionDialog.action === 'BAN',
+        reason: actionReason || undefined,
+      })
+      if (response.success) {
+        setUsers(prev => prev.map(u => {
+          if (u.id !== actionDialog.userId) return u
+          return { ...u, suspended: actionDialog.action === 'SUSPEND', banned: actionDialog.action === 'BAN' }
+        }))
+        if (selectedUser?.id === actionDialog.userId) {
+          setSelectedUser(prev => prev ? {
+            ...prev,
+            suspended: actionDialog.action === 'SUSPEND',
+            banned: actionDialog.action === 'BAN',
+          } : null)
+        }
+        setActionDialog(null)
+        setActionReason('')
+      } else {
+        setError(response.error || 'Action failed')
+      }
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -250,7 +320,7 @@ export default function AdminUsersPage() {
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Email</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">Phone</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Role</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">Verified</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">Status</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">Created</th>
                   </tr>
                 </thead>
@@ -265,13 +335,7 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 text-warm-800/70">{u.email}</td>
                       <td className="px-4 py-3 text-warm-800/70 hidden md:table-cell">{u.phone || '-'}</td>
                       <td className="px-4 py-3">{getRoleBadge(u.role)}</td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        {u.isVerified ? (
-                          <CheckCircle size={16} className="text-green-600" />
-                        ) : (
-                          <XCircle size={16} className="text-warm-800/30" />
-                        )}
-                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">{getStatusBadge(u)}</td>
                       <td className="px-4 py-3 text-warm-800/60 hidden lg:table-cell">
                         {new Date(u.createdAt).toLocaleDateString()}
                       </td>
@@ -340,7 +404,7 @@ export default function AdminUsersPage() {
 
                   <div className="flex flex-wrap gap-2">
                     {getRoleBadge(selectedUser.role)}
-                    {selectedUser.isVerified && <Badge variant="verified">Verified</Badge>}
+                    {getStatusBadge(selectedUser)}
                   </div>
 
                   <div className="space-y-2">
@@ -370,21 +434,83 @@ export default function AdminUsersPage() {
                     </div>
                   </div>
 
+                  {!selectedUser.banned && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-warm-800/50 uppercase">Account Moderation</p>
+                      <div className="flex flex-wrap gap-2">
+                        {!selectedUser.suspended && (
+                          <Button size="sm" variant="outline" onClick={() => setActionDialog({ open: true, userId: selectedUser.id, action: 'SUSPEND' })}>
+                            <ShieldOff size={16} />
+                            Suspend
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => setActionDialog({ open: true, userId: selectedUser.id, action: 'BAN' })}>
+                          <Ban size={16} />
+                          Ban
+                        </Button>
+                        {selectedUser.suspended && (
+                          <Button size="sm" onClick={() => setActionDialog({ open: true, userId: selectedUser.id, action: 'REACTIVATE' })}>
+                            <Shield size={16} />
+                            Reactivate
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedUser.addresses && selectedUser.addresses.length > 0 && (
                     <div>
                       <p className="text-xs font-medium text-warm-800/50 uppercase mb-2">Addresses</p>
                       <div className="space-y-2">
                          {selectedUser.addresses.map((addr: any) => (
-                           <div key={addr.id} className="p-3 bg-warm-50 rounded-xl text-sm">
-                             <p className="font-medium text-warm-900">{addr.label}</p>
-                             <p className="text-warm-800/70">{addr.address}{addr.city ? `, ${addr.city}` : ''}</p>
-                           </div>
-                         ))}
+                            <div key={addr.id} className="p-3 bg-warm-50 rounded-xl text-sm">
+                              <p className="font-medium text-warm-900">{addr.label}</p>
+                              <p className="text-warm-800/70">{addr.address}{addr.city ? `, ${addr.city}` : ''}</p>
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}
                 </div>
               ) : null}
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {actionDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-md">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle size={20} className="text-yellow-600" />
+                <h3 className="font-display text-xl font-bold text-warm-900">
+                  {actionDialog.action === 'SUSPEND' ? 'Suspend User' : actionDialog.action === 'BAN' ? 'Ban User' : 'Reactivate User'}
+                </h3>
+              </div>
+              <p className="text-sm text-warm-800/60 mb-4">
+                {actionDialog.action === 'SUSPEND' && 'This will suspend the user account. The user will not be able to access the platform.'}
+                {actionDialog.action === 'BAN' && 'This will permanently ban the user account. The user will no longer be able to use the platform.'}
+                {actionDialog.action === 'REACTIVATE' && 'This will restore the user account to active status.'}
+              </p>
+              <div className="mb-4">
+                <label className="text-sm font-medium text-warm-900 mb-1.5 block">Reason (optional)</label>
+                <textarea
+                  value={actionReason}
+                  onChange={(e) => setActionReason(e.target.value)}
+                  placeholder="Enter a reason..."
+                  rows={3}
+                  className="w-full rounded-xl border border-warm-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => { setActionDialog(null); setActionReason('') }}>
+                  Cancel
+                </Button>
+                <Button onClick={executeUserAction} disabled={!!actionLoading}>
+                  {actionLoading ? 'Processing...' : `Confirm ${actionDialog.action}`}
+                </Button>
+              </div>
             </Card>
           </div>
         </div>

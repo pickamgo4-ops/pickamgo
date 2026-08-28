@@ -18,6 +18,8 @@ model User {
   isSeller      Boolean  @default(false)
   isRider       Boolean  @default(false)
   isAdmin       Boolean  @default(false)
+  suspended     Boolean  @default(false)
+  banned        Boolean  @default(false)
   emailVerified Boolean  @default(false)
   phoneVerified Boolean  @default(false)
   createdAt     DateTime @default(now())
@@ -55,6 +57,8 @@ model User {
   riderEarnings          RiderEarnings[]
   ledgerEntries          FinancialLedger[]
   passwordResetTokens    PasswordResetToken[]
+  auditLogs              AuditLog[]
+  emailCampaigns         EmailCampaign[]
 }
 
 model Role {
@@ -599,6 +603,7 @@ model ShopFollow {
 model Rider {
   id              String   @id @default(cuid())
   userId          String   @unique
+  status          String   @default("ACTIVE")
   isOnline        Boolean  @default(false)
   isAvailable     Boolean  @default(false)
   rating          Float    @default(0)
@@ -939,5 +944,44 @@ model EmailLog {
   @@index([relatedId])
   @@index([status])
   @@index([type])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actorRole  String
+  action     String
+  targetType String
+  targetId   String
+  reason     String?
+  metadata   String?
+  createdAt  DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model EmailCampaign {
+  id              String   @id @default(cuid())
+  subject         String
+  html            String
+  text            String?
+  audiences       String
+  recipientCount  Int      @default(0)
+  successCount    Int      @default(0)
+  failedCount     Int      @default(0)
+  status          String   @default("PENDING")
+  sentBy          String
+  sentAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  sender User @relation(fields: [sentBy], references: [id], onDelete: Cascade)
+
+  @@index([sentBy])
+  @@index([status])
   @@index([createdAt])
 }

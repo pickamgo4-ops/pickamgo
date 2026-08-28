@@ -43,7 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex min-h-screen bg-background overflow-hidden">
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 min-w-0 overflow-y-auto">
+      <div className="flex-1 min-w-0 md:ml-64 overflow-y-auto">
         <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-warm-200 md:hidden">
           <div className="flex items-center gap-3 px-4 h-14">
             <button

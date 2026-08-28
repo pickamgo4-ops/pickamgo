@@ -159,7 +159,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
             },
           },
           shop: true,
-          category: true,
+          category: { select: { id: true, name: true, emoji: true, color: true } },
           images: {
             orderBy: { sortOrder: 'asc' },
           },
@@ -206,8 +206,8 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
           },
         },
         shop: true,
-        category: true,
-        images: {
+          category: { select: { id: true, name: true, emoji: true, color: true } },
+          images: {
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -314,7 +314,7 @@ router.post(
             },
           },
           shop: true,
-          category: true,
+          category: { select: { id: true, name: true, emoji: true, color: true } },
           images: {
             orderBy: { sortOrder: 'asc' },
           },
@@ -383,7 +383,7 @@ router.patch(
             },
           },
           shop: true,
-          category: true,
+          category: { select: { id: true, name: true, emoji: true, color: true } },
           images: {
             orderBy: { sortOrder: 'asc' },
           },

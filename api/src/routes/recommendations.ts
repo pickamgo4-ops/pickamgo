@@ -17,7 +17,7 @@ const includeRelations = {
     },
   },
   shop: true,
-  category: true,
+  category: { select: { id: true, name: true, emoji: true, color: true } },
   images: {
     orderBy: { sortOrder: 'asc' as const },
   },
@@ -30,7 +30,7 @@ router.get('/:productId/recommendations', async (req: AuthenticatedRequest, res)
     const currentProduct = await prisma.product.findUnique({
       where: { id: productId },
       include: {
-        category: true,
+        category: { select: { id: true, name: true, emoji: true, color: true } },
         shop: true,
       },
     })

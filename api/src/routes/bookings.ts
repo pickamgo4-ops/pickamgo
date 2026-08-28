@@ -26,7 +26,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
     prisma.booking.findMany({
       where,
       include: {
-        service: { include: { category: true, images: true } },
+        service: { include: {           category: { select: { id: true, name: true, emoji: true, color: true } }, images: true } },
         customer: { select: { id: true, name: true, avatar: true } },
         provider: { select: { id: true, name: true, avatar: true } },
         shop: { include: { owner: { select: { id: true, name: true, avatar: true } } } },
@@ -48,7 +48,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
   const booking = await prisma.booking.findUnique({
     where: { id: req.params.id },
     include: {
-      service: { include: { category: true, images: true } },
+      service: { include: {           category: { select: { id: true, name: true, emoji: true, color: true } }, images: true } },
       customer: { select: { id: true, name: true, avatar: true } },
       provider: { select: { id: true, name: true, avatar: true } },
       shop: true,
@@ -133,7 +133,7 @@ router.post('/', authMiddleware, validateBody(createBookingSchema), async (req: 
         status: 'PENDING',
       },
       include: {
-        service: { include: { category: true } },
+        service: { include: { category: { select: { id: true, name: true, emoji: true, color: true } } } },
         customer: { select: { id: true, name: true, email: true, avatar: true } },
         provider: { select: { id: true, name: true, avatar: true } },
         shop: true,
@@ -197,7 +197,7 @@ router.patch('/:id/status', authMiddleware, validateBody(bookingStatusSchema), a
     where: { id: req.params.id },
     data: { status, updatedAt: new Date() },
       include: {
-        service: { include: { category: true } },
+        service: { include: { category: { select: { id: true, name: true, emoji: true, color: true } } } },
         customer: { select: { id: true, name: true, email: true, avatar: true } },
         provider: { select: { id: true, name: true, email: true, avatar: true } },
         shop: true,

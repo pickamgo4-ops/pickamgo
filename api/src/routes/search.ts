@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
           include: {
             seller: { select: { id: true, name: true, avatar: true } },
             shop: { select: { id: true, name: true, slug: true, location: true, latitude: true, longitude: true } },
-            category: true,
+            category: { select: { id: true, name: true, emoji: true, color: true } },
             images: { take: 1 },
           },
           orderBy: { createdAt: 'desc' },
@@ -97,7 +97,7 @@ router.get('/', async (req, res) => {
           include: {
             provider: { select: { id: true, name: true, avatar: true } },
             shop: { select: { id: true, name: true, location: true, latitude: true, longitude: true } },
-            category: true,
+            category: { select: { id: true, name: true, emoji: true, color: true } },
             images: { take: 1 },
           },
           orderBy: { createdAt: 'desc' },

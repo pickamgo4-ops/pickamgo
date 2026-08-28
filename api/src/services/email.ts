@@ -22,7 +22,7 @@ type SendEmailResult = {
   messageId?: string
 }
 
-async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
+export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   if (!RESEND_API_KEY || !resend) {
     return { success: false, error: 'RESEND_API_KEY is not configured' }
   }

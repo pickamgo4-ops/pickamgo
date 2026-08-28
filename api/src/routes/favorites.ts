@@ -31,7 +31,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
           where: { id: fav.targetId },
           include: {
             seller: { select: { id: true, name: true, avatar: true } },
-            category: true,
+            category: { select: { id: true, name: true, emoji: true, color: true } },
             images: { take: 1 },
           },
         })
@@ -41,7 +41,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
           where: { id: fav.targetId },
           include: {
             provider: { select: { id: true, name: true, avatar: true } },
-            category: true,
+            category: { select: { id: true, name: true, emoji: true, color: true } },
             images: { take: 1 },
           },
         })

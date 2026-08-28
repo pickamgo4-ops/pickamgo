@@ -15,7 +15,7 @@ router.get('/categories', authMiddleware, requireRole(['SELLER']), async (req: A
 })
 
 router.get('/products/:id', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
-  const product = await prisma.product.findFirst({ where: { id: req.params.id, sellerId: req.user!.id }, include: { category: true, shopCategory: true, images: { orderBy: { sortOrder: 'asc' } }, variants: { orderBy: { sortOrder: 'asc' } } } })
+    const product = await prisma.product.findFirst({ where: { id: req.params.id, sellerId: req.user!.id }, include: { category: { select: { id: true, name: true, emoji: true, color: true } }, shopCategory: true, images: { orderBy: { sortOrder: 'asc' } }, variants: { orderBy: { sortOrder: 'asc' } } } })
   if (!product) return errorResponse(res, 'Product not found', 404)
   return successResponse(res, product)
 })
@@ -31,7 +31,7 @@ router.get('/products', authMiddleware, requireRole(['SELLER']), async (req: Aut
     if (search) where.OR = [{ name: { contains: search } }, { description: { contains: search } }]
     if (categoryId) where.shopCategoryId = categoryId
     const sort: any = req.query.sort === 'price' ? { price: 'asc' } : req.query.sort === 'name' ? { name: 'asc' } : req.query.sort === 'stock' ? { stock: 'asc' } : { createdAt: 'desc' }
-    const products = await prisma.product.findMany({ where, orderBy: sort, include: { category: true, shopCategory: true, images: { orderBy: { sortOrder: 'asc' } }, variants: { orderBy: { sortOrder: 'asc' } } } })
+    const products = await prisma.product.findMany({ where, orderBy: sort, include: { category: { select: { id: true, name: true, emoji: true, color: true } }, shopCategory: true, images: { orderBy: { sortOrder: 'asc' } }, variants: { orderBy: { sortOrder: 'asc' } } } })
     return successResponse(res, { products })
   } catch { return errorResponse(res, 'Failed to fetch seller products', 500) }
 })
@@ -209,7 +209,7 @@ router.get('/bookings', authMiddleware, requireRole(['SELLER']), async (req: Aut
       prisma.booking.findMany({
         where,
         include: {
-          service: { include: { category: true, images: true } },
+          service: { include: { category: { select: { id: true, name: true, emoji: true, color: true } }, images: true } },
           customer: { select: { id: true, name: true, avatar: true } },
           provider: { select: { id: true, name: true, avatar: true } },
           shop: true,
@@ -255,7 +255,7 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
       take: 5,
       include: {
         images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-        category: true,
+        category: { select: { id: true, name: true, emoji: true, color: true } },
       },
     })
 
@@ -327,7 +327,7 @@ router.get('/inventory', authMiddleware, requireRole(['SELLER']), async (req: Au
       prisma.product.findMany({
         where: { shopId: shop.id, status: { not: 'DELETED' } },
         include: {
-          category: true,
+          category: { select: { id: true, name: true, emoji: true, color: true } },
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
         },
         orderBy: { stock: 'asc' },

@@ -26,6 +26,7 @@ import {
   Shield,
   ChevronDown,
   ChevronRight,
+  Mail,
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
@@ -47,6 +48,7 @@ const navItems = [
   { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { href: '/admin/notifications', label: 'Notifications', icon: Bell },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
+  { href: '/admin/emails', label: 'Emails', icon: Mail },
 ]
 
 export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -82,7 +84,7 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-warm-200 transform transition-transform duration-300 ease-in-out
-          md:sticky md:top-0 md:h-screen md:translate-x-0 md:z-auto md:block
+          md:fixed md:top-0 md:h-screen md:translate-x-0 md:z-auto md:block
           ${open ? 'translate-x-0' : '-translate-x-full'}
           dark:bg-warm-900 dark:border-warm-200
         `}
