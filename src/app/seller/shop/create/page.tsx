@@ -44,16 +44,16 @@ export default function CreateShopPage() {
       try {
         const body = new FormData()
         body.append('image', file)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/upload/image`, {
+        const response = await fetch('/api/upload/image', {
           method: 'POST',
           headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
           body,
         })
-        const data = await response.json()
-        if (data.success) {
+        const data = await response.json().catch(() => null)
+        if (response.ok && data?.success) {
           updateField(field, data.data.url)
         } else {
-          setError(data.error || 'Image upload failed')
+          setError(data?.error || `Image upload failed (${response.status || 'request'}). Please try again.`)
         }
       } catch {
         setError('Upload failed. Please try again.')

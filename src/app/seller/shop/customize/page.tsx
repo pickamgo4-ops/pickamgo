@@ -59,11 +59,12 @@ export default function SellerCustomizeShopPage() {
       try {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 60000)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/upload/image`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }, body: form, signal: controller.signal })
+        const response = await fetch('/api/upload/image', { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }, body: form, signal: controller.signal })
         clearTimeout(timeout)
         const contentType = response.headers.get('content-type') || ''
-        if (!contentType.includes('application/json')) { setStatus('Upload failed. Please try again.'); return }
-        const data = await response.json(); if (data.success) update({ [field]: data.data.url }); else setStatus(data.error || 'Upload failed')
+        if (!contentType.includes('application/json')) { setStatus(`Upload failed (${response.status || 'request'}). Please try again.`); return }
+        const data = await response.json().catch(() => null)
+        if (response.ok && data?.success) update({ [field]: data.data.url }); else setStatus(data?.error || `Upload failed (${response.status || 'request'}). Please try again.`)
       } catch (err) {
         console.error('Upload fetch error:', err)
         setStatus(err instanceof Error && err.name === 'AbortError' ? 'Upload timed out. Please try again.' : 'Upload failed. Please try again.')

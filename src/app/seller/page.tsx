@@ -1,28 +1,48 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Store, Package, ShoppingBag, Tag, Archive, Star, MessageSquare, Bell, Settings, HelpCircle, FileText, MapPin, CheckCircle, Plus, ArrowRight, TrendingUp, Users, Eye, Flag } from 'lucide-react'
-import { SellerSidebar } from '@/components/SellerSidebar'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { Card } from '@/components/ui/Card'
-import { api } from '@/lib/api'
-import { useRole } from '@/contexts/RoleContext'
-import { SellerVerification, Order } from '@/types'
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Store,
+  Package,
+  ShoppingBag,
+  Tag,
+  Archive,
+  Star,
+  MessageSquare,
+  Bell,
+  Settings,
+  HelpCircle,
+  FileText,
+  MapPin,
+  CheckCircle,
+  Plus,
+  ArrowRight,
+  TrendingUp,
+  Users,
+  Eye,
+  Flag,
+} from "lucide-react";
+import { SellerSidebar } from "@/components/SellerSidebar";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { api } from "@/lib/api";
+import { useRole } from "@/contexts/RoleContext";
+import { SellerVerification, Order } from "@/types";
 
 interface CheckItem {
-  key: string
-  label: string
-  done: boolean
-  href: string
-  status?: string
+  key: string;
+  label: string;
+  done: boolean;
+  href: string;
+  status?: string;
 }
 
 export default function SellerDashboard() {
-  const router = useRouter()
-  const { user } = useRole()
-  const [loading, setLoading] = useState(true)
+  const router = useRouter();
+  const { user } = useRole();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     sales: 0,
     orders: 0,
@@ -30,30 +50,30 @@ export default function SellerDashboard() {
     products: 0,
     followers: 0,
     reviews: 0,
-  })
-  const [recentOrders, setRecentOrders] = useState<any[]>([])
-  const [recentProducts, setRecentProducts] = useState<any[]>([])
-  const [checks, setChecks] = useState<CheckItem[]>([])
-  const [progress, setProgress] = useState({ completed: 0, total: 7 })
-  const [verification, setVerification] = useState<SellerVerification | null>(null)
+  });
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [recentProducts, setRecentProducts] = useState<any[]>([]);
+  const [checks, setChecks] = useState<CheckItem[]>([]);
+  const [progress, setProgress] = useState({ completed: 0, total: 7 });
+  const [verification, setVerification] = useState<SellerVerification | null>(null);
 
   useEffect(() => {
-    loadDashboardData()
-  }, [])
+    loadDashboardData();
+  }, []);
 
   const loadDashboardData = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       const [onboardingRes, ordersRes, productsRes, verificationRes] = await Promise.all([
-        api.get<any>('/seller/onboarding'),
-        api.get<{ orders: Order[] }>('/seller/orders?limit=5'),
-        api.get<{ products: any[] }>('/products?limit=5'),
-        api.get<SellerVerification>('/seller/verification/status'),
-      ])
+        api.get<any>("/seller/onboarding"),
+        api.get<{ orders: Order[] }>("/seller/orders?limit=5"),
+        api.get<{ products: any[] }>("/products?limit=5"),
+        api.get<SellerVerification>("/seller/verification/status"),
+      ]);
 
       if (onboardingRes.success && onboardingRes.data) {
-        setChecks(onboardingRes.data.checks || [])
-        setProgress(onboardingRes.data.progress || { completed: 0, total: 7 })
+        setChecks(onboardingRes.data.checks || []);
+        setProgress(onboardingRes.data.progress || { completed: 0, total: 7 });
       }
 
       if (ordersRes.success && ordersRes.data) {
@@ -64,57 +84,76 @@ export default function SellerDashboard() {
           status: o.status,
           createdAt: o.createdAt,
           items: o.items || [],
-          deliveryAddress: o.deliveryAddress || '',
-        }))
-        setRecentOrders(orders)
-        setStats(prev => ({
+          deliveryAddress: o.deliveryAddress || "",
+        }));
+        setRecentOrders(orders);
+        setStats((prev) => ({
           ...prev,
           orders: (ordersRes.data as any).pagination?.total || orders.length,
-          pendingOrders: orders.filter((o: any) => ['PENDING_PAYMENT', 'PAID', 'CONFIRMED', 'PREPARING'].includes(o.status)).length,
+          pendingOrders: orders.filter((o: any) =>
+            ["PENDING_PAYMENT", "PAID", "CONFIRMED", "PREPARING"].includes(o.status),
+          ).length,
           sales: orders.reduce((sum: number, o: any) => sum + (o.total || 0), 0),
-        }))
+        }));
       }
 
       if (productsRes.success && productsRes.data) {
-        const prods = productsRes.data.products || []
-        setRecentProducts(prods.slice(0, 5))
-        setStats(prev => ({ ...prev, products: (productsRes.data as any).pagination?.total || prods.length }))
+        const prods = productsRes.data.products || [];
+        setRecentProducts(prods.slice(0, 5));
+        setStats((prev) => ({
+          ...prev,
+          products: (productsRes.data as any).pagination?.total || prods.length,
+        }));
       }
 
       if (verificationRes.success && verificationRes.data) {
-        setVerification((verificationRes.data as any).status !== 'NOT_SUBMITTED' ? verificationRes.data : null)
+        setVerification(
+          (verificationRes.data as any).status !== "NOT_SUBMITTED" ? verificationRes.data : null,
+        );
       }
     } catch (err) {
-      console.error('Failed to load dashboard:', err)
+      console.error("Failed to load dashboard:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const statusConfig: Record<string, { label: string; color: string }> = {
-    PENDING_PAYMENT: { label: 'Pending Payment', color: 'bg-yellow-100 text-yellow-700' },
-    PAID: { label: 'Paid', color: 'bg-blue-100 text-blue-700' },
-    CONFIRMED: { label: 'Confirmed', color: 'bg-purple-100 text-purple-700' },
-    PREPARING: { label: 'Preparing', color: 'bg-orange-100 text-orange-700' },
-    READY_FOR_PICKUP: { label: 'Ready', color: 'bg-teal-100 text-teal-700' },
-    OUT_FOR_DELIVERY: { label: 'Out for Delivery', color: 'bg-indigo-100 text-indigo-700' },
-    DELIVERED: { label: 'Delivered', color: 'bg-green-100 text-green-700' },
-    CANCELLED: { label: 'Cancelled', color: 'bg-red-100 text-red-700' },
-    FAILED: { label: 'Failed', color: 'bg-red-100 text-red-700' },
-  }
+    PENDING_PAYMENT: { label: "Pending Payment", color: "bg-yellow-100 text-yellow-700" },
+    PAID: { label: "Paid", color: "bg-blue-100 text-blue-700" },
+    CONFIRMED: { label: "Confirmed", color: "bg-purple-100 text-purple-700" },
+    PREPARING: { label: "Preparing", color: "bg-orange-100 text-orange-700" },
+    READY_FOR_PICKUP: { label: "Ready", color: "bg-teal-100 text-teal-700" },
+    OUT_FOR_DELIVERY: { label: "Out for Delivery", color: "bg-indigo-100 text-indigo-700" },
+    DELIVERED: { label: "Delivered", color: "bg-green-100 text-green-700" },
+    CANCELLED: { label: "Cancelled", color: "bg-red-100 text-red-700" },
+    FAILED: { label: "Failed", color: "bg-red-100 text-red-700" },
+  };
 
   const getCheckStatusBadge = (check: CheckItem) => {
     if (check.done) {
-      return <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">Completed</span>
+      return (
+        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+          Completed
+        </span>
+      );
     }
-    if (check.status === 'PENDING') {
-      return <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">Pending</span>
+    if (check.status === "PENDING") {
+      return (
+        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">
+          Pending
+        </span>
+      );
     }
-    if (check.status === 'REJECTED') {
-      return <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-red-700">Needs attention</span>
+    if (check.status === "REJECTED") {
+      return (
+        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-red-700">
+          Needs attention
+        </span>
+      );
     }
-    return null
-  }
+    return null;
+  };
 
   if (loading) {
     return (
@@ -126,7 +165,7 @@ export default function SellerDashboard() {
           </div>
         </div>
       </SellerSidebar>
-    )
+    );
   }
 
   return (
@@ -214,12 +253,14 @@ export default function SellerDashboard() {
                 className="flex items-center justify-between p-3 rounded-xl bg-warm-50"
               >
                 <div className="flex items-center gap-3">
-                    {item.done ? (
-                      <CheckCircle size={20} className="text-green-500 flex-shrink-0" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full border-2 border-warm-800/20 flex-shrink-0" />
-                    )}
-                  <span className={`text-sm ${item.done ? 'text-warm-800/50 line-through' : 'text-warm-900 font-medium'}`}>
+                  {item.done ? (
+                    <CheckCircle size={20} className="text-green-500 flex-shrink-0" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full border-2 border-warm-800/20 flex-shrink-0" />
+                  )}
+                  <span
+                    className={`text-sm ${item.done ? "text-warm-800/50 line-through" : "text-warm-900 font-medium"}`}
+                  >
                     {item.label}
                   </span>
                 </div>
@@ -243,12 +284,18 @@ export default function SellerDashboard() {
             <div className="flex items-center gap-2">
               <Badge
                 variant={
-                  (verification as any).status === 'APPROVED' ? 'verified' :
-                  (verification as any).status === 'REJECTED' ? 'deal' : 'default'
+                  (verification as any).status === "APPROVED"
+                    ? "verified"
+                    : (verification as any).status === "REJECTED"
+                      ? "deal"
+                      : "default"
                 }
               >
-                {(verification as any).status === 'APPROVED' ? 'Verified' :
-                 (verification as any).status === 'REJECTED' ? 'Rejected' : 'Pending Review'}
+                {(verification as any).status === "APPROVED"
+                  ? "Verified"
+                  : (verification as any).status === "REJECTED"
+                    ? "Rejected"
+                    : "Pending Review"}
               </Badge>
             </div>
             {verification.rejectionReason && (
@@ -256,71 +303,7 @@ export default function SellerDashboard() {
             )}
           </Card>
         )}
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Button variant="outline" fullWidth onClick={() => router.push('/seller/products/new')} icon={<Plus size={18} />}>
-            Add Product
-          </Button>
-          <Button variant="outline" fullWidth onClick={() => router.push('/seller/categories/new')} icon={<Tag size={18} />}>
-            Create Category
-          </Button>
-          <Button variant="outline" fullWidth onClick={() => router.push('/seller/orders')} icon={<ShoppingBag size={18} />}>
-            View Orders
-          </Button>
-          <Button variant="outline" fullWidth onClick={() => router.push('/seller/shop')} icon={<Store size={18} />}>
-            View Shop
-          </Button>
-          <Button variant="outline" fullWidth onClick={() => router.push('/report')} icon={<Flag size={18} />}>
-            Report
-          </Button>
-        </div>
-
-        {/* Recent Orders */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-warm-900">Recent Orders</h3>
-            <button onClick={() => router.push('/seller/orders')} className="text-sm text-primary font-medium">
-              View All
-            </button>
-          </div>
-          {recentOrders.length === 0 ? (
-            <div className="text-center py-8">
-              <ShoppingBag size={32} className="mx-auto text-warm-800/30 mb-2" />
-              <p className="text-sm text-warm-800/60">No orders yet</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recentOrders.map((order) => {
-                const status = statusConfig[order.status] || statusConfig.PENDING_PAYMENT
-                return (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between p-3 bg-warm-50 rounded-xl"
-                  >
-                    <div>
-                      <p className="font-medium text-sm text-warm-900">
-                        #{order.orderNumber}
-                      </p>
-                      <p className="text-xs text-warm-800/60">
-                        {new Date(order.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.color}`}>
-                        {status.label}
-                      </span>
-                      <p className="text-sm font-bold text-warm-900 mt-1">
-                        GH₵{order.total.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </Card>
       </div>
     </SellerSidebar>
-  )
+  );
 }
