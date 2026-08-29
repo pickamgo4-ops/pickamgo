@@ -8,7 +8,7 @@ import { handleWebhook, initializeTransaction, verifyTransaction } from '../serv
 import { sendOrderConfirmationEmail, sendPaymentConfirmationEmail, sendSellerOrderNotification } from '../services/email'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 import { generateOrderNumber } from '../utils/orderNumber'
-import { validatePromoCode, createPromoRedemption, incrementPromoUsage, type PromoValidationResult } from '../services/promo'
+import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, doesPromoApplyToGroup, type PromoValidationResult } from '../services/promo'
 
 const router = Router()
 
@@ -263,10 +263,10 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
 
   let promoValidation: PromoValidationResult | null = null
   if (promoCode) {
-    const firstGroup = shopGroups.values().next().value!
     const allProductIds = Array.from(new Set(Array.from(shopGroups.values()).flatMap(g => g.productIds)))
     const allCategoryIds = Array.from(new Set(Array.from(shopGroups.values()).flatMap(g => g.categoryIds)))
-    const shopCampus = firstGroup.campus
+    const allCampuses = Array.from(new Set(Array.from(shopGroups.values()).map(g => g.campus).filter(Boolean) as string[]))
+    const allShopIds = Array.from(new Set(Array.from(shopGroups.values()).map(g => g.shopId).filter(Boolean) as string[]))
 
     promoValidation = await validatePromoCode({
       code: promoCode,
@@ -274,10 +274,10 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       customerType: getCustomerType(req.user!.id),
       subtotal: Array.from(shopGroups.values()).reduce((sum, g) => sum + g.items.reduce((s, i) => s + i.price * i.quantity, 0), 0),
       deliveryFee: Array.from(shopGroups.values()).reduce((sum, g) => sum + g.deliveryFee, 0),
-      shopId: firstGroup.shopId,
-      productIds: allProductIds as string[],
-      categoryIds: allCategoryIds as string[],
-      campus: shopCampus || undefined,
+      shopId: allShopIds[0] || undefined,
+      productIds: allProductIds,
+      categoryIds: allCategoryIds,
+      campus: allCampuses[0] || undefined,
     })
 
     if (!promoValidation.valid) {
@@ -295,7 +295,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       let orderPromoDiscount = 0
       let orderDiscountedSubtotal = itemsSubtotal
 
-      if (promoValidation && promoValidation.valid && promoValidation.promo) {
+      if (promoValidation && promoValidation.valid && promoValidation.promo && doesPromoApplyToGroup(promoValidation.promo, group)) {
         const calc = calculateDiscount({
           discountType: promoValidation.promo.discountType,
           discountValue: Number(promoValidation.promo.discountValue),

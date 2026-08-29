@@ -181,6 +181,26 @@ function CheckoutContent() {
     setShopSettings(settings)
   }
 
+  const getShopDeliveryFee = (shopId?: string): number => {
+    if (deliveryType !== 'delivery') return 0
+    const settings = shopId ? shopSettings[shopId] : undefined
+    return Number(settings?.platformDeliveryFee || settings?.sellerDeliveryFee || 0)
+  }
+
+  const getCartShopGroups = () => {
+    if (!cart) return []
+    const groups: Record<string, { shopId: string; shopName: string; items: any[]; deliveryFee: number }> = {}
+    for (const item of cart.items) {
+      const shopId = item.shopId || item.product?.shop?.id || 'unknown'
+      const shopName = item.product?.shop?.name || 'Unknown Shop'
+      if (!groups[shopId]) {
+        groups[shopId] = { shopId, shopName, items: [], deliveryFee: getShopDeliveryFee(shopId) }
+      }
+      groups[shopId].items.push(item)
+    }
+    return Object.values(groups)
+  }
+
   const handleAddAddress = async () => {
     try {
       const response = await api.post<Address>('/addresses', {
@@ -342,16 +362,19 @@ function CheckoutContent() {
     setPromoLoading(true)
     setPromoError('')
     try {
-      const shopId = cartShopIds[0]
       const allProductIds = cart?.items.filter(i => i.productId).map(i => i.productId!).filter(Boolean) || []
+      const allCategoryIds = cart?.items.filter(i => i.product?.category).map(i => i.product!.category!).filter(Boolean) as string[] || []
+      const allCampuses = Array.from(new Set(cart?.items.filter(i => i.product?.shop?.campus).map(i => i.product!.shop!.campus!).filter(Boolean) || []))
+      const allShopIds = Array.from(new Set((cart?.items || []).map(item => item.shopId || item.product?.shop?.id).filter(Boolean)))
+
       const res = await api.validatePromoCode(
         promoCode.trim(),
         subtotal,
         deliveryFee,
-        shopId,
+        allShopIds[0],
         allProductIds.length > 0 ? allProductIds : undefined,
-        undefined,
-        cart?.items[0]?.product?.shop?.campus as string | undefined
+        allCategoryIds.length > 0 ? allCategoryIds : undefined,
+        allCampuses[0]
       )
       if (res.success && res.data?.valid) {
         setPromoApplied({
@@ -559,8 +582,10 @@ function CheckoutContent() {
   }
 
   const subtotal = cart?.items.reduce((sum, item) => sum + (item.variant?.price || item.price) * item.quantity, 0) || 0
-  const baseDeliveryFee = deliveryType === 'delivery' ? (subtotal > 100 ? 0 : 15) : 0
-  const deliveryFee = promoApplied ? baseDeliveryFee - promoApplied.deliveryDiscount : baseDeliveryFee
+  const shopGroups = getCartShopGroups()
+  const totalDeliveryFee = shopGroups.reduce((sum, g) => sum + g.deliveryFee, 0)
+  const baseDeliveryFee = deliveryType === 'delivery' ? totalDeliveryFee : 0
+  const deliveryFee = promoApplied ? Math.max(0, baseDeliveryFee - promoApplied.deliveryDiscount) : baseDeliveryFee
   const discountedSubtotal = promoApplied ? promoApplied.discountedSubtotal : subtotal
   const total = discountedSubtotal + deliveryFee
   const selectedAddress = addresses.find(a => a.id === selectedAddressId)
@@ -738,7 +763,37 @@ function CheckoutContent() {
 
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
               <h3 className="font-semibold text-warm-900 mb-4">Order Summary</h3>
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {shopGroups.map((group) => {
+                  const groupSubtotal = group.items.reduce((sum, item) => sum + (item.variant?.price || item.price) * item.quantity, 0)
+                  return (
+                    <div key={group.shopId} className="pb-3 border-b border-warm-100 last:border-0 last:pb-0">
+                      <p className="font-medium text-sm text-warm-900 mb-1">{group.shopName}</p>
+                      <div className="space-y-1">
+                        {group.items.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm">
+                            <span className="text-warm-800/70 truncate flex-1 mr-2">
+                              {item.product?.name || item.service?.name || 'Item'} × {item.quantity}
+                            </span>
+                            <span className="font-medium text-warm-900">GH₵{((item.variant?.price || item.price) * item.quantity).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between text-sm mt-1">
+                        <span className="text-warm-800/60">Delivery</span>
+                        <span className="font-medium text-warm-900">
+                          {group.deliveryFee === 0 ? (
+                            <Badge variant="deal">Free</Badge>
+                          ) : (
+                            `GH₵${group.deliveryFee.toFixed(2)}`
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="border-t border-warm-200 pt-3 mt-4 space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-warm-800/70">Subtotal ({cart?.items.length} items)</span>
                   <span className="font-medium text-warm-900">GH₵{subtotal.toFixed(2)}</span>
@@ -749,21 +804,9 @@ function CheckoutContent() {
                     <span className="font-medium text-green-600">-GH₵{promoApplied.discountAmount.toFixed(2)}</span>
                   </div>
                 )}
-                {promoApplied && promoApplied.deliveryDiscount > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-green-600">Delivery discount</span>
-                    <span className="font-medium text-green-600">-GH₵{promoApplied.deliveryDiscount.toFixed(2)}</span>
-                  </div>
-                )}
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-warm-800/70">Delivery Fee</span>
-                  <span className="font-medium text-warm-900">
-                    {deliveryFee === 0 ? (
-                      <Badge variant="deal">Free</Badge>
-                    ) : (
-                      `GH₵${deliveryFee.toFixed(2)}`
-                    )}
-                  </span>
+                  <span className="text-warm-800/70">Total Delivery</span>
+                  <span className="font-medium text-warm-900">GH₵{deliveryFee.toFixed(2)}</span>
                 </div>
                 <div className="border-t border-warm-200 pt-3 flex items-center justify-between">
                   <span className="font-semibold text-warm-900">Total</span>
@@ -1150,38 +1193,56 @@ function CheckoutContent() {
           {/* Order Summary */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
             <h3 className="font-semibold text-warm-900 mb-4">Order Summary</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-warm-800/70">Subtotal ({cart?.items.length} items)</span>
-                <span className="font-medium text-warm-900">GH₵{subtotal.toFixed(2)}</span>
-              </div>
-              {promoApplied && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-green-600">Promo discount ({promoApplied.code})</span>
-                  <span className="font-medium text-green-600">-GH₵{promoApplied.discountAmount.toFixed(2)}</span>
-                </div>
-              )}
-              {promoApplied && promoApplied.deliveryDiscount > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-green-600">Delivery discount</span>
-                  <span className="font-medium text-green-600">-GH₵{promoApplied.deliveryDiscount.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-warm-800/70">Delivery Fee</span>
-                <span className="font-medium text-warm-900">
-                  {deliveryFee === 0 ? (
-                    <Badge variant="deal">Free</Badge>
-                  ) : (
-                    `GH₵${deliveryFee.toFixed(2)}`
-                  )}
-                </span>
-              </div>
-              <div className="border-t border-warm-200 pt-3 flex items-center justify-between">
-                <span className="font-semibold text-warm-900">Total</span>
-                <span className="font-bold text-xl text-warm-900">GH₵{total.toFixed(2)}</span>
-              </div>
-            </div>
+             <div className="space-y-4">
+               {shopGroups.map((group) => {
+                 const groupSubtotal = group.items.reduce((sum, item) => sum + (item.variant?.price || item.price) * item.quantity, 0)
+                 return (
+                   <div key={group.shopId} className="pb-3 border-b border-warm-100 last:border-0 last:pb-0">
+                     <p className="font-medium text-sm text-warm-900 mb-1">{group.shopName}</p>
+                     <div className="space-y-1">
+                       {group.items.map((item, idx) => (
+                         <div key={idx} className="flex items-center justify-between text-sm">
+                           <span className="text-warm-800/70 truncate flex-1 mr-2">
+                             {item.product?.name || item.service?.name || 'Item'} × {item.quantity}
+                           </span>
+                           <span className="font-medium text-warm-900">GH₵{((item.variant?.price || item.price) * item.quantity).toFixed(2)}</span>
+                         </div>
+                       ))}
+                     </div>
+                     <div className="flex items-center justify-between text-sm mt-1">
+                       <span className="text-warm-800/60">Delivery</span>
+                       <span className="font-medium text-warm-900">
+                         {group.deliveryFee === 0 ? (
+                           <Badge variant="deal">Free</Badge>
+                         ) : (
+                           `GH₵${group.deliveryFee.toFixed(2)}`
+                         )}
+                       </span>
+                     </div>
+                   </div>
+                 )
+               })}
+             </div>
+             <div className="border-t border-warm-200 pt-3 mt-4 space-y-2">
+               <div className="flex items-center justify-between text-sm">
+                 <span className="text-warm-800/70">Subtotal ({cart?.items.length} items)</span>
+                 <span className="font-medium text-warm-900">GH₵{subtotal.toFixed(2)}</span>
+               </div>
+               {promoApplied && (
+                 <div className="flex items-center justify-between text-sm">
+                   <span className="text-green-600">Promo discount ({promoApplied.code})</span>
+                   <span className="font-medium text-green-600">-GH₵{promoApplied.discountAmount.toFixed(2)}</span>
+                 </div>
+               )}
+               <div className="flex items-center justify-between text-sm">
+                 <span className="text-warm-800/70">Total Delivery</span>
+                 <span className="font-medium text-warm-900">GH₵{deliveryFee.toFixed(2)}</span>
+               </div>
+               <div className="border-t border-warm-200 pt-3 flex items-center justify-between">
+                 <span className="font-semibold text-warm-900">Total</span>
+                 <span className="font-bold text-xl text-warm-900">GH₵{total.toFixed(2)}</span>
+               </div>
+             </div>
 
             {selectedAddress && (
               <div className="mt-4 p-3 bg-warm-50 rounded-xl">

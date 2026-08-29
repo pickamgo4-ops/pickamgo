@@ -89,6 +89,39 @@ export function calculateDiscount(params: {
   }
 }
 
+export function doesPromoApplyToGroup(promo: any, group: { shopId?: string; productIds: string[]; categoryIds: string[]; campus?: string }): boolean {
+  const appliesTo = promo.appliesTo ? JSON.parse(promo.appliesTo) : { type: 'ALL', values: [] }
+
+  if (appliesTo.type === 'ALL') return true
+
+  if (appliesTo.type === 'SHOPS' && appliesTo.values.length > 0) {
+    if (group.shopId && appliesTo.values.includes(group.shopId)) return true
+  }
+
+  if (appliesTo.type === 'PRODUCTS' && appliesTo.values.length > 0) {
+    const promoProductIds: string[] = appliesTo.values
+    if (group.productIds && group.productIds.length > 0) {
+      const hasMatch = group.productIds.some((pid: string) => promoProductIds.includes(pid))
+      if (hasMatch) return true
+    }
+  }
+
+  if (appliesTo.type === 'CATEGORIES' && appliesTo.values.length > 0) {
+    const promoCategoryIds: string[] = appliesTo.values
+    if (group.categoryIds && group.categoryIds.length > 0) {
+      const hasMatch = group.categoryIds.some((cid: string) => promoCategoryIds.includes(cid))
+      if (hasMatch) return true
+    }
+  }
+
+  if (appliesTo.type === 'CAMPUSES' && appliesTo.values.length > 0) {
+    const promoCampuses: string[] = appliesTo.values
+    if (group.campus && promoCampuses.includes(group.campus)) return true
+  }
+
+  return false
+}
+
 export async function validatePromoCode(params: {
   code: string
   customerId?: string | null

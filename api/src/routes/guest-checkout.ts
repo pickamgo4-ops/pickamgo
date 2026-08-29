@@ -8,7 +8,7 @@ import { sendOrderConfirmationEmail, sendSellerOrderNotification } from '../serv
 import { initializeTransaction, verifyTransaction } from '../services/paystack'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 import { generateOrderNumber } from '../utils/orderNumber'
-import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, type PromoValidationResult } from '../services/promo'
+import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, doesPromoApplyToGroup, type PromoValidationResult } from '../services/promo'
 
 const router = Router()
 
@@ -175,10 +175,13 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
     }
 
     if (!shopGroups.has(shopId)) {
-      const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { deliveryAvailable: true, pickupAvailable: true, sellerDeliveryAvailable: true } })
+      const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { deliveryAvailable: true, pickupAvailable: true, sellerDeliveryAvailable: true, platformDeliveryFee: true, sellerDeliveryFee: true } })
       const methodError = shop && deliveryMethodError(shop, deliveryType, resolvedFulfillmentMethod)
       if (methodError) return errorResponse(res, methodError, 400)
-      shopGroups.set(shopId, { shopId, sellerId, items: [], productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus || null })
+      const serverDeliveryFee = deliveryType === 'DELIVERY'
+        ? Number(shop?.platformDeliveryFee || shop?.sellerDeliveryFee || 0)
+        : 0
+      shopGroups.set(shopId, { shopId, sellerId, items: [], productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus || null, deliveryFee: serverDeliveryFee })
     }
     const group = shopGroups.get(shopId)!
     group.items.push(orderItem)
@@ -189,10 +192,10 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
 
   let promoValidation: PromoValidationResult | null = null
   if (promoCode) {
-    const firstGroup = shopGroups.values().next().value!
     const allProductIds = Array.from(new Set(Array.from(shopGroups.values()).flatMap(g => g.productIds)))
     const allCategoryIds = Array.from(new Set(Array.from(shopGroups.values()).flatMap(g => g.categoryIds)))
-    const shopCampus = firstGroup.campus
+    const allCampuses = Array.from(new Set(Array.from(shopGroups.values()).map(g => g.campus).filter(Boolean) as string[]))
+    const allShopIds = Array.from(new Set(Array.from(shopGroups.values()).map(g => g.shopId).filter(Boolean) as string[]))
 
     promoValidation = await validatePromoCode({
       code: promoCode,
@@ -200,11 +203,11 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
       guestIdentifier: (req as any).headers['x-session-id'] as string | undefined,
       customerType: null,
       subtotal: Array.from(shopGroups.values()).reduce((sum, g) => sum + g.items.reduce((s, i) => s + i.price * i.quantity, 0), 0),
-      deliveryFee: deliveryType === 'DELIVERY' ? deliveryFee : 0,
-      shopId: firstGroup.shopId,
+      deliveryFee: Array.from(shopGroups.values()).reduce((sum, g) => sum + g.deliveryFee, 0),
+      shopId: allShopIds[0] || undefined,
       productIds: allProductIds,
       categoryIds: allCategoryIds,
-      campus: shopCampus || undefined,
+      campus: allCampuses[0] || undefined,
     })
 
     if (!promoValidation.valid) {
@@ -217,26 +220,26 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
 
     for (const [shopId, group] of shopGroups) {
       const itemsSubtotal = group.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-      let shopTotal = itemsSubtotal + (deliveryType === 'DELIVERY' ? deliveryFee : 0)
+      let shopTotal = itemsSubtotal + (deliveryType === 'DELIVERY' ? group.deliveryFee : 0)
       let orderOriginalSubtotal = itemsSubtotal
       let orderPromoDiscount = 0
       let orderDiscountedSubtotal = itemsSubtotal
 
-      if (promoValidation && promoValidation.valid && promoValidation.promo) {
+      if (promoValidation && promoValidation.valid && promoValidation.promo && doesPromoApplyToGroup(promoValidation.promo, group)) {
         const calc = calculateDiscount({
           discountType: promoValidation.promo.discountType,
           discountValue: Number(promoValidation.promo.discountValue),
           maxDiscount: promoValidation.promo.maxDiscount ? Number(promoValidation.promo.maxDiscount) : null,
           eligibleSubtotal: itemsSubtotal,
-          deliveryFee: deliveryType === 'DELIVERY' ? deliveryFee : 0,
+          deliveryFee: group.deliveryFee,
           discountAppliesTo: promoValidation.promo.discountAppliesTo,
         })
         orderPromoDiscount = calc.discountAmount
         orderDiscountedSubtotal = calc.discountedSubtotal
         if (promoValidation.promo.discountAppliesTo === 'PRODUCTS_AND_DELIVERY') {
-          shopTotal = orderDiscountedSubtotal + (deliveryType === 'DELIVERY' ? (deliveryFee - calc.deliveryDiscount) : 0)
+          shopTotal = orderDiscountedSubtotal + (deliveryType === 'DELIVERY' ? (group.deliveryFee - calc.deliveryDiscount) : 0)
         } else {
-          shopTotal = orderDiscountedSubtotal + (deliveryType === 'DELIVERY' ? deliveryFee : 0)
+          shopTotal = orderDiscountedSubtotal + (deliveryType === 'DELIVERY' ? group.deliveryFee : 0)
         }
       }
 
@@ -252,13 +255,13 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
           total: shopTotal,
           status: 'PENDING_PAYMENT',
           deliveryAddress,
-          deliveryFee: deliveryType === 'DELIVERY' ? deliveryFee : 0,
+          deliveryFee: deliveryType === 'DELIVERY' ? group.deliveryFee : 0,
           deliveryLatitude: deliveryLatitude ?? null,
           deliveryLongitude: deliveryLongitude ?? null,
           deliveryStatus: 'PENDING',
           fulfillmentMethod: resolvedFulfillmentMethod,
           notes: notes || null,
-          promoCodeId: promoValidation?.valid ? promoValidation.promo!.id : null,
+          promoCodeId: promoValidation?.valid && doesPromoApplyToGroup(promoValidation.promo, group) ? promoValidation.promo!.id : null,
           promoDiscount: orderPromoDiscount,
           originalSubtotal: orderOriginalSubtotal,
           discountedSubtotal: orderDiscountedSubtotal,
