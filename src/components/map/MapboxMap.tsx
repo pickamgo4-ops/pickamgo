@@ -21,7 +21,7 @@ declare global {
 
 const LIGHT_STYLE = 'mapbox://styles/mapbox/streets-v12'
 const DARK_STYLE = 'mapbox://styles/mapbox/dark-v11'
-const MAPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+const MAPBOX_ACCESS_TOKEN = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '').trim()
 
 export default function MapboxMap({ markers, route, height = '320px', showCurrentLocation = false, onCurrentLocation, onRouteInfo }: MapboxMapProps) {
   const { theme } = useTheme()
@@ -39,7 +39,7 @@ export default function MapboxMap({ markers, route, height = '320px', showCurren
     let cancelled = false
     const initialize = async () => {
       if (!token) {
-        setError('Map location is temporarily unavailable.')
+        setError('Mapbox is not configured in this environment. Please add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN.')
         setLoading(false)
         return
       }

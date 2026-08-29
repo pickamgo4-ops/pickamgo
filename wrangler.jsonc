@@ -8,7 +8,8 @@
   "vars": {
     "NEXT_PUBLIC_MARKETPLACE_DOMAIN": "pickamgo.com",
     "NEXT_PUBLIC_GOOGLE_CLIENT_ID": "806419638142-pkegcrntdkn3abahd3q4ti50fff1uol4.apps.googleusercontent.com",
-    "NEXT_PUBLIC_API_URL": "https://pickamgo-production.up.railway.app/api"
+    "NEXT_PUBLIC_API_URL": "https://pickamgo-production.up.railway.app/api",
+    "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": ""
   },
   "compatibility_flags": ["nodejs_compat"],
   "compatibility_date": "2025-01-01",

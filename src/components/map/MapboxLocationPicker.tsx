@@ -18,7 +18,7 @@ declare global {
 }
 
 const GHANA_CENTER: [number, number] = [-0.187, 5.6037]
-const MAPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+const MAPBOX_ACCESS_TOKEN = (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '').trim()
 
 export default function MapboxLocationPicker({
   value,
@@ -52,6 +52,11 @@ export default function MapboxLocationPicker({
     if (!mapContainer.current || typeof window === 'undefined' || !window.mapboxgl) return
 
     const token = MAPBOX_ACCESS_TOKEN
+    if (!token) {
+      setError('Mapbox is not configured for this environment. Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to the site env.')
+      setLoading(false)
+      return
+    }
 
     window.mapboxgl.accessToken = token
 
