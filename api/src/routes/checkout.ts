@@ -144,7 +144,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
   }
 
   const orderItems: any[] = []
-  const shopGroups: Map<string, { shopId: string; sellerId: string; items: any[]; deliveryFee: number; productIds: string[]; categoryIds: string[]; campus: string | null }> = new Map()
+  const shopGroups: Map<string, { shopId: string; sellerId: string; items: any[]; deliveryFee: number; productIds: string[]; categoryIds: string[]; campus?: string | undefined }> = new Map()
 
   for (const item of items) {
     if (!item.productId && !item.serviceId) {
@@ -252,7 +252,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       const serverDeliveryFee = deliveryType === 'DELIVERY'
         ? Number(shop?.platformDeliveryFee || shop?.sellerDeliveryFee || 0)
         : 0
-      shopGroups.set(shopId, { shopId, sellerId, items: [], deliveryFee: serverDeliveryFee, productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus || null })
+      shopGroups.set(shopId, { shopId, sellerId, items: [], deliveryFee: serverDeliveryFee, productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus })
     }
     const group = shopGroups.get(shopId)!
     group.items.push(orderItem)
@@ -553,38 +553,6 @@ function getCustomerType(customerId: string | undefined | null): 'NEW' | 'EXISTI
   if (!customerId) return null
   const orderCount = prisma.order.count({ where: { customerId } })
   return 'EXISTING'
-}
-
-function calculateDiscount(params: {
-  discountType: string
-  discountValue: number
-  maxDiscount: number | null
-  eligibleSubtotal: number
-  deliveryFee: number
-  discountAppliesTo: string
-}): { discountAmount: number; deliveryDiscount: number; discountedSubtotal: number } {
-  const { discountType, discountValue, maxDiscount, eligibleSubtotal, deliveryFee, discountAppliesTo } = params
-
-  let discountAmount = 0
-  let deliveryDiscount = 0
-
-  if (discountType === 'PERCENTAGE') {
-    discountAmount = Math.round((eligibleSubtotal * discountValue / 100) * 100) / 100
-    if (maxDiscount !== null && discountAmount > maxDiscount) {
-      discountAmount = maxDiscount
-    }
-  } else {
-    discountAmount = Math.round(discountValue * 100) / 100
-  }
-
-  if (discountAppliesTo === 'PRODUCTS_AND_DELIVERY') {
-    deliveryDiscount = Math.min(discountAmount, deliveryFee)
-    discountAmount = Math.round((discountAmount - deliveryDiscount) * 100) / 100
-  }
-
-  const discountedSubtotal = Math.round((eligibleSubtotal - discountAmount) * 100) / 100
-
-  return { discountAmount, deliveryDiscount, discountedSubtotal }
 }
 
 export default router

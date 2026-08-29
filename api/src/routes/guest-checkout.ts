@@ -83,7 +83,7 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
   }
 
   const orderItems: any[] = []
-  const shopGroups: Map<string, { shopId: string; sellerId: string; items: any[]; productIds: string[]; categoryIds: string[]; campus: string | null }> = new Map()
+  const shopGroups: Map<string, { shopId: string; sellerId: string; items: any[]; productIds: string[]; categoryIds: string[]; campus?: string | undefined; deliveryFee: number }> = new Map()
 
   for (const item of items) {
     if (!item.productId && !item.serviceId) {
@@ -181,7 +181,7 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
       const serverDeliveryFee = deliveryType === 'DELIVERY'
         ? Number(shop?.platformDeliveryFee || shop?.sellerDeliveryFee || 0)
         : 0
-      shopGroups.set(shopId, { shopId, sellerId, items: [], productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus || null, deliveryFee: serverDeliveryFee })
+      shopGroups.set(shopId, { shopId, sellerId, items: [], productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus, deliveryFee: serverDeliveryFee })
     }
     const group = shopGroups.get(shopId)!
     group.items.push(orderItem)
