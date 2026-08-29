@@ -20,6 +20,9 @@ export async function generateMetadata({ params }: { params: Promise<ProductPara
     return {
       title: { absolute: title },
       description,
+      alternates: {
+        canonical: `/product/${encodeURIComponent(id)}`,
+      },
       openGraph: {
         title,
         description,

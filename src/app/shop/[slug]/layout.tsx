@@ -18,6 +18,9 @@ export async function generateMetadata({ params }: { params: Promise<ShopParams>
       return {
         title: { absolute: `${shop.name} — PickAmGo` },
         description: shop.description || `Shop ${shop.name} on PickAmGo.`,
+        alternates: {
+          canonical: `/shop/${encodeURIComponent(slug)}`,
+        },
         openGraph: {
           title: `${shop.name} — PickAmGo`,
           description: shop.description || `Shop ${shop.name} on PickAmGo.`,

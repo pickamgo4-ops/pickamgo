@@ -105,39 +105,68 @@ export function Header() {
             >
               {theme === 'dark' ? <SunMedium size={18} className="text-warm-800" /> : <Moon size={18} className="text-warm-800" />}
             </button>
-            <button
-              onClick={() => router.push('/profile')}
-              className="p-2.5 rounded-xl hover:bg-warm-100 transition-colors"
+            {!user && (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => router.push('/auth/login')}
+                >
+                  Login
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => router.push('/auth/signup')}
+                >
+                  Sign Up
+                </Button>
+              </>
+            )}
+            {user && (
+              <>
+                <button
+                  onClick={() => router.push('/profile')}
+                  className="p-2.5 rounded-xl hover:bg-warm-100 transition-colors"
+                >
+                  <User size={20} className="text-warm-800" />
+                </button>
+                {userRole === 'seller' && (
+                  <Button
+                    size="sm"
+                    icon={<Store size={18} />}
+                    onClick={() => router.push('/seller')}
+                  >
+                    Dashboard
+                  </Button>
+                )}
+                {userRole === 'rider' && (
+                  <Button
+                    size="sm"
+                    icon={<Bike size={18} />}
+                    onClick={() => router.push('/rider')}
+                  >
+                    Deliveries
+                  </Button>
+                )}
+                {userRole === 'admin' && (
+                  <Button
+                    size="sm"
+                    icon={<Store size={18} />}
+                    onClick={() => router.push('/admin')}
+                  >
+                    Admin
+                  </Button>
+                )}
+              </>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<Search size={18} />}
+              onClick={() => router.push('/discover')}
             >
-              <User size={20} className="text-warm-800" />
-            </button>
-            {userRole === 'seller' && (
-              <Button
-                size="sm"
-                icon={<Store size={18} />}
-                onClick={() => router.push('/seller')}
-              >
-                Dashboard
-              </Button>
-            )}
-            {userRole === 'rider' && (
-              <Button
-                size="sm"
-                icon={<Bike size={18} />}
-                onClick={() => router.push('/rider')}
-              >
-                Deliveries
-              </Button>
-            )}
-            {userRole === 'admin' && (
-              <Button
-                size="sm"
-                icon={<Store size={18} />}
-                onClick={() => router.push('/admin')}
-              >
-                Admin
-              </Button>
-            )}
+              Browse
+            </Button>
             <Button
               size="sm"
               icon={<ShoppingCart size={18} />}

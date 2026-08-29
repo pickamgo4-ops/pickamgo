@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk } from 'next/font/google'
 import { RoleProvider } from '@/contexts/RoleContext'
 import { RoleRedirector } from '@/components/RoleRedirector'
 import { ThemeProvider, ThemeScript } from '@/components/theme/ThemeProvider'
+import { Footer } from '@/components/layout/Footer'
 import './globals.css'
 
 const inter = Inter({ 
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
     default: 'PickAmGo — Your Online Marketplace',
     template: '%s | PickAmGo',
   },
-  description: 'Shop, sell, and discover products and services from businesses and sellers around you.',
+  description: 'PickAmGo is a general online marketplace where people can discover products, shops, services, and more. Buy, sell, and connect with local businesses and sellers.',
   applicationName: 'PickAmGo',
   manifest: '/manifest.json',
   alternates: {
@@ -41,14 +42,14 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'PickAmGo',
     title: 'PickAmGo — Your Online Marketplace',
-    description: 'Shop, sell, and discover products and services from businesses and sellers around you.',
+    description: 'PickAmGo is a general online marketplace where people can discover products, shops, services, and more.',
     url: '/',
     images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'PickAmGo - Your Online Marketplace' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'PickAmGo — Your Online Marketplace',
-    description: 'Shop, sell, and discover products and services from businesses and sellers around you.',
+    description: 'PickAmGo is a general online marketplace where people can discover products, shops, services, and more.',
     images: ['/og-image.png'],
   },
 }
@@ -58,6 +59,33 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const organizationJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'PickAmGo',
+    url: 'https://pickamgo.com',
+    logo: 'https://pickamgo.com/icon-512.png',
+    description: 'PickAmGo is a general online marketplace where people can discover products, shops, services, and more.',
+    sameAs: [
+      'https://www.facebook.com/pickamgo',
+      'https://twitter.com/pickamgo',
+      'https://www.instagram.com/pickamgo',
+    ],
+  }
+
+  const websiteJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'PickAmGo',
+    url: 'https://pickamgo.com',
+    description: 'PickAmGo is a general online marketplace where people can discover products, shops, services, and more.',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: 'https://pickamgo.com/discover?search={search_term_string}',
+      'query-input': 'required name=search_term_string',
+    },
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans bg-background text-foreground antialiased`}>
@@ -66,8 +94,13 @@ export default function RootLayout({
           <RoleProvider>
             <RoleRedirector />
             {children}
+            <Footer />
           </RoleProvider>
         </ThemeProvider>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationJsonLd, websiteJsonLd]) }}
+        />
       </body>
     </html>
   )
