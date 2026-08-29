@@ -39,32 +39,125 @@ const paymentVerificationSchema = z.object({
   reference: z.string().min(1).max(100),
 })
 
+export async function claimPaymentWebhookEvent(
+  tx: Parameters<typeof prisma.$transaction>[0] extends (tx: infer T) => any ? T : never,
+  reference: string,
+  eventType: string,
+  origin: string,
+  metadata: Record<string, any> = {},
+) {
+  const eventKey = `paystack:${reference}`
+
+  try {
+    await tx.paymentWebhookEvent.create({
+      data: {
+        reference: eventKey,
+        eventType,
+        status: 'PROCESSED',
+        provider: 'PAYSTACK',
+        metadata: JSON.stringify({ origin, ...metadata }),
+      },
+    })
+    return { created: true, duplicate: false, reference: eventKey }
+  } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return { created: false, duplicate: true, reference: eventKey }
+    }
+    throw error
+  }
+}
+
+export async function processPaidOrderForReference(reference: string, paystackPayment: any, origin: 'webhook' | 'verification') {
+  return prisma.$transaction(async tx => {
+    const eventKey = `paystack:${reference}`
+    const eventClaim = await claimPaymentWebhookEvent(tx, reference, 'PAYSTACK_CHARGE_SUCCESS', origin, { amount: paystackPayment?.amount ?? null })
+    if (!eventClaim.created) {
+      return { processed: false, duplicate: true, reason: 'duplicate-reference' }
+    }
+
+    const payment = await tx.payment.findUnique({ where: { transactionRef: reference } })
+    if (!payment) {
+      await tx.paymentWebhookEvent.update({
+        where: { reference: eventKey },
+        data: { status: 'REJECTED', metadata: JSON.stringify({ origin, reason: 'payment-not-found' }) },
+      })
+      return { processed: false, duplicate: false, reason: 'payment-not-found' }
+    }
+
+    if (payment.status === 'PAID') {
+      await tx.paymentWebhookEvent.update({
+        where: { reference: eventKey },
+        data: { status: 'ALREADY_PROCESSED', metadata: JSON.stringify({ origin, orderId: payment.orderId, reason: 'already-paid' }) },
+      })
+      return { processed: false, duplicate: true, reason: 'already-paid' }
+    }
+
+    const expectedAmount = Math.round(Number(payment.amount) * 100)
+    const actualAmount = Number(paystackPayment?.amount ?? 0)
+    if (paystackPayment && actualAmount > 0 && actualAmount !== expectedAmount) {
+      await tx.paymentWebhookEvent.update({
+        where: { reference: eventKey },
+        data: { status: 'REJECTED', metadata: JSON.stringify({ origin, expectedAmount, actualAmount, orderId: payment.orderId, reason: 'amount-mismatch' }) },
+      })
+      return { processed: false, duplicate: false, reason: 'amount-mismatch' }
+    }
+
+    const order = await tx.order.findUnique({
+      where: { id: payment.orderId },
+      include: { customer: { select: { email: true, name: true, phone: true } }, shop: { include: { owner: { select: { email: true, name: true } } } }, items: true, payment: true },
+    })
+
+    if (!order) {
+      await tx.paymentWebhookEvent.update({
+        where: { reference: eventKey },
+        data: { status: 'REJECTED', metadata: JSON.stringify({ origin, reason: 'order-not-found', orderId: payment.orderId }) },
+      })
+      return { processed: false, duplicate: false, reason: 'order-not-found' }
+    }
+
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: { status: 'PAID', paidAt: new Date() },
+    })
+
+    await tx.order.updateMany({
+      where: { id: order.id, status: { in: ['PENDING_PAYMENT', 'PAID'] } },
+      data: { status: 'PAID' },
+    })
+
+    await tx.financialLedger.updateMany({
+      where: { orderId: order.id, type: 'ORDER_PAYMENT' },
+      data: { status: 'SUCCESS', reference },
+    })
+
+    const existingSellerEarnings = await tx.sellerEarnings.findUnique({ where: { orderId: order.id } })
+    if (!existingSellerEarnings) {
+      const sellerEarnings = await import('../services/earnings')
+      await sellerEarnings.createSellerEarnings(order.id, tx)
+    }
+
+    await tx.paymentWebhookEvent.update({
+      where: { reference: eventKey },
+      data: { status: 'PROCESSED', metadata: JSON.stringify({ origin, orderId: order.id, amount: actualAmount || expectedAmount }) },
+    })
+
+    return { processed: true, duplicate: false, orderId: order.id }
+  })
+}
+
 router.post('/paystack/webhook', async (req, res) => {
   try {
     const result = await handleWebhook(req.body, req.headers['x-paystack-signature'] as string | undefined)
     if (result.status !== 'SUCCESS' || !result.payment?.reference || result.payment.status !== 'success') {
-      return res.status(200).json({ success: true })
+      return res.status(200).json({ success: true, processed: false })
     }
 
     const reference = result.payment.reference as string
-    const payment = await prisma.payment.findUnique({ where: { transactionRef: reference } })
-    if (!payment) return res.status(200).json({ success: true })
+    const processed = await processPaidOrderForReference(reference, result.payment, 'webhook')
 
-    const paymentUpdated = await prisma.$transaction(async tx => {
-      const updatedPayment = await tx.payment.updateMany({
-        where: { id: payment.id, status: { not: 'PAID' } },
-        data: { status: 'PAID', paidAt: new Date() },
-      })
-      if (updatedPayment.count === 1) {
-        await tx.order.updateMany({ where: { id: payment.orderId, status: 'PENDING_PAYMENT' }, data: { status: 'PAID' } })
-        await tx.financialLedger.updateMany({ where: { orderId: payment.orderId, type: 'ORDER_PAYMENT' }, data: { status: 'SUCCESS', reference } })
-      }
-      return updatedPayment.count === 1
-    })
-
-    if (paymentUpdated) {
+    if (processed.processed) {
       const order = await prisma.order.findUnique({
-        where: { id: payment.orderId },
+        where: { id: processed.orderId },
         include: {
           customer: { select: { email: true, name: true, phone: true } },
           shop: { include: { owner: { select: { email: true, name: true } } } },
@@ -75,7 +168,7 @@ router.post('/paystack/webhook', async (req, res) => {
 
       if (order) {
         if (order.customer?.email) {
-          sendPaymentConfirmationEmail(order.customer.email, { orderNumber: order.orderNumber, amount: Number(order.payment?.amount ?? payment.amount) }).catch(err => console.error('Failed to send payment email:', err))
+          sendPaymentConfirmationEmail(order.customer.email, { orderNumber: order.orderNumber, amount: Number(order.payment?.amount ?? 0) }).catch(err => console.error('Failed to send payment email:', err))
           sendOrderConfirmationEmail(order.customer.email, {
             orderNumber: order.orderNumber,
             items: order.items.map(item => ({ name: item.name, quantity: item.quantity, price: Number(item.price) })),
@@ -106,7 +199,7 @@ router.post('/paystack/webhook', async (req, res) => {
       }
     }
 
-    return res.status(200).json({ success: true })
+    return res.status(200).json({ success: true, processed: processed.processed })
   } catch (error) {
     return res.status(401).json({ success: false, error: 'Invalid Paystack webhook' })
   }
@@ -130,14 +223,27 @@ router.post('/verify-payment', authMiddleware, requireRole(['USER']), validateBo
     }
 
     const result = await prisma.$transaction(async tx => {
+      const eventKey = `paystack:${reference}`
+      const eventClaim = await claimPaymentWebhookEvent(tx, reference, 'VERIFY_PAYMENT', 'verification', { orderId: order.id })
+      if (!eventClaim.created) {
+        return { order: await tx.order.findUnique({ where: { id: order.id }, include: { payment: true } }), paymentUpdated: false, duplicate: true }
+      }
+
       const updatedPayment = await tx.payment.updateMany({
         where: { id: order.payment!.id, status: { not: 'PAID' } },
         data: { status: 'PAID', paidAt: new Date(), transactionRef: reference },
       })
-      if (updatedPayment.count !== 1) return { order: order, paymentUpdated: false }
-      await tx.order.updateMany({ where: { id: order.id, status: 'PENDING_PAYMENT' }, data: { status: 'PAID' } })
+      if (updatedPayment.count !== 1) {
+        await tx.paymentWebhookEvent.update({
+          where: { reference: eventKey },
+          data: { status: 'ALREADY_PROCESSED', metadata: JSON.stringify({ orderId: order.id, origin: 'verification', reason: 'already-paid' }) },
+        })
+        return { order: await tx.order.findUnique({ where: { id: order.id }, include: { payment: true } }), paymentUpdated: false, duplicate: true }
+      }
+
+      await tx.order.updateMany({ where: { id: order.id, status: { in: ['PENDING_PAYMENT', 'PAID'] } }, data: { status: 'PAID' } })
       await tx.financialLedger.updateMany({ where: { orderId: order.id, type: 'ORDER_PAYMENT' }, data: { status: 'SUCCESS', reference } })
-      return { order: await tx.order.findUnique({ where: { id: order.id }, include: { payment: true } }), paymentUpdated: true }
+      return { order: await tx.order.findUnique({ where: { id: order.id }, include: { payment: true } }), paymentUpdated: true, duplicate: false }
     })
     if (result.paymentUpdated) {
       const fullOrder = await prisma.order.findUnique({

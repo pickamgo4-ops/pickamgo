@@ -86,15 +86,21 @@ export async function handleWebhook(payload: any, signature?: string): Promise<a
   if (!signature) {
     throw new Error('Missing webhook signature')
   }
+
+  const normalizedSignature = signature.trim().replace(/^sha512=/i, '')
+  if (!normalizedSignature || normalizedSignature.length % 2 !== 0) {
+    throw new Error('Invalid webhook signature format')
+  }
+
   const hash = crypto.createHmac('sha512', PAYSTACK_SECRET_KEY).update(JSON.stringify(payload)).digest('hex')
   const expected = Buffer.from(hash, 'hex')
-  const received = Buffer.from(signature, 'hex')
+  const received = Buffer.from(normalizedSignature, 'hex')
   if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
     throw new Error('Invalid webhook signature')
   }
 
-  const event = payload.event
-  const data = payload.data
+  const event = payload?.event
+  const data = payload?.data
 
   switch (event) {
     case 'transfer.success':

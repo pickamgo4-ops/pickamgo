@@ -146,9 +146,36 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, error: 'Too many authentication attempts, please try again later.' },
 })
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many write requests, please slow down.' },
+})
+const reportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many report submissions, please try again later.' },
+})
+const messageLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many messages sent, please try again later.' },
+})
+
 app.use('/api/auth/login', authLimiter)
 app.use('/api/auth/register', authLimiter)
 app.use('/api/auth/forgot-password', authLimiter)
+app.use('/api/reviews', writeLimiter)
+app.use('/api/reports', reportLimiter)
+app.use('/api/messages', messageLimiter)
+app.use('/api/checkout', writeLimiter)
+app.use('/api/payouts', writeLimiter)
 
 app.use('/api/auth', authRoutes)
 app.use('/api/categories', categoryRoutes)

@@ -56,36 +56,44 @@ export default function EditProductPage() {
 
   const update = (field: string, value: any) => setForm((current: any) => ({ ...current, [field]: value }))
 
+  const parseImages = (value: string) => value.split(/\r?\n/).map((url) => url.trim()).filter(Boolean)
+
   const uploadImage = useCallback(() => {
     const input = document.createElement('input')
     input.type = 'file'
+    input.multiple = true
     input.accept = 'image/jpeg,image/png,image/webp,image/gif'
     input.onchange = async () => {
-      const file = input.files?.[0]
-      if (!file) return
+      const files = Array.from(input.files || [])
+      if (!files.length) return
       setUploading(true)
       setError('')
       try {
-        const body = new FormData()
-        body.append('image', file)
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 60000)
-        const response = await fetch('/api/upload/image', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-          body,
-          signal: controller.signal,
-        })
-        clearTimeout(timeout)
-        const data = await response.json().catch(() => null)
-        if (response.ok && data?.success) {
-          update('images', `${form.images ? `${form.images}\n` : ''}${data.data.url}`)
-        } else {
-          setError(data?.error || `Image upload failed (${response.status || 'request'}). Please try again.`)
+        const uploadedUrls: string[] = []
+        for (const file of files) {
+          const body = new FormData()
+          body.append('image', file)
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 60000)
+          const response = await fetch('/api/upload/image', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+            body,
+            signal: controller.signal,
+          })
+          clearTimeout(timeout)
+          const data = await response.json().catch(() => null)
+          if (response.ok && data?.success) {
+            uploadedUrls.push(data.data.url)
+          } else {
+            throw new Error(data?.error || `Image upload failed (${response.status || 'request'}). Please try again.`)
+          }
         }
+
+        update('images', [...parseImages(form.images), ...uploadedUrls].join('\n'))
       } catch (err) {
         console.error('Upload fetch error:', err)
-        setError(err instanceof Error && err.name === 'AbortError' ? 'Upload timed out. Please try again.' : 'Upload failed. Please try again.')
+        setError(err instanceof Error ? err.message : 'Upload failed. Please try again.')
       } finally {
         setUploading(false)
       }
@@ -102,7 +110,7 @@ export default function EditProductPage() {
       price: Number(form.price),
       originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined,
       stock: Number(form.stock),
-      images: form.images.split('\n').map((url: string) => url.trim()).filter(Boolean),
+      images: parseImages(form.images),
     })
     if (response.success) {
       router.push('/seller/products')
@@ -112,7 +120,7 @@ export default function EditProductPage() {
     setSaving(false)
   }
 
-  const imageUrls = form.images?.split('\n').map((url: string) => url.trim()).filter(Boolean) || []
+  const imageUrls = parseImages(form.images || '')
 
   if (!product) {
     return (
@@ -172,8 +180,16 @@ export default function EditProductPage() {
               {imageUrls.length > 0 && (
                 <div className="flex gap-3 mt-3 flex-wrap">
                   {imageUrls.map((url: string, index: number) => (
-                    <div key={index} className="w-24 h-24 rounded-xl overflow-hidden bg-warm-100 border border-warm-200 relative">
+                    <div key={`${url}-${index}`} className="relative w-24 h-24 rounded-xl overflow-hidden bg-warm-100 border border-warm-200">
                       <img src={url} alt={`Product ${index + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => update('images', imageUrls.filter((_, i) => i !== index).join('\n'))}
+                        className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs text-white shadow-sm"
+                        aria-label="Remove image"
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
                 </div>

@@ -61,8 +61,9 @@ async function request<T>(
   const fallbackUrl = `${FALLBACK_API_URL}${endpoint}`
   const isFormDataRequest = typeof FormData !== 'undefined' && options.body instanceof FormData
 
-  const buildConfig = (url: string): RequestInit => ({
+  const buildConfig = (url: string, signal?: AbortSignal): RequestInit => ({
     ...options,
+    signal,
     headers: {
       ...(isFormDataRequest ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
@@ -70,19 +71,20 @@ async function request<T>(
   })
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+  const requestHeaders: Record<string, string> = { ...(options.headers as Record<string, string> || {}) }
+
   if (token) {
-    options.headers = {
-      ...options.headers,
-      Authorization: `Bearer ${token}`,
-    }
+    requestHeaders.Authorization = `Bearer ${token}`
   }
 
   if (!token && (endpoint.startsWith('/cart') || endpoint.startsWith('/checkout/guest'))) {
     const guestSessionId = getGuestSessionId()
-    options.headers = {
-      ...options.headers,
-      'x-session-id': guestSessionId,
-    }
+    requestHeaders['x-session-id'] = guestSessionId
+  }
+
+  const requestOptions: RequestInit = {
+    ...options,
+    headers: requestHeaders,
   }
 
   try {
@@ -99,19 +101,35 @@ async function request<T>(
     for (const url of urlsToTry) {
       const attempts = isIdempotentRequest ? 2 : 1
       for (let attempt = 0; attempt < attempts; attempt += 1) {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+
         try {
-          response = await fetch(url, buildConfig(url))
+          response = await fetch(url, buildConfig(url, controller.signal))
           if (response.status < 500) break
           await new Promise(resolve => setTimeout(resolve, 200))
         } catch (error) {
           lastError = error
+          if (error instanceof DOMException && error.name === 'AbortError') {
+            lastError = new Error('Request timed out')
+          }
           await new Promise(resolve => setTimeout(resolve, 200))
+        } finally {
+          clearTimeout(timeoutId)
         }
       }
       if (response && response.status < 500) break
     }
 
-    if (!response) throw lastError || new Error('No response from API')
+    if (!response) {
+      if (lastError instanceof Error && lastError.message === 'Request timed out') {
+        return {
+          success: false,
+          error: 'The server is taking too long to respond. Please try again.',
+        }
+      }
+      throw lastError || new Error('No response from API')
+    }
     const contentType = response.headers.get('content-type') || ''
     if (!contentType.includes('application/json')) {
       console.error('API returned non-JSON response:', response.status, response.statusText, 'from', response.url)

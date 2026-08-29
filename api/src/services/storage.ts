@@ -31,6 +31,37 @@ function getR2ConfigError(): string | null {
 let r2Client: any = null
 let r2Bucket: any = null
 
+function sanitizeBucketKey(name: string): string {
+  const base = name.replace(/\\/g, '/').split('/').pop() || 'upload'
+  return base.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase() || `upload-${Date.now()}`
+}
+
+function buildSafeImageFilename(originalName: string, mimeType: string): string {
+  const ext = path.extname(originalName || '').toLowerCase()
+  const mimeMap: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+  }
+  const safeExt = mimeMap[mimeType] || ext || '.jpg'
+  const safeBase = sanitizeBucketKey(originalName || 'upload')
+  const safeName = safeBase.replace(/\.[^.]+$/, '') || 'upload'
+  return `${Date.now()}-${Math.round(Math.random() * 1e9)}-${safeName}${safeExt}`
+}
+
+function hasValidImageSignature(buffer: Buffer, mimeType: string): boolean {
+  const signatures: Record<string, ((buffer: Buffer) => boolean)> = {
+    'image/jpeg': (buf) => buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xd8,
+    'image/png': (buf) => buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47,
+    'image/webp': (buf) => buf.length >= 12 && buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50,
+    'image/gif': (buf) => (buf.length >= 6 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) || (buf.length >= 6 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46),
+  }
+
+  const validator = signatures[mimeType]
+  return !!validator && validator(buffer)
+}
+
 function initializeR2Client() {
   const configError = getR2ConfigError()
   if (configError) {
@@ -150,8 +181,20 @@ export function getStorageProvider(): multer.StorageEngine {
             chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
           }
           const fileBuffer = Buffer.concat(chunks)
-          const extension = path.extname(file.originalname).toLowerCase() || '.bin'
-          const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`
+          if (fileBuffer.length === 0) {
+            return callback(new Error('Uploaded file is empty'))
+          }
+          if (!file.mimetype || !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.mimetype)) {
+            return callback(new Error('Only JPEG, PNG, WEBP, and GIF images are allowed'))
+          }
+          if (!hasValidImageSignature(fileBuffer, file.mimetype)) {
+            return callback(new Error('Uploaded file does not match a valid image signature'))
+          }
+          if (fileBuffer.length > 5 * 1024 * 1024) {
+            return callback(new Error('Image exceeds the 5MB limit'))
+          }
+
+          const filename = buildSafeImageFilename(file.originalname, file.mimetype)
           const key = `uploads/${filename}`
           const url = await r2Bucket.upload(key, fileBuffer, file.mimetype)
           ;(file as any).r2Url = url
@@ -190,7 +233,8 @@ export function getStorageProvider(): multer.StorageEngine {
         'image/webp': '.webp',
         'image/gif': '.gif',
       }
-      cb(null, uniqueSuffix + (extensions[file.mimetype] || '.bin'))
+      const safeExt = extensions[file.mimetype] || '.jpg'
+      cb(null, `${uniqueSuffix}-${sanitizeBucketKey(file.originalname || 'upload')}${safeExt}`)
     },
   })
 }

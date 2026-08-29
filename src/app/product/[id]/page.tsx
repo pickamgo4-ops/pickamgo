@@ -148,7 +148,13 @@ export default function ProductPage() {
     )
   }
 
-  const images = [product.image, ...(product.images || [product.image])]
+  const images = Array.from(new Set([product.image, ...(product.images || []), product.image].filter(Boolean)))
+
+  useEffect(() => {
+    if (selectedImage >= images.length) {
+      setSelectedImage(0)
+    }
+  }, [images.length, selectedImage])
 
   return (
     <div className="min-h-screen pb-24 md:pb-8">
@@ -156,43 +162,63 @@ export default function ProductPage() {
         <PaymentSafetyNotice />
       </div>
       {/* Image Gallery */}
-      <div className="relative aspect-square md:aspect-[4/3] bg-warm-100">
-        <img
-          src={images[selectedImage]}
-          alt={product.name}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
-          <button onClick={() => router.back()} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex gap-2">
-            <button
-              onClick={toggleFavorite}
-              disabled={favoriteLoading}
-              className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm disabled:opacity-50"
-            >
-              <Heart
-                size={20}
-                className={isFavorite ? 'fill-red-500 text-red-500' : 'text-warm-800'}
-              />
-            </button>
-            <button className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
-              <Share2 size={20} className="text-warm-800" />
-            </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[110px_minmax(0,1fr)] gap-4 lg:gap-5">
+          <div className="order-2 lg:order-1 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+            {images.map((image, index) => (
+              <button
+                key={`${image}-${index}`}
+                type="button"
+                onClick={() => setSelectedImage(index)}
+                className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border transition-all ${
+                  index === selectedImage ? 'border-primary ring-2 ring-primary/20 shadow-sm' : 'border-warm-200 hover:border-primary/40'
+                }`}
+              >
+                <img src={image} alt={`${product.name} view ${index + 1}`} className="h-full w-full object-cover" />
+              </button>
+            ))}
           </div>
-        </div>
-        {/* Image dots */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-          {images.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setSelectedImage(i)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                i === selectedImage ? 'bg-white w-4' : 'bg-white/50'
-              }`}
-            />
-          ))}
+
+          <div className="order-1 lg:order-2 relative overflow-hidden rounded-3xl border border-warm-200 bg-warm-100 shadow-sm">
+            <div className="relative aspect-square md:aspect-[4/3]">
+              <img
+                src={images[selectedImage] || product.image}
+                alt={product.name}
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
+              <button onClick={() => router.back()} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
+                <ChevronLeft size={20} />
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={toggleFavorite}
+                  disabled={favoriteLoading}
+                  className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm disabled:opacity-50"
+                >
+                  <Heart
+                    size={20}
+                    className={isFavorite ? 'fill-red-500 text-red-500' : 'text-warm-800'}
+                  />
+                </button>
+                <button className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
+                  <Share2 size={20} className="text-warm-800" />
+                </button>
+              </div>
+            </div>
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {images.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedImage(i)}
+                  className={`h-2 rounded-full transition-all ${
+                    i === selectedImage ? 'w-5 bg-white' : 'w-2 bg-white/55'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

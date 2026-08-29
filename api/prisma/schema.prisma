@@ -542,6 +542,20 @@ model Payment {
   @@index([transactionRef])
 }
 
+model PaymentWebhookEvent {
+  id          String   @id @default(cuid())
+  reference   String   @unique
+  eventType   String
+  status      String   @default("PROCESSED")
+  provider    String   @default("PAYSTACK")
+  metadata    String?
+  createdAt   DateTime @default(now())
+
+  @@index([reference])
+  @@index([status])
+  @@index([createdAt])
+}
+
 model Review {
   id         String   @id @default(cuid())
   userId     String

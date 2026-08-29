@@ -31,10 +31,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: '/favicon.ico', type: 'image/x-icon' },
+      { url: '/logo.png', type: 'image/png', sizes: '580x471' },
       { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
       { url: '/icon-512.png', type: 'image/png', sizes: '512x512' },
       { url: '/favicon.svg', type: 'image/svg+xml' },
     ],
+    shortcut: ['/favicon.ico'],
     apple: [{ url: '/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
   },
   openGraph: {

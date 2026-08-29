@@ -80,36 +80,45 @@ export default function CreateProductPage() {
     setVariants(prev => prev.map((v, i) => i === index ? { ...v, [field]: value } : v))
   }
 
+  const parseImages = (value: string) => value.split(/\r?\n/).map((url) => url.trim()).filter(Boolean)
+
   const uploadImage = () => {
     const input = document.createElement('input')
     input.type = 'file'
+    input.multiple = true
     input.accept = 'image/jpeg,image/png,image/webp,image/gif'
     input.onchange = async () => {
-      const file = input.files?.[0]
-      if (!file) return
+      const files = Array.from(input.files || [])
+      if (!files.length) return
       setUploading(true)
       setError('')
       try {
-        const body = new FormData()
-        body.append('image', file)
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 60000)
-        const response = await fetch('/api/upload/image', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-          body,
-          signal: controller.signal,
-        })
-        clearTimeout(timeout)
-        const data = await response.json().catch(() => null)
-        if (response.ok && data?.success) {
-          updateField('images', data.data.url)
-        } else {
-          setError(data?.error || `Image upload failed (${response.status || 'request'}). Please try again.`)
+        const uploadedUrls: string[] = []
+        for (const file of files) {
+          const body = new FormData()
+          body.append('image', file)
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 60000)
+          const response = await fetch('/api/upload/image', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+            body,
+            signal: controller.signal,
+          })
+          clearTimeout(timeout)
+          const data = await response.json().catch(() => null)
+          if (response.ok && data?.success) {
+            uploadedUrls.push(data.data.url)
+          } else {
+            throw new Error(data?.error || `Image upload failed (${response.status || 'request'}). Please try again.`)
+          }
         }
+
+        const nextUrls = [...parseImages(form.images), ...uploadedUrls]
+        updateField('images', nextUrls.join('\n'))
       } catch (err) {
         console.error('Upload fetch error:', err)
-        setError(err instanceof Error && err.name === 'AbortError' ? 'Upload timed out. Please try again.' : 'Upload failed. Please try again.')
+        setError(err instanceof Error ? err.message : 'Upload failed. Please try again.')
       } finally {
         setUploading(false)
       }
@@ -134,7 +143,7 @@ export default function CreateProductPage() {
         price: parseFloat(form.price),
         originalPrice: form.originalPrice ? parseFloat(form.originalPrice) : null,
         stock: parseInt(form.stock) || 0,
-        images: form.images ? [form.images] : [],
+        images: parseImages(form.images),
         isActive: true,
         status: 'ACTIVE',
       }
@@ -194,7 +203,40 @@ export default function CreateProductPage() {
             onChange={(e) => updateField('name', e.target.value)}
             required
           />
-          <Button type="button" variant="outline" onClick={uploadImage}>Upload product image</Button>
+          <div>
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <label className="block text-sm font-medium text-warm-900">Product images</label>
+              <Button type="button" variant="outline" onClick={uploadImage} disabled={uploading}>
+                {uploading ? 'Uploading...' : 'Upload photos'}
+              </Button>
+            </div>
+
+            <textarea
+              className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4 text-warm-900 placeholder:text-warm-800/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              rows={3}
+              placeholder="Image URLs, one per line"
+              value={form.images}
+              onChange={(e) => updateField('images', e.target.value)}
+            />
+
+            {parseImages(form.images).length > 0 && (
+              <div className="flex flex-wrap gap-3 mt-3">
+                {parseImages(form.images).map((url, index) => (
+                  <div key={`${url}-${index}`} className="relative w-20 h-20 rounded-xl overflow-hidden border border-warm-200 bg-warm-100">
+                    <img src={url} alt={`Product preview ${index + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => updateField('images', parseImages(form.images).filter((_, i) => i !== index).join('\n'))}
+                      className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs text-white shadow-sm"
+                      aria-label="Remove image"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-warm-900 mb-1.5">Description</label>

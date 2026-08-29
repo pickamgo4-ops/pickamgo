@@ -14,11 +14,16 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase())
   const mimetype = allowedTypes.test(file.mimetype)
 
-  if (extname && mimetype) {
-    return cb(null, true)
-  } else {
-    cb(new Error('Only image files are allowed'))
+  if (!extname || !mimetype) {
+    return cb(new Error('Only JPEG, PNG, WEBP, and GIF images are allowed'))
   }
+
+  const safeName = file.originalname.replace(/[\\/]+/g, '').replace(/[^a-zA-Z0-9._-]/g, '-')
+  if (!safeName || safeName === '-' || safeName.includes('..')) {
+    return cb(new Error('Invalid file name'))
+  }
+
+  return cb(null, true)
 }
 
 const buildUpload = () => multer({
