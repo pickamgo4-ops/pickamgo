@@ -1,15 +1,18 @@
 import { Cart, CartItemWithRelations, Address, Order, RiderDelivery, RiderProfile, SellerVerification, CheckoutOrder, PayoutMethod, Payout, PayoutBalances, DeliverySettings, PlatformPromoStats } from '../types'
 
-const DEFAULT_PRODUCTION_API_URL = 'https://pickamgo-production.up.railway.app/api'
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL
 const FALLBACK_API_URL = '/api'
 
 function resolveApiUrl(): string {
-  if (typeof window === 'undefined') return CONFIGURED_API_URL || FALLBACK_API_URL
+  if (CONFIGURED_API_URL) return CONFIGURED_API_URL
+
+  if (typeof window === 'undefined') return FALLBACK_API_URL
+
   const hostname = window.location.hostname
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
-  if (isLocalhost) return CONFIGURED_API_URL || FALLBACK_API_URL
-  return CONFIGURED_API_URL || DEFAULT_PRODUCTION_API_URL
+  if (isLocalhost) return FALLBACK_API_URL
+
+  return FALLBACK_API_URL
 }
 
 const API_URL = resolveApiUrl()
