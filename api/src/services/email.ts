@@ -7,6 +7,7 @@ const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || 'PickAmGo'
 const APP_URL = getAppUrl()
 const ADMIN_NOTIFICATION_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || ''
 const LOGO_URL = process.env.LOGO_URL || `${APP_URL}/logo.png`
+const BIMI_LOGO_URL = process.env.BIMI_LOGO_URL || `${APP_URL}/bimi.svg`
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null
 
@@ -68,6 +69,7 @@ export function buildBaseHtml(title: string, body: string): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
+  <link rel="bimi" href="${BIMI_LOGO_URL}">
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
     .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
