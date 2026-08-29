@@ -48,6 +48,7 @@ model User {
   payoutMethods          PayoutMethod[]
   products               Product[]
   createdPromos          PromoCode[]             @relation("PromoCreatedBy")
+  createdNotices         PublicNotice[]          @relation("PublicNoticeCreatedBy")
   sellerPromos           PromoCode[]             @relation("PromoSeller")
   reports                Report[]
   reviews                Review[]
@@ -1027,4 +1028,55 @@ model PromoRedemption {
   @@index([orderId])
   @@index([customerId])
   @@index([createdAt])
+}
+
+model PublicNotice {
+  id             String    @id @default(cuid())
+  title          String
+  message        String    @db.Text
+  type           String    @default("INFORMATION")
+  icon           String?
+  imageUrl       String?
+  buttonText     String?
+  buttonUrl      String?
+  linkTarget     String    @default("_self")
+  pageTargets    String    @default("ALL")
+  audience       String    @default("EVERYONE")
+  priority       Int       @default(0)
+  status         String    @default("DRAFT")
+  isDismissible  Boolean   @default(true)
+  rememberDismissal Boolean @default(true)
+  reappearAfterHours Int?   @default(24)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  publishedAt    DateTime?
+  archivedAt     DateTime?
+  createdByUser  User      @relation("PublicNoticeCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  dismissals     PublicNoticeDismissal[]
+
+  @@index([status])
+  @@index([type])
+  @@index([startsAt, endsAt])
+  @@index([priority])
+  @@index([createdBy])
+  @@index([createdAt])
+}
+
+model PublicNoticeDismissal {
+  id         String    @id @default(cuid())
+  noticeId   String
+  userId     String?
+  sessionId  String?
+  dismissedAt DateTime @default(now())
+  notice     PublicNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+
+  @@unique([noticeId, userId])
+  @@unique([noticeId, sessionId])
+  @@index([noticeId])
+  @@index([userId])
+  @@index([sessionId])
+  @@index([dismissedAt])
 }
