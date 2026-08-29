@@ -1,9 +1,8 @@
 import { Resend } from 'resend'
 import { getAppUrl } from '../utils/url'
+import { EmailPurpose, resolveSender } from './email-senders'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'no-reply@pickamgo.com'
-const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || 'PickAmGo'
 const APP_URL = getAppUrl()
 const ADMIN_NOTIFICATION_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || ''
 const LOGO_URL = process.env.LOGO_URL || `${APP_URL}/logo.png`
@@ -17,6 +16,7 @@ type SendEmailOptions = {
   html: string
   text?: string
   replyTo?: string
+  purpose?: EmailPurpose
 }
 
 type SendEmailResult = {
@@ -30,14 +30,16 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     return { success: false, error: 'RESEND_API_KEY is not configured' }
   }
 
+  const sender = resolveSender(options.purpose || 'general')
+
   try {
     const { data, error } = await resend.emails.send({
-      from: `${RESEND_FROM_NAME} <${RESEND_FROM_EMAIL}>`,
+      from: `${sender.fromName} <${sender.fromEmail}>`,
       to: [options.to],
       subject: options.subject,
       html: options.html,
       text: options.text,
-      replyTo: options.replyTo,
+      replyTo: options.replyTo || sender.replyTo,
     })
 
     if (error) {
@@ -140,6 +142,7 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<SendEm
     subject: 'Welcome to PickAmGo 🎉',
     html: buildBaseHtml('Welcome to PickAmGo', body),
     text: `Welcome to PickAmGo, ${name}! Thank you for joining. Visit ${APP_URL}/discover to start shopping.`,
+    purpose: 'welcome',
   })
 }
 
@@ -163,6 +166,7 @@ export async function sendSignInNotificationEmail(to: string, name: string, deta
     subject: 'New sign-in to your PickAmGo account',
     html: buildBaseHtml('Sign-in Notification', body),
     text: `New sign-in detected on ${details.date}. If this wasn't you, please secure your account.`,
+    purpose: 'signin_notification',
   })
 }
 
@@ -183,6 +187,7 @@ export async function sendEmailVerificationEmail(to: string, name: string, verif
     subject: 'Verify your PickAmGo email address',
     html: buildBaseHtml('Verify Email', body),
     text: `Verify your email address: ${verifyUrl}. This link expires in 24 hours.`,
+    purpose: 'email_verification',
   })
 }
 
@@ -245,6 +250,7 @@ export async function sendOrderConfirmationEmail(to: string, order: {
     subject: `Order Confirmation #${order.orderNumber}`,
     html: buildBaseHtml(`Order ${order.orderNumber}`, body),
     text: `Order #${order.orderNumber} confirmed. Total: GH₵${order.total.toFixed(2)}. Track at ${APP_URL}/orders`,
+    purpose: 'order_confirmation',
   })
 }
 
@@ -334,6 +340,7 @@ export async function sendOrderStatusEmail(to: string, order: {
     subject: config.subject,
     html: buildBaseHtml(`Order ${order.orderNumber} Update`, body),
     text: `Order #${order.orderNumber} is now ${order.status}. ${config.message} View at ${config.buttonUrl}`,
+    purpose: 'order_status',
   })
 }
 
@@ -359,6 +366,7 @@ export async function sendPaymentConfirmationEmail(to: string, payment: {
     subject: `Payment confirmed for order #${payment.orderNumber}`,
     html: buildBaseHtml(`Payment ${payment.orderNumber}`, body),
     text: `Payment confirmed for order #${payment.orderNumber}. Amount: GH₵${payment.amount.toFixed(2)}. View at ${APP_URL}/orders`,
+    purpose: 'payment_confirmation',
   })
 }
 
@@ -383,6 +391,7 @@ export async function sendRefundEmail(to: string, refund: {
     subject: `Refund processed for order #${refund.orderNumber}`,
     html: buildBaseHtml(`Refund ${refund.orderNumber}`, body),
     text: `Refund of GH₵${refund.amount.toFixed(2)} processed for order #${refund.orderNumber}.`,
+    purpose: 'refund',
   })
 }
 
@@ -400,6 +409,7 @@ export async function sendNewMessageEmail(to: string, senderName: string, conver
     subject: `You received a message from ${senderName}`,
     html: buildBaseHtml('New Message', body),
     text: `You received a message from ${senderName} on PickAmGo. View and reply at ${conversationUrl}`,
+    purpose: 'new_message',
   })
 }
 
@@ -462,6 +472,7 @@ export async function sendSellerOrderNotification(to: string, order: {
     subject: `New Order #${order.orderNumber}`,
     html: buildBaseHtml(`New Order ${order.orderNumber}`, body),
     text: `New order #${order.orderNumber} from ${order.buyerName}. View at ${APP_URL}/seller/orders`,
+    purpose: 'seller_order',
   })
 }
 
@@ -491,6 +502,7 @@ export async function sendRiderNotification(to: string, delivery: {
     subject: `Delivery Assigned - Order #${delivery.orderNumber}`,
     html: buildBaseHtml(`Delivery ${delivery.orderNumber}`, body),
     text: `New delivery assigned for order #${delivery.orderNumber}. Pickup: ${delivery.pickupAddress}. Delivery: ${delivery.deliveryAddress}. View at ${APP_URL}/rider/deliveries/active`,
+    purpose: 'rider_notification',
   })
 }
 
@@ -516,6 +528,7 @@ export async function sendDeliveryAssignmentEmail(to: string, data: {
     subject: `Rider assigned to order #${data.orderNumber}`,
     html: buildBaseHtml(`Rider Assigned ${data.orderNumber}`, body),
     text: `Rider ${data.riderName} assigned to order #${data.orderNumber}. Track at ${APP_URL}/orders`,
+    purpose: 'delivery_assignment',
   })
 }
 
@@ -550,6 +563,7 @@ export async function sendDeliveryStatusEmail(to: string, data: {
     subject: `${config.heading} - Order #${data.orderNumber}`,
     html: buildBaseHtml(`Delivery ${data.orderNumber}`, body),
     text: `${config.heading} for order #${data.orderNumber}. ${config.message}`,
+    purpose: 'delivery_status',
   })
 }
 
@@ -573,6 +587,7 @@ export async function sendPasswordResetEmail(to: string, resetToken: string): Pr
     subject: 'Reset your PickAmGo password',
     html: buildBaseHtml('Reset Password', body),
     text: `Reset your PickAmGo password: ${resetUrl}. This link expires in 1 hour.`,
+    purpose: 'password_reset',
   })
 }
 
@@ -598,6 +613,7 @@ export async function sendReferralEmail(to: string, referral: {
     subject: `You've been invited to PickAmGo by ${referral.referrerName}`,
     html: buildBaseHtml('You are invited', body),
     text: `${referral.referrerName} invited you to join PickAmGo. Visit ${referralUrl} to sign up.`,
+    purpose: 'referral',
   })
 }
 
@@ -627,6 +643,7 @@ export async function sendBookingConfirmationEmail(to: string, booking: {
     subject: `Booking Confirmed #${booking.bookingNumber}`,
     html: buildBaseHtml(`Booking ${booking.bookingNumber}`, body),
     text: `Booking #${booking.bookingNumber} confirmed for ${booking.serviceName} on ${booking.date} at ${booking.time}.`,
+    purpose: 'booking_confirmation',
   })
 }
 
@@ -665,6 +682,7 @@ export async function sendBookingStatusEmail(to: string, booking: {
     subject: config.subject,
     html: buildBaseHtml(`Booking ${booking.bookingNumber}`, body),
     text: `${config.message} Booking #${booking.bookingNumber}.`,
+    purpose: 'booking_status',
   })
 }
 
@@ -690,6 +708,7 @@ export async function sendReviewRequestEmail(to: string, review: {
     subject: `How was your PickAmGo order #${review.orderNumber}?`,
     html: buildBaseHtml(`Review Request ${review.orderNumber}`, body),
     text: `How was your order #${review.orderNumber}? Leave a review at ${review.reviewUrl}`,
+    purpose: 'review_request',
   })
 }
 
@@ -715,6 +734,7 @@ export async function sendWithdrawalRequestedEmail(to: string, withdrawal: {
     subject: 'Withdrawal request received',
     html: buildBaseHtml('Withdrawal Requested', body),
     text: `Withdrawal of GH₵${withdrawal.amount.toFixed(2)} received. Reference: ${withdrawal.reference}.`,
+    purpose: 'withdrawal_requested',
   })
 }
 
@@ -748,6 +768,7 @@ export async function sendWithdrawalProcessedEmail(to: string, withdrawal: {
     subject: `${isSuccess ? 'Payout sent' : 'Payout update'} - GH₵${withdrawal.amount.toFixed(2)}`,
     html: buildBaseHtml(`Payout ${withdrawal.reference}`, body),
     text: `${heading}. Amount: GH₵${withdrawal.amount.toFixed(2)}. Status: ${withdrawal.status}.`,
+    purpose: 'withdrawal_processed',
   })
 }
 
@@ -774,6 +795,7 @@ export async function sendSellerAccountEmail(to: string, name: string, status: '
     subject: c.subject,
     html: buildBaseHtml(`Seller ${status}`, body),
     text: c.message,
+    purpose: 'seller_account',
   })
 }
 
@@ -800,6 +822,7 @@ export async function sendRiderAccountEmail(to: string, name: string, status: 'A
     subject: c.subject,
     html: buildBaseHtml(`Rider ${status}`, body),
     text: c.message,
+    purpose: 'rider_account',
   })
 }
 
@@ -813,5 +836,6 @@ export async function sendAdminNotification(subject: string, html: string, text?
     subject: `[PickAmGo Admin] ${subject}`,
     html: buildBaseHtml(`Admin: ${subject}`, html),
     text: text || `Admin notification: ${subject}`,
+    purpose: 'admin_notification',
   })
 }

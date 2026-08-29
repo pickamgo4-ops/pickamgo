@@ -90,6 +90,7 @@ router.post('/', authMiddleware, validateBody(submitReportSchema), async (req: A
           <a href="${getAppUrl()}/admin/reports" class="button">View Reports</a>
         `),
         text: `New report submitted: ${category} - ${targetType}. Reason: ${reason}. Reported by: ${report.reporter.name}`,
+        purpose: 'report_notification',
       }).catch(() => {})
     }
 
@@ -209,6 +210,7 @@ router.patch('/:id/status', authMiddleware, validateBody(updateReportSchema), as
             <p>Thank you for helping us keep PickAmGo safe.</p>
           `),
           text: `Hi ${reporter.name}, your report (ID: ${report.id}) has been marked as ${statusText}. Thank you for helping us keep PickAmGo safe.`,
+          purpose: 'report_update',
         }).catch(() => {})
       }
     }

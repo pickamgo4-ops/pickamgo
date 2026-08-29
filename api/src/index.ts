@@ -262,7 +262,7 @@ app.listen(PORT, async () => {
 
   console.log('📧 Email configuration:', {
     configured: !!process.env.RESEND_API_KEY,
-    from: process.env.RESEND_FROM_EMAIL || 'no-reply@pickamgo.com',
+    from: process.env.RESEND_FROM_EMAIL || process.env.RESEND_NOREPLY_EMAIL || 'noreply@pickamgo.com',
     appUrl: getAppUrl(),
   })
 })

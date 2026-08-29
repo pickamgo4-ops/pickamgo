@@ -7,8 +7,8 @@ This document explains how PickAmGo transactional emails are branded and how to 
 ## Current Branding
 
 All transactional emails sent by PickAmGo include:
-- **Sender name:** `PickAmGo`
-- **Sender address:** configured via `RESEND_FROM_EMAIL` (default: `no-reply@pickamgo.com`)
+- **Sender name:** PickAmGo (or role-specific variant such as "PickAmGo Orders")
+- **Sender address:** determined by email purpose using centralized role-based addresses on `@pickamgo.com`
 - **Logo in email header:** the PickAmGo logo is displayed at the top of every email via the `LOGO_URL` environment variable
 - **BIMI reference:** emails include a `<link rel="bimi" href="...">` tag in the `<head>`
 
@@ -59,9 +59,26 @@ To obtain a VMC:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RESEND_FROM_EMAIL` | `no-reply@pickamgo.com` | The sender email address |
-| `RESEND_FROM_NAME` | `PickAmGo` | The sender name |
-| `LOGO_URL` | `${APP_URL}/logo.png` | Logo URL used in email headers |
+| `RESEND_API_KEY` | (empty) | Resend API key |
+| `RESEND_FROM_NAME` | `PickAmGo` | Base sender display name |
+| `RESEND_FROM_EMAIL` | `noreply@pickamgo.com` | Default sender email address |
+| `RESEND_HELLO_EMAIL` | `hello@pickamgo.com` | Welcome/general emails |
+| `RESEND_SUPPORT_EMAIL` | `support@pickamgo.com` | Support reply-to address |
+| `RESEND_ORDERS_EMAIL` | `orders@pickamgo.com` | Order confirmations and updates |
+| `RESEND_ACCOUNTS_EMAIL` | `accounts@pickamgo.com` | Verification and password resets |
+| `RESEND_PAYMENTS_EMAIL` | `payments@pickamgo.com` | Payment confirmations and refunds |
+| `RESEND_PAYOUTS_EMAIL` | `payouts@pickamgo.com` | Payout notifications |
+| `RESEND_SELLERS_EMAIL` | `sellers@pickamgo.com` | Seller onboarding and status |
+| `RESEND_RIDERS_EMAIL` | `riders@pickamgo.com` | Rider onboarding and deliveries |
+| `RESEND_BOOKINGS_EMAIL` | `bookings@pickamgo.com` | Booking confirmations and updates |
+| `RESEND_MESSAGES_EMAIL` | `messages@pickamgo.com` | New message notifications |
+| `RESEND_NOTIFICATIONS_EMAIL` | `notifications@pickamgo.com` | General automated notifications |
+| `RESEND_ADMIN_EMAIL` | `admin@pickamgo.com` | Internal admin notifications |
+| `RESEND_SECURITY_EMAIL` | `security@pickamgo.com` | Security alerts |
+| `RESEND_MARKETING_EMAIL` | `marketing@pickamgo.com` | Marketing and promotional emails |
+| `RESEND_NOREPLY_EMAIL` | `noreply@pickamgo.com` | No-reply automated emails |
+| `ADMIN_NOTIFICATION_EMAIL` | (empty) | Admin inbox for notifications |
+| `LOGO_URL` | `${APP_URL}/logo.png` | Logo URL for email headers |
 | `BIMI_LOGO_URL` | `${APP_URL}/bimi.svg` | Public URL to the BIMI SVG logo |
 
 ## Resend Configuration
@@ -74,11 +91,11 @@ To obtain a VMC:
 ## Production Checklist
 
 - [ ] `RESEND_API_KEY` is set to a valid Resend API key (not the development placeholder).
-- [ ] `RESEND_FROM_EMAIL` uses a domain you control and have verified with Resend (e.g., `no-reply@pickamgo.com`).
-- [ ] SPF, DKIM, and DMARC DNS records are configured and passing.
-- [ ] `BIMI_LOGO_URL` points to a publicly accessible HTTPS URL on the same domain as `RESEND_FROM_EMAIL`.
+- [ ] All role-based sender addresses (`RESEND_*_EMAIL`) are configured in the Resend dashboard or use the defaults.
+- [ ] SPF, DKIM, and DMARC DNS records are configured and passing for `pickamgo.com`.
+- [ ] `BIMI_LOGO_URL` points to a publicly accessible HTTPS URL on the same domain as the sending addresses.
 - [ ] `public/bimi.svg` is uploaded to your production server at the BIMI URL.
-- [ ] BIMI DNS TXT record is added.
+- [ ] BIMI DNS TXT record is added (`default._bimi.pickamgo.com`).
 - [ ] (Optional, for Gmail) VMC is obtained and configured.
 
 ## Limitations

@@ -979,7 +979,7 @@ router.get('/settings', authMiddleware, requireRole(['ADMIN']), async (_req: Aut
       },
       email: {
         providerConfigured: !!process.env.RESEND_API_KEY,
-        senderEmail: process.env.RESEND_API_KEY ? 'noreply@pickamgo.com' : '',
+        senderEmail: process.env.RESEND_FROM_EMAIL || process.env.RESEND_NOREPLY_EMAIL || 'noreply@pickamgo.com',
         senderName: settingMap.get('senderName') || 'PickAmGo',
       },
     }
@@ -1593,6 +1593,7 @@ router.post('/emails/send', authMiddleware, requireRole(['ADMIN']), async (req: 
         subject,
         html: buildBaseHtml(subject, html.replace('{{name}}', 'Test User')),
         text: text ? text.replace('{{name}}', 'Test User') : undefined,
+        purpose: 'marketing',
       })
       return successResponse(res, { ...result, message: 'Test email sent' })
     }
@@ -1645,13 +1646,19 @@ router.post('/emails/send', authMiddleware, requireRole(['ADMIN']), async (req: 
       let batchFailed = 0
       const batchErrors: string[] = []
 
+      const unsubscribeHtml = `<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #6b7280;">
+        <p>You received this email because you have a PickAmGo account. If you no longer wish to receive these emails, you can <a href="mailto:support@pickamgo.com?subject=Unsubscribe&body=Please%20unsubscribe%20me%20from%20PickAmGo%20emails." style="color: #FF6B35; text-decoration: none;">unsubscribe</a> or update your notification preferences in your account settings.</p>
+      </div>`
+
       await Promise.allSettled(
         batch.map(async (user) => {
+          const personalizedHtml = html.replace('{{name}}', user.name || 'User')
           const result = await sendEmail({
             to: user.email!,
             subject,
-            html: buildBaseHtml(subject, html.replace('{{name}}', user.name || 'User')),
-            text: text ? text.replace('{{name}}', user.name || 'User') : undefined,
+            html: buildBaseHtml(subject, `${personalizedHtml}${unsubscribeHtml}`),
+            text: text ? `${text.replace('{{name}}', user.name || 'User')}\n\n---\nYou received this email because you have a PickAmGo account. To unsubscribe, reply to this email with "Unsubscribe" in the subject.` : undefined,
+            purpose: 'marketing',
           })
 
           if (result.success) {
@@ -1751,7 +1758,7 @@ router.get('/emails/config', authMiddleware, requireRole(['ADMIN']), async (_req
   try {
     return successResponse(res, {
       configured: !!process.env.RESEND_API_KEY,
-      fromEmail: process.env.RESEND_FROM_EMAIL || 'no-reply@pickamgo.com',
+      fromEmail: process.env.RESEND_FROM_EMAIL || process.env.RESEND_NOREPLY_EMAIL || 'noreply@pickamgo.com',
       fromName: process.env.RESEND_FROM_NAME || 'PickAmGo',
       appUrl: getAppUrl(),
       logoUrl: process.env.LOGO_URL || `${getAppUrl()}/logo.png`,

@@ -18,6 +18,7 @@ router.post('/email/test', (req, res) => {
     to,
     subject,
     html: buildBaseHtml(subject, html),
+    purpose: 'general',
   })
     .then(result => res.json(result))
     .catch(error => res.status(500).json({ success: false, error: error.message }))
@@ -36,7 +37,7 @@ router.get('/email/test', (req, res) => {
       error: 'No test email configured. Set RESEND_TEST_EMAIL or ADMIN_NOTIFICATION_EMAIL in .env',
       config: {
         hasApiKey: !!process.env.RESEND_API_KEY,
-        fromEmail: process.env.RESEND_FROM_EMAIL || 'noreply@pickamgo.com',
+        fromEmail: process.env.RESEND_FROM_EMAIL || process.env.RESEND_NOREPLY_EMAIL || 'noreply@pickamgo.com',
         fromName: process.env.RESEND_FROM_NAME || 'PickAmGo',
       },
     })
@@ -46,6 +47,7 @@ router.get('/email/test', (req, res) => {
     to: testEmail,
     subject: 'PickAmGo Email Test',
     html: buildBaseHtml('Email Test', '<h2>Email Test Successful</h2><p>If you see this, PickAmGo email is working.</p>'),
+    purpose: 'general',
   })
     .then(result => res.json(result))
     .catch(error => res.status(500).json({ success: false, error: error.message }))
