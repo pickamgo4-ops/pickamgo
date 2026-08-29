@@ -5,6 +5,7 @@ import { useRole } from '@/contexts/RoleContext'
 import { useEffect } from 'react'
 
 const customerPaths = ['/', '/discover', '/cart', '/favorites', '/orders', '/notifications', '/profile', '/product', '/service', '/shop', '/checkout', '/addresses', '/track', '/messages', '/report', '/settings', '/help', '/security']
+const publicPaths = ['/terms', '/privacy']
 
 export function RoleRedirector() {
   const pathname = usePathname()
@@ -16,10 +17,11 @@ export function RoleRedirector() {
 
     const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('token')
     const isCustomerPath = customerPaths.some(p => p === '/' ? pathname === '/' : pathname.startsWith(p + '/') || pathname === p)
+    const isPublicPath = publicPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
     const isAuthPath = pathname.startsWith('/auth/')
 
     if (!user) {
-      if (!isAuthPath && !isCustomerPath && !hasToken) {
+      if (!isAuthPath && !isCustomerPath && !isPublicPath && !hasToken) {
         router.push('/auth/login')
       }
       return

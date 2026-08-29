@@ -8,6 +8,7 @@ import { sendOrderConfirmationEmail, sendSellerOrderNotification } from '../serv
 import { initializeTransaction, verifyTransaction } from '../services/paystack'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 import { generateOrderNumber } from '../utils/orderNumber'
+import { getAppUrl } from '../utils/url'
 import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, doesPromoApplyToGroup, type PromoValidationResult } from '../services/promo'
 
 const router = Router()
@@ -41,7 +42,7 @@ router.post('/guest/paystack/initialize', validateBody(guestPaymentSchema), asyn
   try {
     const order = await prisma.order.findFirst({ where: { id: req.body.orderId, guestEmail: req.body.email }, include: { payment: true } })
     if (!order?.payment) return errorResponse(res, 'Order payment not found', 404)
-    const result = await initializeTransaction(req.body.email, Number(order.payment.amount), order.payment.transactionRef, `${process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/checkout?orderId=${order.id}&guest=1&email=${encodeURIComponent(req.body.email)}`)
+    const result = await initializeTransaction(req.body.email, Number(order.payment.amount), order.payment.transactionRef, `${getAppUrl()}/checkout?orderId=${order.id}&guest=1&email=${encodeURIComponent(req.body.email)}`)
     return successResponse(res, { authorizationUrl: result.authorization_url, reference: result.reference })
   } catch (error) {
     return errorResponse(res, 'Unable to initialize Paystack payment', 400)
@@ -57,10 +58,61 @@ router.post('/guest/verify-payment', validateBody(z.object({ orderId: z.string()
     const transaction = await verifyTransaction(req.body.reference)
     if (transaction.status !== 'success' || transaction.currency !== 'GHS' || transaction.amount !== Math.round(Number(order.payment.amount) * 100)) return errorResponse(res, 'Payment could not be verified', 400)
     const updated = await prisma.$transaction(async tx => {
-      await tx.payment.update({ where: { id: order.payment!.id }, data: { status: 'PAID', paidAt: new Date() } })
-      return tx.order.update({ where: { id: order.id }, data: { status: 'PAID' }, include: { payment: true } })
+      const paymentUpdate = await tx.payment.updateMany({
+        where: { id: order.payment!.id, status: { not: 'PAID' } },
+        data: { status: 'PAID', paidAt: new Date() },
+      })
+      if (paymentUpdate.count !== 1) {
+        return { order: await tx.order.findUnique({ where: { id: order.id }, include: { payment: true } }), paymentUpdated: false }
+      }
+      return {
+        order: await tx.order.update({ where: { id: order.id }, data: { status: 'PAID' }, include: { payment: true } }),
+        paymentUpdated: true,
+      }
     })
-    return successResponse(res, updated, 200, 'Payment verified successfully')
+
+    if (updated.paymentUpdated) {
+      const fullOrder = await prisma.order.findUnique({
+        where: { id: order.id },
+        include: {
+          customer: { select: { email: true, name: true, phone: true } },
+          shop: { include: { owner: { select: { email: true, name: true } } } },
+          items: true,
+          payment: true,
+        },
+      })
+
+      if (fullOrder && fullOrder.guestEmail) {
+        sendOrderConfirmationEmail(fullOrder.guestEmail, {
+          orderNumber: fullOrder.orderNumber,
+          items: fullOrder.items.map(item => ({ name: item.name, quantity: item.quantity, price: Number(item.price) })),
+          total: Number(fullOrder.total),
+          deliveryMethod: fullOrder.fulfillmentMethod,
+          paymentMethod: fullOrder.payment?.method || 'paystack',
+          createdAt: fullOrder.createdAt.toISOString(),
+          deliveryAddress: fullOrder.deliveryAddress,
+          customerName: fullOrder.guestName || 'there',
+          shopName: fullOrder.shop?.name,
+        }).catch(err => console.error('Failed to send guest order confirmation email:', err))
+      }
+
+      const sellerEmail = fullOrder?.shop?.owner?.email
+      if (sellerEmail && fullOrder) {
+        sendSellerOrderNotification(sellerEmail, {
+          orderNumber: fullOrder.orderNumber,
+          items: fullOrder.items.map(item => ({ name: item.name, quantity: item.quantity, price: Number(item.price) })),
+          buyerName: fullOrder.guestName || 'Guest',
+          customerPhone: fullOrder.guestPhone || undefined,
+          customerEmail: fullOrder.guestEmail || undefined,
+          deliveryAddress: fullOrder.deliveryAddress,
+          total: Number(fullOrder.total),
+          shopName: fullOrder.shop?.name,
+          deliveryMethod: fullOrder.fulfillmentMethod,
+        }).catch(err => console.error('Failed to send seller notification email:', err))
+      }
+    }
+
+    return successResponse(res, updated.order, 200, 'Payment verified successfully')
   } catch (error) {
     return errorResponse(res, 'Payment verification failed', 400)
   }
@@ -421,37 +473,6 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
     },
   })
 
-  for (const order of fullOrders) {
-    if (guestEmail) {
-      const items = order.items.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: Number(item.price),
-      }))
-      sendOrderConfirmationEmail(guestEmail, {
-        orderNumber: order.orderNumber,
-        items,
-        total: Number(order.total),
-        deliveryMethod: order.fulfillmentMethod,
-        paymentMethod: order.payment?.method,
-        createdAt: order.createdAt.toISOString(),
-      }).catch(err => console.error('Failed to send guest order confirmation email:', err))
-    }
-
-    const sellerEmail = order.shop?.owner?.email
-    if (sellerEmail) {
-      const items = order.items.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-      }))
-      sendSellerOrderNotification(sellerEmail, {
-        orderNumber: order.orderNumber,
-        items,
-        buyerName: guestName || 'Guest',
-        deliveryAddress,
-      }).catch(err => console.error('Failed to send seller notification email:', err))
-    }
-  }
 
   return successResponse(res, { orders: fullOrders }, 201, 'Guest orders created successfully')
 })

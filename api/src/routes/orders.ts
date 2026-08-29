@@ -7,8 +7,9 @@ import { createSellerEarnings, createRiderEarnings } from '../services/earnings'
 import { sendOrderStatusEmail, sendPaymentConfirmationEmail, sendRefundEmail, sendReviewRequestEmail } from '../services/email'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 import { generateOrderNumber } from '../utils/orderNumber'
+import { getAppUrl } from '../utils/url'
 
-const APP_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'
+const APP_URL = getAppUrl()
 
 const router = Router()
 

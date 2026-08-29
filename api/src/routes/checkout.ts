@@ -8,6 +8,7 @@ import { handleWebhook, initializeTransaction, verifyTransaction } from '../serv
 import { sendOrderConfirmationEmail, sendPaymentConfirmationEmail, sendSellerOrderNotification } from '../services/email'
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 import { generateOrderNumber } from '../utils/orderNumber'
+import { getAppUrl } from '../utils/url'
 import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, doesPromoApplyToGroup, type PromoValidationResult } from '../services/promo'
 
 const router = Router()
@@ -62,9 +63,46 @@ router.post('/paystack/webhook', async (req, res) => {
     })
 
     if (paymentUpdated) {
-      const order = await prisma.order.findUnique({ where: { id: payment.orderId }, include: { customer: { select: { email: true } } } })
-      if (order?.customer?.email) {
-        sendPaymentConfirmationEmail(order.customer.email, { orderNumber: order.orderNumber, amount: Number(payment.amount) }).catch(err => console.error('Failed to send payment email:', err))
+      const order = await prisma.order.findUnique({
+        where: { id: payment.orderId },
+        include: {
+          customer: { select: { email: true, name: true, phone: true } },
+          shop: { include: { owner: { select: { email: true, name: true } } } },
+          items: true,
+          payment: true,
+        },
+      })
+
+      if (order) {
+        if (order.customer?.email) {
+          sendPaymentConfirmationEmail(order.customer.email, { orderNumber: order.orderNumber, amount: Number(order.payment?.amount ?? payment.amount) }).catch(err => console.error('Failed to send payment email:', err))
+          sendOrderConfirmationEmail(order.customer.email, {
+            orderNumber: order.orderNumber,
+            items: order.items.map(item => ({ name: item.name, quantity: item.quantity, price: Number(item.price) })),
+            total: Number(order.total),
+            deliveryMethod: order.fulfillmentMethod,
+            paymentMethod: order.payment?.method || 'paystack',
+            createdAt: order.createdAt.toISOString(),
+            deliveryAddress: order.deliveryAddress,
+            customerName: order.customer.name || 'there',
+            shopName: order.shop?.name,
+          }).catch(err => console.error('Failed to send order confirmation email:', err))
+        }
+
+        const sellerEmail = order.shop?.owner?.email
+        if (sellerEmail) {
+          sendSellerOrderNotification(sellerEmail, {
+            orderNumber: order.orderNumber,
+            items: order.items.map(item => ({ name: item.name, quantity: item.quantity, price: Number(item.price) })),
+            buyerName: order.customer?.name || 'Customer',
+            customerPhone: order.customer?.phone || undefined,
+            customerEmail: order.customer?.email || undefined,
+            deliveryAddress: order.deliveryAddress,
+            total: Number(order.total),
+            shopName: order.shop?.name,
+            deliveryMethod: order.fulfillmentMethod,
+          }).catch(err => console.error('Failed to send seller notification email:', err))
+        }
       }
     }
 
@@ -93,7 +131,7 @@ router.post('/verify-payment', authMiddleware, requireRole(['USER']), validateBo
 
     const result = await prisma.$transaction(async tx => {
       const updatedPayment = await tx.payment.updateMany({
-        where: { id: order.payment!.id },
+        where: { id: order.payment!.id, status: { not: 'PAID' } },
         data: { status: 'PAID', paidAt: new Date(), transactionRef: reference },
       })
       if (updatedPayment.count !== 1) return { order: order, paymentUpdated: false }
@@ -101,8 +139,46 @@ router.post('/verify-payment', authMiddleware, requireRole(['USER']), validateBo
       await tx.financialLedger.updateMany({ where: { orderId: order.id, type: 'ORDER_PAYMENT' }, data: { status: 'SUCCESS', reference } })
       return { order: await tx.order.findUnique({ where: { id: order.id }, include: { payment: true } }), paymentUpdated: true }
     })
-    if (result.paymentUpdated && req.user!.email) {
-      sendPaymentConfirmationEmail(req.user!.email, { orderNumber: order.orderNumber, amount: Number(order.payment.amount) }).catch(err => console.error('Failed to send payment email:', err))
+    if (result.paymentUpdated) {
+      const fullOrder = await prisma.order.findUnique({
+        where: { id: order.id },
+        include: {
+          customer: { select: { email: true, name: true, phone: true } },
+          shop: { include: { owner: { select: { email: true, name: true } } } },
+          items: true,
+          payment: true,
+        },
+      })
+
+      if (fullOrder?.customer?.email) {
+        sendPaymentConfirmationEmail(fullOrder.customer.email, { orderNumber: fullOrder.orderNumber, amount: Number(fullOrder.payment?.amount ?? order.payment.amount) }).catch(err => console.error('Failed to send payment email:', err))
+        sendOrderConfirmationEmail(fullOrder.customer.email, {
+          orderNumber: fullOrder.orderNumber,
+          items: fullOrder.items.map(item => ({ name: item.name, quantity: item.quantity, price: Number(item.price) })),
+          total: Number(fullOrder.total),
+          deliveryMethod: fullOrder.fulfillmentMethod,
+          paymentMethod: fullOrder.payment?.method || 'paystack',
+          createdAt: fullOrder.createdAt.toISOString(),
+          deliveryAddress: fullOrder.deliveryAddress,
+          customerName: fullOrder.customer.name || 'there',
+          shopName: fullOrder.shop?.name,
+        }).catch(err => console.error('Failed to send order confirmation email:', err))
+      }
+
+      const sellerEmail = fullOrder?.shop?.owner?.email
+      if (sellerEmail && fullOrder) {
+        sendSellerOrderNotification(sellerEmail, {
+          orderNumber: fullOrder.orderNumber,
+          items: fullOrder.items.map(item => ({ name: item.name, quantity: item.quantity, price: Number(item.price) })),
+          buyerName: fullOrder.customer?.name || 'Customer',
+          customerPhone: fullOrder.customer?.phone || undefined,
+          customerEmail: fullOrder.customer?.email || undefined,
+          deliveryAddress: fullOrder.deliveryAddress,
+          total: Number(fullOrder.total),
+          shopName: fullOrder.shop?.name,
+          deliveryMethod: fullOrder.fulfillmentMethod,
+        }).catch(err => console.error('Failed to send seller notification email:', err))
+      }
     }
     return successResponse(res, result.order, 200, 'Payment verified successfully')
   } catch (error) {
@@ -115,7 +191,7 @@ router.post('/paystack/initialize', authMiddleware, requireRole(['USER']), valid
     const order = await prisma.order.findFirst({ where: { id: req.body.orderId, customerId: req.user!.id }, include: { payment: true } })
     if (!order?.payment) return errorResponse(res, 'Order payment not found', 404)
     if (order.payment.status === 'PAID') return errorResponse(res, 'Order is already paid', 400)
-    const result = await initializeTransaction(req.user!.email, Number(order.payment.amount), order.payment.transactionRef, `${process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/checkout?orderId=${order.id}`)
+    const result = await initializeTransaction(req.user!.email, Number(order.payment.amount), order.payment.transactionRef, `${getAppUrl()}/checkout?orderId=${order.id}`)
     return successResponse(res, { authorizationUrl: result.authorization_url, reference: result.reference })
   } catch (error) {
     return errorResponse(res, 'Unable to initialize Paystack payment', 400)
@@ -499,38 +575,6 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
     await prisma.cartItem.deleteMany({ where: { cartId: userCart.id } })
   }
 
-  for (const order of fullOrders) {
-    const customerEmail = order.customer?.email
-    if (customerEmail) {
-      const items = order.items.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: Number(item.price),
-      }))
-      sendOrderConfirmationEmail(customerEmail, {
-        orderNumber: order.orderNumber,
-        items,
-        total: Number(order.total),
-        deliveryMethod: order.fulfillmentMethod,
-        paymentMethod: order.payment?.method,
-        createdAt: order.createdAt.toISOString(),
-      }).catch(err => console.error('Failed to send order confirmation email:', err))
-    }
-
-    const sellerEmail = order.shop?.owner?.email
-    if (sellerEmail) {
-      const items = order.items.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-      }))
-      sendSellerOrderNotification(sellerEmail, {
-        orderNumber: order.orderNumber,
-        items,
-        buyerName: order.customer?.name || 'Guest',
-        deliveryAddress,
-      }).catch(err => console.error('Failed to send seller notification email:', err))
-    }
-  }
 
   if (addressId) {
     const address = await prisma.address.findFirst({

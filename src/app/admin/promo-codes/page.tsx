@@ -87,72 +87,90 @@ export default function AdminPromoCodesPage() {
 
       <main className="md:ml-64 min-w-0 max-w-full overflow-x-hidden pt-14 md:pt-0">
         <div className="max-w-7xl mx-auto min-w-0 p-4 md:p-6 lg:p-8">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-8">
             <div>
-              <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Promo Codes</h1>
-              <p className="text-warm-800/60 text-sm mt-1">Manage and track all promotional campaigns</p>
+              <h1 className="font-display text-4xl md:text-5xl font-bold tracking-[-0.04em] text-warm-900 leading-none">Promo Codes</h1>
+              <p className="text-warm-800/60 text-base mt-3">Manage and track all promotional campaigns</p>
             </div>
-            <Button onClick={() => router.push('/admin/promo-codes/new')} icon={<Plus size={18} />}>
+            <Button
+              onClick={() => router.push('/admin/promo-codes/new')}
+              className="!rounded-2xl !px-6 !py-4 text-lg shadow-[0_12px_25px_rgba(249,115,22,0.22)] hover:shadow-[0_16px_30px_rgba(249,115,22,0.28)]"
+              icon={<Plus size={20} />}
+            >
               Create Promo
             </Button>
           </div>
 
           {/* Stats Cards */}
           {stats && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Ticket size={18} className="text-primary" />
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#fff1ea] flex items-center justify-center text-primary">
+                    <Ticket size={18} />
+                  </div>
                   <span className="text-xs text-warm-800/60 font-medium">Active Promos</span>
                 </div>
-                <p className="text-xl font-bold text-warm-900">{stats.activePromos}</p>
+                <p className="text-[2rem] leading-none font-bold text-warm-900">{stats.activePromos}</p>
               </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <ShoppingCart size={18} className="text-green-600" />
+              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#edfdf4] flex items-center justify-center text-green-600">
+                    <ShoppingCart size={18} />
+                  </div>
                   <span className="text-xs text-warm-800/60 font-medium">Total Uses</span>
                 </div>
-                <p className="text-xl font-bold text-warm-900">{stats.totalUses}</p>
+                <p className="text-[2rem] leading-none font-bold text-warm-900">{stats.totalUses}</p>
               </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Percent size={18} className="text-orange-600" />
+              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#fff3e8] flex items-center justify-center text-orange-600">
+                    <Percent size={18} />
+                  </div>
                   <span className="text-xs text-warm-800/60 font-medium">Total Discounts</span>
                 </div>
-                <p className="text-xl font-bold text-warm-900">{formatCurrency(stats.totalDiscount)}</p>
+                <p className="text-[2rem] leading-none font-bold text-warm-900">{formatCurrency(stats.totalDiscount)}</p>
               </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign size={18} className="text-red-600" />
+              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#fff0f0] flex items-center justify-center text-red-600">
+                    <DollarSign size={18} />
+                  </div>
                   <span className="text-xs text-warm-800/60 font-medium">PickAmGo Cost</span>
                 </div>
-                <p className="text-xl font-bold text-warm-900">{formatCurrency(stats.pickamgoCost)}</p>
+                <p className="text-[2rem] leading-none font-bold text-warm-900">{formatCurrency(stats.pickamgoCost)}</p>
               </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp size={18} className="text-green-600" />
+              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#eafaf2] flex items-center justify-center text-green-600">
+                    <TrendingUp size={18} />
+                  </div>
                   <span className="text-xs text-warm-800/60 font-medium">Promo Revenue</span>
                 </div>
-                <p className="text-xl font-bold text-warm-900">{formatCurrency(stats.revenueFromPromoOrders)}</p>
+                <p className="text-[2rem] leading-none font-bold text-warm-900">{formatCurrency(stats.revenueFromPromoOrders)}</p>
               </div>
             </div>
           )}
 
           {/* Filters */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200 mb-6">
+          <div className="mb-8">
             <div className="flex flex-col md:flex-row gap-3">
               <div className="flex-1">
-                <Input
-                  placeholder="Search promo codes..."
-                  value={search}
-                  onValueChange={setSearch}
-                  icon={<Search size={18} />}
-                />
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-warm-800/45" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search promo codes..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-2xl border border-[#f0d7c2] bg-white px-12 py-3 text-base text-warm-900 placeholder:text-warm-800/40 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  />
+                </div>
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
-                className="px-4 py-2.5 rounded-xl border border-warm-200 bg-warm-50 text-sm text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="min-w-[180px] rounded-2xl border border-[#f0d7c2] bg-white px-4 py-3 text-base text-warm-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
               >
                 <option value="">All Statuses</option>
                 <option value="ACTIVE">Active</option>
@@ -164,7 +182,7 @@ export default function AdminPromoCodesPage() {
               <select
                 value={fundingFilter}
                 onChange={(e) => { setFundingFilter(e.target.value); setPage(1) }}
-                className="px-4 py-2.5 rounded-xl border border-warm-200 bg-warm-50 text-sm text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="min-w-[180px] rounded-2xl border border-[#f0d7c2] bg-white px-4 py-3 text-base text-warm-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
               >
                 <option value="">All Funding</option>
                 <option value="SELLER">Seller-funded</option>
@@ -181,11 +199,17 @@ export default function AdminPromoCodesPage() {
                 <p className="text-warm-800/60 text-sm">Loading promos...</p>
               </div>
             ) : promos.length === 0 ? (
-              <div className="p-8 text-center">
-                <Ticket size={48} className="mx-auto text-warm-800/30 mb-3" />
-                <h3 className="font-semibold text-warm-900 mb-1">No promo codes yet</h3>
-                <p className="text-sm text-warm-800/60 mb-4">Create your first promotion to start giving customers discounts.</p>
-                <Button onClick={() => router.push('/admin/promo-codes/new')} icon={<Plus size={18} />}>
+              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[28px] border-[2px] border-[#d6d1cb] bg-[#f8f7f5] text-[#b9b4ae]">
+                  <Ticket size={42} />
+                </div>
+                <h3 className="text-3xl font-bold text-warm-900">No promo codes yet</h3>
+                <p className="mt-3 max-w-md text-base text-warm-800/60">Create your first promotion to start giving customers discounts.</p>
+                <Button
+                  onClick={() => router.push('/admin/promo-codes/new')}
+                  className="!mt-8 !rounded-2xl !px-7 !py-4 text-lg shadow-[0_12px_25px_rgba(249,115,22,0.22)]"
+                  icon={<Plus size={20} />}
+                >
                   Create Promo Code
                 </Button>
               </div>

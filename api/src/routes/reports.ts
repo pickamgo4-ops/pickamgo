@@ -4,6 +4,7 @@ import { AuthenticatedRequest, successResponse, errorResponse, validateBody } fr
 import { authMiddleware, requireRole } from '../middleware/auth'
 import { z } from 'zod'
 import { sendEmailDirect, buildBaseHtml } from '../services/email'
+import { getAppUrl } from '../utils/url'
 
 const router = Router()
 
@@ -86,7 +87,7 @@ router.post('/', authMiddleware, validateBody(submitReportSchema), async (req: A
           ${description ? `<p><strong>Description:</strong> ${description}</p>` : ''}
           <p><strong>Reported by:</strong> ${report.reporter.name} (${report.reporter.email})</p>
           <p><strong>Report ID:</strong> ${report.id}</p>
-          <a href="${process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/reports" class="button">View Reports</a>
+          <a href="${getAppUrl()}/admin/reports" class="button">View Reports</a>
         `),
         text: `New report submitted: ${category} - ${targetType}. Reason: ${reason}. Reported by: ${report.reporter.name}`,
       }).catch(() => {})

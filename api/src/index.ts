@@ -1,8 +1,13 @@
+import path from 'path'
+import dotenv from 'dotenv'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import { errorHandler } from './middleware/errorHandler'
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env') })
+dotenv.config({ path: path.resolve(process.cwd(), 'api/.env') })
 import authRoutes from './routes/auth'
 import categoryRoutes from './routes/categories'
 import productRoutes from './routes/products'
@@ -42,6 +47,8 @@ const app = express()
 
 app.set('trust proxy', 1)
 app.use(helmet())
+import { getAppUrl } from './utils/url'
+
 const marketplaceDomain = process.env.MARKETPLACE_DOMAIN || 'pickamgo.com'
 const allowedOrigins = Array.from(new Set([
   ...(process.env.FRONTEND_URL || 'http://localhost:3000')
@@ -194,6 +201,6 @@ app.listen(PORT, async () => {
   console.log('📧 Email configuration:', {
     configured: !!process.env.RESEND_API_KEY,
     from: process.env.RESEND_FROM_EMAIL || 'no-reply@pickamgo.com',
-    appUrl: process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
+    appUrl: getAppUrl(),
   })
 })

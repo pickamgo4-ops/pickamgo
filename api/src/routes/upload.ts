@@ -10,8 +10,6 @@ const router = Router()
 const allowedTypes = /jpeg|jpg|png|webp|gif/
 const maxFileSize = 5 * 1024 * 1024
 
-const storage = getStorageProvider()
-
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase())
   const mimetype = allowedTypes.test(file.mimetype)
@@ -23,8 +21,8 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   }
 }
 
-const upload = multer({
-  storage,
+const buildUpload = () => multer({
+  storage: getStorageProvider(),
   limits: { fileSize: maxFileSize },
   fileFilter,
 })
@@ -32,6 +30,7 @@ const upload = multer({
 router.post('/image', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     await ensureUploadsDir()
+    const upload = buildUpload()
     upload.single('image')(req as any, res as any, async (uploadError: any) => {
       if (uploadError) {
         console.error('Upload middleware error:', uploadError)

@@ -4,6 +4,7 @@ import { authMiddleware, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { sendNewMessageEmail } from '../services/email'
+import { getAppUrl } from '../utils/url'
 
 const router = Router()
 
@@ -291,8 +292,8 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
     try {
       const recipient = await prisma.user.findUnique({ where: { id: otherUserId }, select: { email: true } })
       if (recipient?.email) {
-        const appUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'https://pickamgo.com'
-        const conversationUrl = `${appUrl.replace(/\/$/, '')}/messages/${otherUserId}${conversation.orderId ? `?orderId=${encodeURIComponent(conversation.orderId)}` : ''}`
+        const appUrl = getAppUrl()
+        const conversationUrl = `${appUrl}/messages/${otherUserId}${conversation.orderId ? `?orderId=${encodeURIComponent(conversation.orderId)}` : ''}`
         sendNewMessageEmail(recipient.email, req.user!.name, conversationUrl, content)
           .catch(err => console.error('Failed to send message email:', err))
       }

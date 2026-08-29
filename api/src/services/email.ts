@@ -1,9 +1,10 @@
 import { Resend } from 'resend'
+import { getAppUrl } from '../utils/url'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'no-reply@pickamgo.com'
 const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || 'PickAmGo'
-const APP_URL = process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'
+const APP_URL = getAppUrl()
 const ADMIN_NOTIFICATION_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || ''
 const LOGO_URL = process.env.LOGO_URL || `${APP_URL}/logo.png`
 
@@ -52,6 +53,13 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 export async function sendEmailDirect(options: SendEmailOptions): Promise<SendEmailResult> {
   return sendEmail(options)
 }
+
+const escapeHtml = (value: string): string => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/\"/g, '&quot;')
+  .replace(/'/g, '&#39;')
 
 export function buildBaseHtml(title: string, body: string): string {
   return `<!DOCTYPE html>
@@ -184,24 +192,33 @@ export async function sendOrderConfirmationEmail(to: string, order: {
   paymentMethod?: string
   createdAt: string
   deliveryAddress?: string
+  shopName?: string
+  customerName?: string
 }): Promise<SendEmailResult> {
-  const itemsHtml = order.items.map(item => `
-    <tr>
-      <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${item.name}</td>
-      <td style="padding: 10px; border-bottom: 1px solid #f3f4f6; text-align: center; color: #6b7280;">x${item.quantity}</td>
-      <td style="padding: 10px; border-bottom: 1px solid #f3f4f6; text-align: right;">GH₵${item.price.toFixed(2)}</td>
-    </tr>
-  `).join('')
+  const formattedItems = order.items.length > 0
+    ? order.items.map(item => `
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6;">${escapeHtml(item.name)}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6; text-align: center; color: #6b7280;">x${item.quantity}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6; text-align: right; font-weight: 600;">GH₵${item.price.toFixed(2)}</td>
+      </tr>
+    `).join('')
+    : '<tr><td colspan="3" style="padding: 12px; color: #6b7280;">No items available for this order.</td></tr>'
+
+  const deliveryLabel = order.deliveryMethod ? order.deliveryMethod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Standard'
+  const customerName = order.customerName || 'there'
+  const displayShopName = order.shopName ? ` from ${escapeHtml(order.shopName)}` : ''
 
   const body = `
-    <h2>Order Confirmed! 🎉</h2>
-    <p>Your order <strong>#${order.orderNumber}</strong> has been placed successfully.</p>
+    <h2 style="margin: 0 0 12px; font-size: 26px; color: #111827;">Order confirmed! 🎉</h2>
+    <p style="margin: 0 0 16px; color: #374151; font-size: 16px;">Hi ${escapeHtml(customerName)}, your order <strong>#${order.orderNumber}</strong>${displayShopName} has been placed successfully.</p>
     <div class="info-box">
       <p><strong>Date:</strong> ${new Date(order.createdAt).toLocaleString()}</p>
-      <p><strong>Payment:</strong> ${order.paymentMethod || 'Cash on Delivery'}</p>
-      <p><strong>Delivery:</strong> ${order.deliveryMethod?.replace(/_/g, ' ').toLowerCase() || 'Standard'}</p>
-      ${order.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${order.deliveryAddress}</p>` : ''}
+      <p><strong>Payment:</strong> ${escapeHtml(order.paymentMethod || 'Paystack')}</p>
+      <p><strong>Delivery:</strong> ${escapeHtml(deliveryLabel)}</p>
+      ${order.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${escapeHtml(order.deliveryAddress)}</p>` : ''}
     </div>
+    <p class="section-title">Order Summary</p>
     <table class="order-table">
       <thead>
         <tr>
@@ -210,10 +227,10 @@ export async function sendOrderConfirmationEmail(to: string, order: {
           <th style="text-align: right;">Price</th>
         </tr>
       </thead>
-      <tbody>${itemsHtml}</tbody>
+      <tbody>${formattedItems}</tbody>
       <tfoot>
         <tr>
-          <td colspan="2" style="padding: 12px; text-align: right; font-weight: 700;">Total</td>
+          <td colspan="2" style="padding: 12px; text-align: right; font-weight: 700; color: #374151;">Total</td>
           <td style="padding: 12px; text-align: right; font-weight: 700; color: #FF6B35; font-size: 16px;">GH₵${order.total.toFixed(2)}</td>
         </tr>
       </tfoot>
@@ -386,25 +403,37 @@ export async function sendNewMessageEmail(to: string, senderName: string, conver
 
 export async function sendSellerOrderNotification(to: string, order: {
   orderNumber: string
-  items: Array<{ name: string; quantity: number }>
+  items: Array<{ name: string; quantity: number; price?: number }>
   buyerName: string
   deliveryAddress?: string
   customerPhone?: string
+  customerEmail?: string
+  total?: number
+  shopName?: string
+  deliveryMethod?: string
 }): Promise<SendEmailResult> {
-  const itemsHtml = order.items.map(item => `
-    <tr>
-      <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${item.name}</td>
-      <td style="padding: 10px; border-bottom: 1px solid #f3f4f6; text-align: center; color: #6b7280;">x${item.quantity}</td>
-    </tr>
-  `).join('')
+  const itemsHtml = order.items.length > 0
+    ? order.items.map(item => `
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6;">${escapeHtml(item.name)}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6; text-align: center; color: #6b7280;">x${item.quantity}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6; text-align: right;">${typeof item.price === 'number' ? `GH₵${item.price.toFixed(2)}` : ''}</td>
+      </tr>
+    `).join('')
+    : '<tr><td colspan="3" style="padding: 12px; color: #6b7280;">No items available.</td></tr>'
+
+  const orderTotal = typeof order.total === 'number' ? order.total : order.items.reduce((sum, item) => sum + ((item.price ?? 0) * item.quantity), 0)
+  const deliveryLabel = order.deliveryMethod ? order.deliveryMethod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Delivery'
 
   const body = `
-    <h2>New Order Received 🛒</h2>
-    <p>You have received a new order <strong>#${order.orderNumber}</strong>.</p>
+    <h2 style="margin: 0 0 12px; font-size: 26px; color: #111827;">New order received 🛒</h2>
+    <p style="margin: 0 0 16px; color: #374151; font-size: 16px;">You have received a new order <strong>#${order.orderNumber}</strong>${order.shopName ? ` for ${escapeHtml(order.shopName)}` : ''}.</p>
     <div class="info-box">
-      <p><strong>Customer:</strong> ${order.buyerName}</p>
-      ${order.customerPhone ? `<p><strong>Phone:</strong> ${order.customerPhone}</p>` : ''}
-      ${order.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${order.deliveryAddress}</p>` : ''}
+      <p><strong>Customer:</strong> ${escapeHtml(order.buyerName)}</p>
+      ${order.customerPhone ? `<p><strong>Phone:</strong> ${escapeHtml(order.customerPhone)}</p>` : ''}
+      ${order.customerEmail ? `<p><strong>Email:</strong> ${escapeHtml(order.customerEmail)}</p>` : ''}
+      <p><strong>Fulfillment:</strong> ${escapeHtml(deliveryLabel)}</p>
+      ${order.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${escapeHtml(order.deliveryAddress)}</p>` : ''}
     </div>
     <p class="section-title">Order Items</p>
     <table class="order-table">
@@ -412,11 +441,18 @@ export async function sendSellerOrderNotification(to: string, order: {
         <tr>
           <th>Item</th>
           <th style="text-align: center;">Qty</th>
+          <th style="text-align: right;">Price</th>
         </tr>
       </thead>
       <tbody>${itemsHtml}</tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" style="padding: 12px; text-align: right; font-weight: 700; color: #374151;">Order Total</td>
+          <td style="padding: 12px; text-align: right; font-weight: 700; color: #FF6B35; font-size: 16px;">GH₵${orderTotal.toFixed(2)}</td>
+        </tr>
+      </tfoot>
     </table>
-    <a href="${APP_URL}/seller/orders" class="button">Go to Dashboard</a>
+    <a href="${APP_URL}/seller/orders" class="button">Open Seller Dashboard</a>
   `
 
   return sendEmail({

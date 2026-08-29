@@ -4,6 +4,7 @@ import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { testR2Connection } from '../services/storage'
 import { sendEmail, buildBaseHtml } from '../services/email'
+import { getAppUrl } from '../utils/url'
 import { z } from 'zod'
 
 const router = Router()
@@ -14,6 +15,7 @@ router.get('/r2-test', authMiddleware, requireRole(['ADMIN']), async (_req: Auth
     return successResponse(res, {
       r2Connected: true,
       bucket: result.bucket,
+      publicUrl: process.env.R2_PUBLIC_URL || null,
       message: 'Cloudflare R2 connection, upload, read and delete all work successfully.',
     })
   } catch (error: any) {
@@ -21,7 +23,10 @@ router.get('/r2-test', authMiddleware, requireRole(['ADMIN']), async (_req: Auth
     return res.status(500).json({
       success: false,
       r2Connected: false,
+      bucket: process.env.R2_BUCKET_NAME || null,
+      publicUrl: process.env.R2_PUBLIC_URL || null,
       error: error?.message || 'Cloudflare R2 connection test failed.',
+      diagnosis: 'Verify Railway env vars, Cloudflare bucket permissions, and the public URL mapping before retrying uploads.',
     })
   }
 })
@@ -1735,8 +1740,8 @@ router.get('/emails/config', authMiddleware, requireRole(['ADMIN']), async (_req
       configured: !!process.env.RESEND_API_KEY,
       fromEmail: process.env.RESEND_FROM_EMAIL || 'no-reply@pickamgo.com',
       fromName: process.env.RESEND_FROM_NAME || 'PickAmGo',
-      appUrl: process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
-      logoUrl: process.env.LOGO_URL || `${process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/logo.png`,
+      appUrl: getAppUrl(),
+      logoUrl: process.env.LOGO_URL || `${getAppUrl()}/logo.png`,
     })
   } catch (error) {
     return errorResponse(res, 'Failed to fetch email configuration', 500)

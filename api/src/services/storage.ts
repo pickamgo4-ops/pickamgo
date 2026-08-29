@@ -2,37 +2,71 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs/promises'
 
-const USE_R2 = !!process.env.R2_ACCOUNT_ID && !!process.env.R2_ACCESS_KEY_ID && !!process.env.R2_SECRET_ACCESS_KEY && !!process.env.R2_BUCKET_NAME
+function getR2Env() {
+  return {
+    accountId: process.env.R2_ACCOUNT_ID?.trim(),
+    accessKeyId: process.env.R2_ACCESS_KEY_ID?.trim(),
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY?.trim(),
+    bucketName: process.env.R2_BUCKET_NAME?.trim(),
+    publicUrl: process.env.R2_PUBLIC_URL?.trim(),
+  }
+}
+
+function getR2ConfigError(): string | null {
+  const env = getR2Env()
+  const missing: string[] = []
+
+  if (!env.accountId) missing.push('R2_ACCOUNT_ID')
+  if (!env.accessKeyId) missing.push('R2_ACCESS_KEY_ID')
+  if (!env.secretAccessKey) missing.push('R2_SECRET_ACCESS_KEY')
+  if (!env.bucketName) missing.push('R2_BUCKET_NAME')
+
+  if (missing.length > 0) {
+    return `R2 is not fully configured. Missing env vars: ${missing.join(', ')}.`
+  }
+
+  return null
+}
 
 let r2Client: any = null
 let r2Bucket: any = null
 
-if (USE_R2) {
+function initializeR2Client() {
+  const configError = getR2ConfigError()
+  if (configError) {
+    r2Client = null
+    r2Bucket = null
+    return
+  }
+
   try {
     const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3')
-    const { Upload } = require('@aws-sdk/lib-storage')
 
+    const env = getR2Env()
     r2Client = new S3Client({
       region: 'auto',
-      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      endpoint: `https://${env.accountId}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        accessKeyId: env.accessKeyId,
+        secretAccessKey: env.secretAccessKey,
       },
     })
 
     r2Bucket = {
-      name: process.env.R2_BUCKET_NAME,
+      name: env.bucketName,
       client: r2Client,
       getPublicUrl: (key: string) => {
-        if (process.env.R2_PUBLIC_URL) {
-          return `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/${key}`
+        const normalizedKey = key.replace(/^\/+/, '').replace(/^uploads\//i, '')
+        const uploadKey = `uploads/${normalizedKey}`
+        if (env.publicUrl) {
+          const normalizedBase = env.publicUrl.replace(/\/+$/, '').replace(/\/uploads$/i, '')
+          return `${normalizedBase}/uploads/${normalizedKey}`
         }
-        return `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/${key}`
+        return `https://${env.accountId}.r2.cloudflarestorage.com/${env.bucketName}/${uploadKey}`
       },
       upload: async (key: string, body: Buffer, contentType: string) => {
         const command = new PutObjectCommand({
-          Bucket: process.env.R2_BUCKET_NAME,
+          Bucket: env.bucketName,
           Key: key,
           Body: body,
           ContentType: contentType,
@@ -42,21 +76,30 @@ if (USE_R2) {
       },
     }
   } catch (error) {
-    console.warn('Failed to initialize R2 client, falling back to local storage:', error)
+    console.warn('Failed to initialize Cloudflare R2 client. Falling back to local storage:', error)
+    r2Client = null
+    r2Bucket = null
   }
 }
 
+initializeR2Client()
+
 export function isR2Enabled(): boolean {
-  return USE_R2 && r2Bucket !== null
+  return !getR2ConfigError() && !!r2Client && !!r2Bucket
 }
 
 export async function testR2Connection(): Promise<{ bucket: string; key: string }> {
+  const configError = getR2ConfigError()
+  if (configError) {
+    throw new Error(configError)
+  }
+
   if (!isR2Enabled() || !r2Client || !r2Bucket) {
-    throw new Error('R2 is not fully configured. Required account ID, access key, secret key, and bucket name are missing or invalid.')
+    throw new Error('Cloudflare R2 client failed to initialize. Check that the Railway env vars are loaded and the bucket permissions allow PutObject/GetObject/DeleteObject.')
   }
 
   const { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3')
-  const bucket = process.env.R2_BUCKET_NAME as string
+  const bucket = getR2Env().bucketName as string
   const key = 'pickamgo-r2-test.txt'
   const content = 'PickAmGo R2 connection test'
   let uploaded = false
@@ -74,11 +117,16 @@ export async function testR2Connection(): Promise<{ bucket: string; key: string 
     const body = result.Body && typeof result.Body.transformToString === 'function'
       ? await result.Body.transformToString()
       : ''
-    if (body !== content) throw new Error('R2 test object was uploaded but could not be read back correctly.')
+    if (body !== content) {
+      throw new Error('R2 test object was uploaded but could not be read back correctly.')
+    }
 
     await r2Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
     uploaded = false
     return { bucket, key }
+  } catch (error: any) {
+    const message = error?.message || 'Cloudflare R2 operation failed.'
+    throw new Error(`R2 test failed during ${uploaded ? 'read/delete' : 'upload'}: ${message}. Verify the bucket permissions and the Railway R2 env vars.`)
   } finally {
     if (uploaded) {
       try {
@@ -91,6 +139,8 @@ export async function testR2Connection(): Promise<{ bucket: string; key: string 
 }
 
 export function getStorageProvider(): multer.StorageEngine {
+  initializeR2Client()
+
   if (isR2Enabled()) {
     return {
       _handleFile: async (req: any, file: Express.Multer.File, callback: (error?: Error | null) => void) => {
