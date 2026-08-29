@@ -167,15 +167,15 @@ const senders: Record<EmailPurpose, EmailSenderConfig> = {
   },
 }
 
-export function getSender(purpose: EmailPurpose): EmailSenderConfig {
-  return senders[purpose] || senders.general
+export function getSender(purpose: string): EmailSenderConfig {
+  return senders[purpose as EmailPurpose] || senders.general
 }
 
 export function resolveSender(
-  purpose: EmailPurpose,
+  purpose: string,
   overrides?: Partial<EmailSenderConfig>
 ): EmailSenderConfig {
-  const base = getSender(purpose)
+  const base = getSender(purpose as EmailPurpose)
   if (!overrides) return base
   return {
     fromEmail: overrides.fromEmail || base.fromEmail,

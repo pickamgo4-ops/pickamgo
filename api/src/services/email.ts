@@ -16,7 +16,7 @@ type SendEmailOptions = {
   html: string
   text?: string
   replyTo?: string
-  purpose?: EmailPurpose
+  purpose?: string
 }
 
 type SendEmailResult = {
