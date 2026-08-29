@@ -1,275 +1,295 @@
-'use client'
+"use client";
 
-import React, { Suspense, useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { MapPin, CreditCard, FileText, ShoppingBag, ArrowLeft, CheckCircle, User, Phone, Mail, Truck, Ticket, X } from 'lucide-react'
-import { Header } from '../../components/layout/Header'
-import { BottomNav } from '../../components/layout/BottomNav'
-import { Button } from '../../components/ui/Button'
-import { Badge } from '../../components/ui/Badge'
-import { Input } from '../../components/ui/Input'
-import { api } from '../../lib/api'
-import { Cart, Address, CheckoutOrder, DeliverySettings } from '../../types'
-import { mapApiCartToFrontend, mapApiAddressToFrontend } from '../../lib/api-mappers'
-import { PaymentSafetyNotice } from '../../components/ui/PaymentSafetyNotice'
-import { useRole } from '../../contexts/RoleContext'
-import MapboxLocationPicker from '../../components/map/MapboxLocationPicker'
-import MapboxMap from '../../components/map/MapboxMap'
+import React, { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  MapPin,
+  CreditCard,
+  FileText,
+  ShoppingBag,
+  ArrowLeft,
+  CheckCircle,
+  User,
+  Phone,
+  Mail,
+  Truck,
+  Ticket,
+  X,
+} from "lucide-react";
+import { Header } from "../../components/layout/Header";
+import { BottomNav } from "../../components/layout/BottomNav";
+import { Button } from "../../components/ui/Button";
+import { Badge } from "../../components/ui/Badge";
+import { Input } from "../../components/ui/Input";
+import { api } from "../../lib/api";
+import { Cart, Address, CheckoutOrder, DeliverySettings } from "../../types";
+import { mapApiCartToFrontend, mapApiAddressToFrontend } from "../../lib/api-mappers";
+import { PaymentSafetyNotice } from "../../components/ui/PaymentSafetyNotice";
+import { useRole } from "../../contexts/RoleContext";
+import MapboxLocationPicker from "../../components/map/MapboxLocationPicker";
+import MapboxMap from "../../components/map/MapboxMap";
 
-type CheckoutMode = 'checking' | 'guest' | 'logged-in'
-type FulfillmentMethod = 'FIND_IT_NEAR_ME_RIDER' | 'SELLER_OWN_DELIVERY' | 'CUSTOMER_PICKUP'
+type CheckoutMode = "checking" | "guest" | "logged-in";
+type FulfillmentMethod = "FIND_IT_NEAR_ME_RIDER" | "SELLER_OWN_DELIVERY" | "CUSTOMER_PICKUP";
 
 function CheckoutContent() {
-  const router = useRouter()
-  const { setUser } = useRole()
-  const searchParams = useSearchParams()
-  const [mode, setMode] = useState<CheckoutMode>('checking')
-  const [loading, setLoading] = useState(true)
-  const [cart, setCart] = useState<Cart | null>(null)
-  const [addresses, setAddresses] = useState<Address[]>([])
-  const [selectedAddressId, setSelectedAddressId] = useState<string>('')
-  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery')
-  const [paymentMethod, setPaymentMethod] = useState('paystack')
-  const [orderNotes, setOrderNotes] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [orderConfirmation, setOrderConfirmation] = useState<CheckoutOrder | null>(null)
-  const [showAddressForm, setShowAddressForm] = useState(false)
-  const [addressConfirmed, setAddressConfirmed] = useState(false)
+  const router = useRouter();
+  const { setUser } = useRole();
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<CheckoutMode>("checking");
+  const [loading, setLoading] = useState(true);
+  const [cart, setCart] = useState<Cart | null>(null);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+  const [deliveryType, setDeliveryType] = useState<"delivery" | "pickup">("delivery");
+  const [paymentMethod, setPaymentMethod] = useState("paystack");
+  const [orderNotes, setOrderNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [orderConfirmation, setOrderConfirmation] = useState<CheckoutOrder | null>(null);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [addressConfirmed, setAddressConfirmed] = useState(false);
   const [newAddress, setNewAddress] = useState({
-    label: '',
-    street: '',
-    city: '',
-    region: '',
-    country: 'Ghana',
-    phone: '',
-    instructions: '',
+    label: "",
+    street: "",
+    city: "",
+    region: "",
+    country: "Ghana",
+    phone: "",
+    instructions: "",
     latitude: null as number | null,
     longitude: null as number | null,
-  })
+  });
   const [guestInfo, setGuestInfo] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    deliveryAddress: '',
+    name: "",
+    phone: "",
+    email: "",
+    deliveryAddress: "",
     deliveryLatitude: null as number | null,
     deliveryLongitude: null as number | null,
-  })
-  const [showSignup, setShowSignup] = useState(false)
-  const [signupName, setSignupName] = useState('')
-  const [signupEmail, setSignupEmail] = useState('')
-  const [signupPhone, setSignupPhone] = useState('')
-  const [signupPassword, setSignupPassword] = useState('')
-  const [signupLoading, setSignupLoading] = useState(false)
-  const [signupError, setSignupError] = useState('')
-  const [shopSettings, setShopSettings] = useState<Record<string, DeliverySettings>>({})
-  const [promoCode, setPromoCode] = useState('')
+  });
+  const [showSignup, setShowSignup] = useState(false);
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPhone, setSignupPhone] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [signupError, setSignupError] = useState("");
+  const [shopSettings, setShopSettings] = useState<Record<string, DeliverySettings>>({});
+  const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState<{
-    code: string
-    discountType: string
-    discountValue: number
-    discountAmount: number
-    deliveryDiscount: number
-    discountedSubtotal: number
-    maxDiscount?: number
-  } | null>(null)
-  const [promoLoading, setPromoLoading] = useState(false)
-  const [promoError, setPromoError] = useState('')
+    code: string;
+    discountType: string;
+    discountValue: number;
+    discountAmount: number;
+    deliveryDiscount: number;
+    discountedSubtotal: number;
+    maxDiscount?: number;
+  } | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState("");
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    checkAuth();
+  }, []);
 
   useEffect(() => {
-    const orderId = searchParams.get('orderId')
-    const reference = searchParams.get('reference')
-    if (!orderId || !reference) return
-    const email = searchParams.get('email') || guestInfo.email
-    const endpoint = searchParams.get('guest') ? '/checkout/guest/verify-payment' : '/checkout/verify-payment'
-    const body = searchParams.get('guest') ? { orderId, reference, email } : { orderId, reference }
-    api.post(endpoint, body).then(response => {
-      if (response.success) router.replace('/orders')
-      else setError(response.error || 'Payment verification failed')
-    })
-  }, [router, searchParams])
+    const orderId = searchParams.get("orderId");
+    const reference = searchParams.get("reference");
+    if (!orderId || !reference) return;
+    const email = searchParams.get("email") || guestInfo.email;
+    const endpoint = searchParams.get("guest")
+      ? "/checkout/guest/verify-payment"
+      : "/checkout/verify-payment";
+    const body = searchParams.get("guest") ? { orderId, reference, email } : { orderId, reference };
+    api.post(endpoint, body).then((response) => {
+      if (response.success) router.replace("/orders");
+      else setError(response.error || "Payment verification failed");
+    });
+  }, [router, searchParams]);
 
   const checkAuth = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
-      setMode('guest')
-      loadGuestData()
-      return
+      setMode("guest");
+      loadGuestData();
+      return;
     }
-    setMode('logged-in')
-    loadData()
-  }
+    setMode("logged-in");
+    loadData();
+  };
 
   const loadGuestData = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const cartRes = await api.get<Cart>('/cart')
+      const cartRes = await api.get<Cart>("/cart");
       if (cartRes.success && cartRes.data) {
-        const mappedCart = mapApiCartToFrontend(cartRes.data)
-        setCart(mappedCart)
+        const mappedCart = mapApiCartToFrontend(cartRes.data);
+        setCart(mappedCart);
         if (mappedCart.items.length === 0) {
-          router.push('/cart')
+          router.push("/cart");
         } else {
-          await loadShopSettings(mappedCart.items)
+          await loadShopSettings(mappedCart.items);
         }
       } else {
-        router.push('/cart')
+        router.push("/cart");
       }
     } catch (err) {
-      console.error('Failed to load cart:', err)
+      console.error("Failed to load cart:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const loadData = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       const [cartRes, addressesRes] = await Promise.all([
-        api.get<Cart>('/cart'),
-        api.get<Address[]>('/addresses'),
-      ])
+        api.get<Cart>("/cart"),
+        api.get<Address[]>("/addresses"),
+      ]);
 
       if (cartRes.success && cartRes.data) {
-        const mappedCart = mapApiCartToFrontend(cartRes.data)
-        setCart(mappedCart)
+        const mappedCart = mapApiCartToFrontend(cartRes.data);
+        setCart(mappedCart);
         if (mappedCart.items.length === 0) {
-          router.push('/cart')
+          router.push("/cart");
         } else {
-          await loadShopSettings(mappedCart.items)
+          await loadShopSettings(mappedCart.items);
         }
       } else {
-        router.push('/cart')
+        router.push("/cart");
       }
 
       if (addressesRes.success && Array.isArray(addressesRes.data)) {
-        const mappedAddresses = addressesRes.data.map(mapApiAddressToFrontend)
-        setAddresses(mappedAddresses)
-        const defaultAddr = mappedAddresses.find(a => a.isDefault)
-        const nextSelectedId = defaultAddr ? defaultAddr.id : mappedAddresses[0]?.id || ''
-        setSelectedAddressId(nextSelectedId)
-        setAddressConfirmed(false)
+        const mappedAddresses = addressesRes.data.map(mapApiAddressToFrontend);
+        setAddresses(mappedAddresses);
+        const defaultAddr = mappedAddresses.find((a) => a.isDefault);
+        const nextSelectedId = defaultAddr ? defaultAddr.id : mappedAddresses[0]?.id || "";
+        setSelectedAddressId(nextSelectedId);
+        setAddressConfirmed(false);
       }
     } catch (err) {
-      console.error('Failed to load checkout data:', err)
+      console.error("Failed to load checkout data:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const loadShopSettings = async (items: any[]) => {
-    const shopIds = Array.from(new Set(items.map(item => item.shopId || item.product?.shop?.id).filter(Boolean)))
-    const settings: Record<string, DeliverySettings> = {}
+    const shopIds = Array.from(
+      new Set(items.map((item) => item.shopId || item.product?.shop?.id).filter(Boolean)),
+    );
+    const settings: Record<string, DeliverySettings> = {};
 
     await Promise.all(
       shopIds.map(async (shopId) => {
         try {
-          const res = await api.get<DeliverySettings>(`/shops/${shopId}/delivery-settings`)
+          const res = await api.get<DeliverySettings>(`/shops/${shopId}/delivery-settings`);
           if (res.success && res.data) {
-            settings[shopId] = res.data
+            settings[shopId] = res.data;
           }
         } catch {
           // ignore
         }
-      })
-    )
+      }),
+    );
 
-    setShopSettings(settings)
-  }
+    setShopSettings(settings);
+  };
 
   const getShopDeliveryFee = (shopId?: string): number => {
-    if (deliveryType !== 'delivery') return 0
-    const settings = shopId ? shopSettings[shopId] : undefined
-    return Number(settings?.platformDeliveryFee || settings?.sellerDeliveryFee || 0)
-  }
+    if (deliveryType !== "delivery") return 0;
+    const settings = shopId ? shopSettings[shopId] : undefined;
+    return Number(settings?.platformDeliveryFee || settings?.sellerDeliveryFee || 0);
+  };
 
   const getCartShopGroups = () => {
-    if (!cart) return []
-    const groups: Record<string, { shopId: string; shopName: string; items: any[]; deliveryFee: number }> = {}
+    if (!cart) return [];
+    const groups: Record<
+      string,
+      { shopId: string; shopName: string; items: any[]; deliveryFee: number }
+    > = {};
     for (const item of cart.items) {
-      const shopId = item.shopId || item.product?.shop?.id || 'unknown'
-      const shopName = item.product?.shop?.name || 'Unknown Shop'
+      const shopId = item.shopId || item.product?.shop?.id || "unknown";
+      const shopName = item.product?.shop?.name || "Unknown Shop";
       if (!groups[shopId]) {
-        groups[shopId] = { shopId, shopName, items: [], deliveryFee: getShopDeliveryFee(shopId) }
+        groups[shopId] = { shopId, shopName, items: [], deliveryFee: getShopDeliveryFee(shopId) };
       }
-      groups[shopId].items.push(item)
+      groups[shopId].items.push(item);
     }
-    return Object.values(groups)
-  }
+    return Object.values(groups);
+  };
 
   const handleAddAddress = async () => {
     try {
-      const response = await api.post<Address>('/addresses', {
+      const response = await api.post<Address>("/addresses", {
         label: newAddress.label,
         address: newAddress.street,
         city: newAddress.city,
         area: newAddress.region || undefined,
         region: newAddress.region || undefined,
-        country: newAddress.country || 'Ghana',
+        country: newAddress.country || "Ghana",
         phone: newAddress.phone,
         instructions: newAddress.instructions || undefined,
         latitude: newAddress.latitude ?? undefined,
         longitude: newAddress.longitude ?? undefined,
         isDefault: addresses.length === 0,
-      })
+      });
       if (response.success && response.data) {
-        const mapped = mapApiAddressToFrontend(response.data)
-        setAddresses(prev => [...prev, mapped])
-        setSelectedAddressId(mapped.id)
-        setAddressConfirmed(false)
-        setShowAddressForm(false)
+        const mapped = mapApiAddressToFrontend(response.data);
+        setAddresses((prev) => [...prev, mapped]);
+        setSelectedAddressId(mapped.id);
+        setAddressConfirmed(false);
+        setShowAddressForm(false);
         setNewAddress({
-          label: '',
-          street: '',
-          city: '',
-          region: '',
-          country: 'Ghana',
-          phone: '',
-          instructions: '',
+          label: "",
+          street: "",
+          city: "",
+          region: "",
+          country: "Ghana",
+          phone: "",
+          instructions: "",
           latitude: null,
           longitude: null,
-        })
+        });
       }
     } catch (err) {
-      console.error('Failed to add address:', err)
+      console.error("Failed to add address:", err);
     }
-  }
+  };
 
   const handleGuestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!cart || cart.items.length === 0) return
-    if (deliveryType === 'delivery' && (!guestInfo.deliveryAddress || !addressConfirmed)) {
-      setError('Please confirm the delivery address before continuing to payment.')
-      return
+    e.preventDefault();
+    if (!cart || cart.items.length === 0) return;
+    if (deliveryType === "delivery" && (!guestInfo.deliveryAddress || !addressConfirmed)) {
+      setError("Please confirm the delivery address before continuing to payment.");
+      return;
     }
     if (!guestInfo.email) {
-      setError('Email is required for secure Paystack payment.')
-      return
+      setError("Email is required for secure Paystack payment.");
+      return;
     }
 
-    setSubmitting(true)
-    setError('')
+    setSubmitting(true);
+    setError("");
 
     try {
-      const items = cart.items.map(item => ({
+      const items = cart.items.map((item) => ({
         productId: item.productId,
         serviceId: item.serviceId,
         variantId: item.variantId,
         quantity: item.quantity,
-      }))
+      }));
 
-      const fulfillmentMethod = getFulfillmentMethod()
+      const fulfillmentMethod = getFulfillmentMethod();
 
-      const response = await api.post<CheckoutOrder>('/checkout/guest', {
+      const response = await api.post<CheckoutOrder>("/checkout/guest", {
         items,
         guestName: guestInfo.name,
         guestPhone: guestInfo.phone,
         guestEmail: guestInfo.email,
-        deliveryAddress: deliveryType === 'delivery' ? guestInfo.deliveryAddress : undefined,
+        deliveryAddress: deliveryType === "delivery" ? guestInfo.deliveryAddress : undefined,
         deliveryType,
         paymentMethod,
         notes: orderNotes,
@@ -277,49 +297,53 @@ function CheckoutContent() {
         deliveryLatitude: guestInfo.deliveryLatitude,
         deliveryLongitude: guestInfo.deliveryLongitude,
         promoCode: promoApplied ? promoApplied.code : undefined,
-      })
+      });
 
       if (response.success && response.data) {
-        const order = (response.data as any).orders?.[0] || response.data
-        const payment = await api.post<any>('/checkout/guest/paystack/initialize', { orderId: order.id, email: guestInfo.email })
-        if (!payment.success || !payment.data?.authorizationUrl) throw new Error(payment.error || 'Unable to start Paystack payment')
-        window.location.assign(payment.data.authorizationUrl)
-        await api.delete('/cart')
+        const order = (response.data as any).orders?.[0] || response.data;
+        const payment = await api.post<any>("/checkout/guest/paystack/initialize", {
+          orderId: order.id,
+          email: guestInfo.email,
+        });
+        if (!payment.success || !payment.data?.authorizationUrl)
+          throw new Error(payment.error || "Unable to start Paystack payment");
+        window.location.assign(payment.data.authorizationUrl);
+        await api.delete("/cart");
       } else {
-        setError(response.error || response.message || 'Checkout failed')
+        setError(response.error || response.message || "Checkout failed");
       }
     } catch (err) {
-      setError('An error occurred during checkout.')
+      setError("An error occurred during checkout.");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleLoggedInSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!cart || cart.items.length === 0) return
-    if (deliveryType === 'delivery' && (!selectedAddressId || !addressConfirmed)) {
-      setError('Please confirm the delivery address before continuing to payment.')
-      return
+    e.preventDefault();
+    if (!cart || cart.items.length === 0) return;
+    if (deliveryType === "delivery" && (!selectedAddressId || !addressConfirmed)) {
+      setError("Please confirm the delivery address before continuing to payment.");
+      return;
     }
 
-    setSubmitting(true)
-    setError('')
+    setSubmitting(true);
+    setError("");
 
     try {
-      const items = cart.items.map(item => ({
+      const items = cart.items.map((item) => ({
         productId: item.productId,
         serviceId: item.serviceId,
         variantId: item.variantId,
         quantity: item.quantity,
-      }))
+      }));
 
-      const fulfillmentMethod = getFulfillmentMethod()
+      const fulfillmentMethod = getFulfillmentMethod();
 
-      const response = await api.post<CheckoutOrder>('/checkout', {
+      const response = await api.post<CheckoutOrder>("/checkout", {
         items,
         addressId: selectedAddressId,
-        deliveryAddress: selectedAddress?.street || '',
+        deliveryAddress: selectedAddress?.street || "",
         deliveryLatitude: selectedAddress?.latitude ?? undefined,
         deliveryLongitude: selectedAddress?.longitude ?? undefined,
         deliveryType,
@@ -327,45 +351,65 @@ function CheckoutContent() {
         notes: orderNotes,
         fulfillmentMethod,
         promoCode: promoApplied ? promoApplied.code : undefined,
-      })
+      });
 
       if (response.success && response.data) {
-        const order = (response.data as any).orders?.[0] || response.data
-        const payment = await api.post<any>('/checkout/paystack/initialize', { orderId: order.id })
-        if (!payment.success || !payment.data?.authorizationUrl) throw new Error(payment.error || 'Unable to start Paystack payment')
-        window.location.assign(payment.data.authorizationUrl)
-        await api.delete('/cart')
+        const order = (response.data as any).orders?.[0] || response.data;
+        const payment = await api.post<any>("/checkout/paystack/initialize", { orderId: order.id });
+        if (!payment.success || !payment.data?.authorizationUrl)
+          throw new Error(payment.error || "Unable to start Paystack payment");
+        window.location.assign(payment.data.authorizationUrl);
+        await api.delete("/cart");
       } else {
-        setError(response.error || response.message || 'Checkout failed')
+        setError(response.error || response.message || "Checkout failed");
       }
     } catch (err) {
-      setError('An error occurred during checkout.')
+      setError("An error occurred during checkout.");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const getFulfillmentMethod = (): FulfillmentMethod => {
-    if (deliveryType === 'pickup') return 'CUSTOMER_PICKUP'
-    const firstItem = cart?.items[0]
-    const shopId = firstItem?.shopId || firstItem?.product?.shop?.id
-    const settings = shopId ? shopSettings[shopId] : null
-    
+    if (deliveryType === "pickup") return "CUSTOMER_PICKUP";
+    const firstItem = cart?.items[0];
+    const shopId = firstItem?.shopId || firstItem?.product?.shop?.id;
+    const settings = shopId ? shopSettings[shopId] : null;
+
     if (settings?.sellerDeliveryAvailable) {
-      return 'SELLER_OWN_DELIVERY'
+      return "SELLER_OWN_DELIVERY";
     }
-    return 'FIND_IT_NEAR_ME_RIDER'
-  }
+    return "FIND_IT_NEAR_ME_RIDER";
+  };
 
   const handleApplyPromo = async () => {
-    if (!promoCode.trim()) return
-    setPromoLoading(true)
-    setPromoError('')
+    if (!promoCode.trim()) return;
+    setPromoLoading(true);
+    setPromoError("");
     try {
-      const allProductIds = cart?.items.filter(i => i.productId).map(i => i.productId!).filter(Boolean) || []
-      const allCategoryIds = cart?.items.filter(i => i.product?.category).map(i => i.product!.category!).filter(Boolean) as string[] || []
-      const allCampuses = Array.from(new Set(cart?.items.filter(i => i.product?.shop?.campus).map(i => i.product!.shop!.campus!).filter(Boolean) || []))
-      const allShopIds = Array.from(new Set((cart?.items || []).map(item => item.shopId || item.product?.shop?.id).filter(Boolean)))
+      const allProductIds =
+        cart?.items
+          .filter((i) => i.productId)
+          .map((i) => i.productId!)
+          .filter(Boolean) || [];
+      const allCategoryIds =
+        (cart?.items
+          .filter((i) => i.product?.category)
+          .map((i) => i.product!.category!)
+          .filter(Boolean) as string[]) || [];
+      const allCampuses = Array.from(
+        new Set(
+          cart?.items
+            .filter((i) => i.product?.shop?.campus)
+            .map((i) => i.product!.shop!.campus!)
+            .filter(Boolean) || [],
+        ),
+      );
+      const allShopIds = Array.from(
+        new Set(
+          (cart?.items || []).map((item) => item.shopId || item.product?.shop?.id).filter(Boolean),
+        ),
+      );
 
       const res = await api.validatePromoCode(
         promoCode.trim(),
@@ -374,93 +418,107 @@ function CheckoutContent() {
         allShopIds[0],
         allProductIds.length > 0 ? allProductIds : undefined,
         allCategoryIds.length > 0 ? allCategoryIds : undefined,
-        allCampuses[0]
-      )
+        allCampuses[0],
+      );
       if (res.success && res.data?.valid) {
         setPromoApplied({
           code: res.data.code || promoCode.trim(),
-          discountType: res.data.discountType || 'PERCENTAGE',
+          discountType: res.data.discountType || "PERCENTAGE",
           discountValue: res.data.discountValue || 0,
           discountAmount: res.data.discountAmount,
           deliveryDiscount: res.data.deliveryDiscount,
           discountedSubtotal: res.data.discountedSubtotal,
           maxDiscount: res.data.maxDiscount ?? undefined,
-        })
+        });
       } else {
-        setPromoError(res.error || 'Invalid promo code')
-        setPromoApplied(null)
+        setPromoError(res.error || "Invalid promo code");
+        setPromoApplied(null);
       }
     } catch (err) {
-      setPromoError('Failed to validate promo code')
-      setPromoApplied(null)
+      setPromoError("Failed to validate promo code");
+      setPromoApplied(null);
     } finally {
-      setPromoLoading(false)
+      setPromoLoading(false);
     }
-  }
+  };
 
   const handleRemovePromo = () => {
-    setPromoCode('')
-    setPromoApplied(null)
-    setPromoError('')
-  }
+    setPromoCode("");
+    setPromoApplied(null);
+    setPromoError("");
+  };
 
-  const cartShopIds = Array.from(new Set((cart?.items || []).map(item => item.shopId || item.product?.shop?.id).filter(Boolean)))
-  const canPickup = cartShopIds.length > 0 && cartShopIds.every(shopId => shopSettings[shopId!]?.pickupAvailable === true)
-  const canDelivery = cartShopIds.length > 0 && cartShopIds.every(shopId => {
-    const settings = shopSettings[shopId!]
-    return settings?.deliveryAvailable === true || settings?.sellerDeliveryAvailable === true
-  })
+  const cartShopIds = Array.from(
+    new Set(
+      (cart?.items || []).map((item) => item.shopId || item.product?.shop?.id).filter(Boolean),
+    ),
+  );
+  const canPickup =
+    cartShopIds.length > 0 &&
+    cartShopIds.every((shopId) => shopSettings[shopId!]?.pickupAvailable === true);
+  const canDelivery =
+    cartShopIds.length > 0 &&
+    cartShopIds.every((shopId) => {
+      const settings = shopSettings[shopId!];
+      return settings?.deliveryAvailable === true || settings?.sellerDeliveryAvailable === true;
+    });
 
   useEffect(() => {
-    if (deliveryType === 'delivery' && !canDelivery && canPickup) setDeliveryType('pickup')
-    if (deliveryType === 'pickup' && !canPickup && canDelivery) setDeliveryType('delivery')
-  }, [canDelivery, canPickup, deliveryType])
+    if (deliveryType === "delivery" && !canDelivery && canPickup) setDeliveryType("pickup");
+    if (deliveryType === "pickup" && !canPickup && canDelivery) setDeliveryType("delivery");
+  }, [canDelivery, canPickup, deliveryType]);
 
   const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSignupLoading(true)
-    setSignupError('')
+    e.preventDefault();
+    setSignupLoading(true);
+    setSignupError("");
 
     try {
-      const response = await api.post<{ token: string; user: any }>('/auth/register', {
+      const response = await api.post<{ token: string; user: any }>("/auth/register", {
         name: signupName || guestInfo.name,
         email: signupEmail || guestInfo.email,
         phone: signupPhone || guestInfo.phone,
         password: signupPassword,
-        role: 'buyer',
-      })
+        role: "buyer",
+      });
 
       if (response.success && response.data) {
-        const u = response.data.user
-        const normalizedRole = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
+        const u = response.data.user;
+        const normalizedRole = u.isAdmin
+          ? "admin"
+          : u.isRider
+            ? "rider"
+            : u.isSeller
+              ? "seller"
+              : "buyer";
         const normalizedUser = {
           id: u.id,
           name: u.name,
           email: u.email,
           avatar: u.avatar,
           location: u.location,
-          role: normalizedRole as 'buyer' | 'seller' | 'rider' | 'admin',
+          role: normalizedRole as "buyer" | "seller" | "rider" | "admin",
           isSeller: u.isSeller || false,
           isRider: u.isRider || false,
           isAdmin: u.isAdmin || false,
-        }
+        };
 
-        localStorage.setItem('token', response.data.token)
-        localStorage.setItem('user', JSON.stringify(normalizedUser))
-        setUser(normalizedUser)
-        window.dispatchEvent(new Event('auth-changed'))
-        router.push('/')
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(normalizedUser));
+        setUser(normalizedUser);
+        window.dispatchEvent(new Event("auth-changed"));
+        router.push("/");
       } else {
-        setSignupError(response.error || response.message || 'Registration failed')
+        setSignupError(response.error || response.message || "Registration failed");
       }
     } catch (err) {
-      setSignupError('An error occurred. Please try again.')
+      setSignupError("An error occurred. Please try again.");
     } finally {
-      setSignupLoading(false)
+      setSignupLoading(false);
     }
-  }
+  };
 
-  if (mode === 'checking' || loading) {
+  if (mode === "checking" || loading) {
     return (
       <div className="min-h-screen pb-20 md:pb-0">
         <Header />
@@ -475,7 +533,7 @@ function CheckoutContent() {
         </main>
         <BottomNav />
       </div>
-    )
+    );
   }
 
   if (orderConfirmation) {
@@ -487,12 +545,8 @@ function CheckoutContent() {
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle size={40} className="text-green-600" />
             </div>
-            <h2 className="font-display text-2xl font-bold text-warm-900 mb-2">
-              Order Confirmed!
-            </h2>
-            <p className="text-warm-800/60 mb-2">
-              Your order has been placed successfully.
-            </p>
+            <h2 className="font-display text-2xl font-bold text-warm-900 mb-2">Order Confirmed!</h2>
+            <p className="text-warm-800/60 mb-2">Your order has been placed successfully.</p>
             <p className="text-sm font-medium text-warm-900 mb-6">
               Order #{orderConfirmation.orderNumber}
             </p>
@@ -514,11 +568,14 @@ function CheckoutContent() {
               </div>
             </div>
 
-            {mode === 'guest' && (
+            {mode === "guest" && (
               <div className="bg-primary/5 rounded-2xl p-6 shadow-sm border border-primary/20 mb-6 text-left">
-                <h3 className="font-semibold text-warm-900 mb-2">Save your orders, follow shops, get updates</h3>
+                <h3 className="font-semibold text-warm-900 mb-2">
+                  Save your orders, follow shops, get updates
+                </h3>
                 <p className="text-sm text-warm-800/60 mb-4">
-                  Create an account to track your orders, follow your favorite shops, and get notified about deals.
+                  Create an account to track your orders, follow your favorite shops, and get
+                  notified about deals.
                 </p>
                 {!showSignup ? (
                   <Button fullWidth onClick={() => setShowSignup(true)}>
@@ -560,7 +617,7 @@ function CheckoutContent() {
                     />
                     <div className="flex gap-2">
                       <Button type="submit" fullWidth disabled={signupLoading}>
-                        {signupLoading ? 'Creating...' : 'Create Account'}
+                        {signupLoading ? "Creating..." : "Create Account"}
                       </Button>
                       <Button type="button" variant="ghost" onClick={() => setShowSignup(false)}>
                         Skip
@@ -571,44 +628,61 @@ function CheckoutContent() {
               </div>
             )}
 
-            <Button fullWidth onClick={() => router.push('/orders')} icon={<ArrowLeft size={18} />}>
+            <Button fullWidth onClick={() => router.push("/orders")} icon={<ArrowLeft size={18} />}>
               View My Orders
             </Button>
           </div>
         </main>
         <BottomNav />
       </div>
-    )
+    );
   }
 
-  const subtotal = cart?.items.reduce((sum, item) => sum + (item.variant?.price || item.price) * item.quantity, 0) || 0
-  const shopGroups = getCartShopGroups()
-  const totalDeliveryFee = shopGroups.reduce((sum, g) => sum + g.deliveryFee, 0)
-  const baseDeliveryFee = deliveryType === 'delivery' ? totalDeliveryFee : 0
-  const deliveryFee = promoApplied ? Math.max(0, baseDeliveryFee - promoApplied.deliveryDiscount) : baseDeliveryFee
-  const discountedSubtotal = promoApplied ? promoApplied.discountedSubtotal : subtotal
-  const total = discountedSubtotal + deliveryFee
-  const selectedAddress = addresses.find(a => a.id === selectedAddressId)
-  const deliverySummary = deliveryType === 'delivery'
-    ? selectedAddress
-      ? `${selectedAddress.label} • ${selectedAddress.street}, ${selectedAddress.city}${selectedAddress.region ? `, ${selectedAddress.region}` : ''}`
-      : guestInfo.deliveryAddress || 'No delivery address selected yet'
-    : 'Pickup from shop'
-  const pickupMarkers = cartShopIds.map(shopId => {
-    const settings = shopSettings[shopId!]
-    return settings?.latitude != null && settings.longitude != null
-      ? { latitude: settings.latitude, longitude: settings.longitude, label: `${settings.name || 'Shop'} - ${settings.location || 'Pickup location'}`, color: '#16a34a' }
-      : null
-  }).filter(Boolean) as { latitude: number; longitude: number; label: string; color: string }[]
-  const fulfillmentMethod = getFulfillmentMethod()
+  const subtotal =
+    cart?.items.reduce(
+      (sum, item) => sum + (item.variant?.price || item.price) * item.quantity,
+      0,
+    ) || 0;
+  const shopGroups = getCartShopGroups();
+  const totalDeliveryFee = shopGroups.reduce((sum, g) => sum + g.deliveryFee, 0);
+  const baseDeliveryFee = deliveryType === "delivery" ? totalDeliveryFee : 0;
+  const deliveryFee = promoApplied
+    ? Math.max(0, baseDeliveryFee - promoApplied.deliveryDiscount)
+    : baseDeliveryFee;
+  const discountedSubtotal = promoApplied ? promoApplied.discountedSubtotal : subtotal;
+  const total = discountedSubtotal + deliveryFee;
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
+  const deliverySummary =
+    deliveryType === "delivery"
+      ? selectedAddress
+        ? `${selectedAddress.label} • ${selectedAddress.street}, ${selectedAddress.city}${selectedAddress.region ? `, ${selectedAddress.region}` : ""}`
+        : guestInfo.deliveryAddress || "No delivery address selected yet"
+      : "Pickup from shop";
+  const pickupMarkers = cartShopIds
+    .map((shopId) => {
+      const settings = shopSettings[shopId!];
+      return settings?.latitude != null && settings.longitude != null
+        ? {
+            latitude: settings.latitude,
+            longitude: settings.longitude,
+            label: `${settings.name || "Shop"} - ${settings.location || "Pickup location"}`,
+            color: "#16a34a",
+          }
+        : null;
+    })
+    .filter(Boolean) as { latitude: number; longitude: number; label: string; color: string }[];
+  const fulfillmentMethod = getFulfillmentMethod();
 
-  if (mode === 'guest') {
+  if (mode === "guest") {
     return (
       <div className="min-h-screen pb-20 md:pb-0">
         <Header />
         <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-warm-100 transition-colors">
+            <button
+              onClick={() => router.back()}
+              className="p-2 rounded-xl hover:bg-warm-100 transition-colors"
+            >
               <ArrowLeft size={20} className="text-warm-800" />
             </button>
             <div>
@@ -655,29 +729,42 @@ function CheckoutContent() {
               </div>
             </div>
 
-            {deliveryType === 'pickup' && (
+            {deliveryType === "pickup" && (
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
                 <h3 className="font-semibold text-warm-900 mb-2">Pickup location</h3>
-                <p className="text-sm text-warm-800/60 mb-4">Collect your order from the shop location below.</p>
+                <p className="text-sm text-warm-800/60 mb-4">
+                  Collect your order from the shop location below.
+                </p>
                 {pickupMarkers.length > 0 ? (
                   <MapboxMap markers={pickupMarkers} height="260px" />
                 ) : (
-                  <p className="text-sm text-warm-800/60">Shop location is not available yet. Please check the shop address.</p>
+                  <p className="text-sm text-warm-800/60">
+                    Shop location is not available yet. Please check the shop address.
+                  </p>
                 )}
               </div>
             )}
 
-            {deliveryType === 'delivery' && (
+            {deliveryType === "delivery" && (
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
                 <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
                   <MapPin size={20} className="text-primary" />
                   Delivery Address
                 </h3>
                 <MapboxLocationPicker
-                  value={{ address: guestInfo.deliveryAddress, latitude: guestInfo.deliveryLatitude ?? undefined, longitude: guestInfo.deliveryLongitude ?? undefined }}
+                  value={{
+                    address: guestInfo.deliveryAddress,
+                    latitude: guestInfo.deliveryLatitude ?? undefined,
+                    longitude: guestInfo.deliveryLongitude ?? undefined,
+                  }}
                   onChange={(result) => {
-                    setGuestInfo(prev => ({ ...prev, deliveryAddress: result.address, deliveryLatitude: result.latitude, deliveryLongitude: result.longitude }))
-                    setAddressConfirmed(false)
+                    setGuestInfo((prev) => ({
+                      ...prev,
+                      deliveryAddress: result.address,
+                      deliveryLatitude: result.latitude,
+                      deliveryLongitude: result.longitude,
+                    }));
+                    setAddressConfirmed(false);
                   }}
                   placeholder="Search your delivery address in Ghana"
                   height="280px"
@@ -685,18 +772,36 @@ function CheckoutContent() {
 
                 {guestInfo.deliveryAddress && (
                   <div className="mt-4 rounded-xl border border-warm-200 bg-warm-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-warm-800/60 mb-2">Confirm delivery address</p>
+                    <p className="text-xs uppercase tracking-wide text-warm-800/60 mb-2">
+                      Confirm delivery address
+                    </p>
                     <p className="text-sm font-medium text-warm-900">{guestInfo.deliveryAddress}</p>
                     <div className="mt-3 space-y-2">
-                      <p className="text-sm font-medium text-warm-900">Is this delivery address correct?</p>
+                      <p className="text-sm font-medium text-warm-900">
+                        Is this delivery address correct?
+                      </p>
                       <div className="flex gap-2">
-                        <Button type="button" size="sm" onClick={() => { setAddressConfirmed(true); setError('') }}>
-                          {addressConfirmed ? 'Address confirmed' : 'Yes, use this address'}
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            setAddressConfirmed(true);
+                            setError("");
+                          }}
+                        >
+                          {addressConfirmed ? "Address confirmed" : "Yes, use this address"}
                         </Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => {
-                          setAddressConfirmed(false)
-                          setGuestInfo(prev => ({ ...prev, deliveryAddress: '' }))
-                        }}>Edit address</Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setAddressConfirmed(false);
+                            setGuestInfo((prev) => ({ ...prev, deliveryAddress: "" }));
+                          }}
+                        >
+                          Edit address
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -704,38 +809,98 @@ function CheckoutContent() {
               </div>
             )}
 
-            <div className={`grid ${canDelivery && canPickup ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
-                {canDelivery && (
+            {/* Promo Code */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+                <Ticket size={20} className="text-primary" />
+                Promo Code
+              </h3>
+              {promoApplied ? (
+                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <div>
+                    <p className="font-mono font-semibold text-sm text-green-900">
+                      {promoApplied.code}
+                    </p>
+                    <p className="text-xs text-green-700 mt-0.5">
+                      {promoApplied.discountType === "PERCENTAGE"
+                        ? `${promoApplied.discountValue}%`
+                        : `GH₵${promoApplied.discountValue}`}{" "}
+                      off
+                      {promoApplied.maxDiscount && ` (max GH₵${promoApplied.maxDiscount})`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemovePromo}
+                    className="p-2 rounded-lg hover:bg-green-100 text-green-700"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter promo code"
+                    value={promoCode}
+                    onValueChange={(v) => {
+                      setPromoCode(v.toUpperCase());
+                      setPromoError("");
+                    }}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    disabled={!promoCode.trim() || promoLoading}
+                    loading={promoLoading}
+                  >
+                    Apply
+                  </Button>
+                </div>
+              )}
+              {promoError && <p className="text-xs text-red-600 mt-2">{promoError}</p>}
+            </div>
+
+            <div
+              className={`grid ${canDelivery && canPickup ? "grid-cols-2" : "grid-cols-1"} gap-3`}
+            >
+              {canDelivery && (
                 <button
                   type="button"
-                  onClick={() => setDeliveryType('delivery')}
+                  onClick={() => setDeliveryType("delivery")}
                   className={`p-4 rounded-xl border-2 text-center transition-all ${
-                    deliveryType === 'delivery'
-                      ? 'border-primary bg-primary/5'
-                      : 'border-warm-200 hover:border-warm-300'
+                    deliveryType === "delivery"
+                      ? "border-primary bg-primary/5"
+                      : "border-warm-200 hover:border-warm-300"
                   }`}
                 >
-                  <Truck size={24} className={`mx-auto mb-2 ${deliveryType === 'delivery' ? 'text-primary' : 'text-warm-800/50'}`} />
+                  <Truck
+                    size={24}
+                    className={`mx-auto mb-2 ${deliveryType === "delivery" ? "text-primary" : "text-warm-800/50"}`}
+                  />
                   <span className="font-medium text-sm text-warm-900">Delivery</span>
                   <p className="text-xs text-warm-800/60 mt-1">Deliver to address</p>
                 </button>
-                )}
-                {canPickup && (
+              )}
+              {canPickup && (
                 <button
                   type="button"
-                  onClick={() => setDeliveryType('pickup')}
+                  onClick={() => setDeliveryType("pickup")}
                   className={`p-4 rounded-xl border-2 text-center transition-all ${
-                    deliveryType === 'pickup'
-                      ? 'border-primary bg-primary/5'
-                      : 'border-warm-200 hover:border-warm-300'
+                    deliveryType === "pickup"
+                      ? "border-primary bg-primary/5"
+                      : "border-warm-200 hover:border-warm-300"
                   }`}
                 >
-                  <ShoppingBag size={24} className={`mx-auto mb-2 ${deliveryType === 'pickup' ? 'text-primary' : 'text-warm-800/50'}`} />
+                  <ShoppingBag
+                    size={24}
+                    className={`mx-auto mb-2 ${deliveryType === "pickup" ? "text-primary" : "text-warm-800/50"}`}
+                  />
                   <span className="font-medium text-sm text-warm-900">Pickup</span>
                   <p className="text-xs text-warm-800/60 mt-1">Collect at shop</p>
                 </button>
-                )}
-              </div>
+              )}
+            </div>
 
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
               <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
@@ -743,15 +908,21 @@ function CheckoutContent() {
                 Payment Method
               </h3>
               <div className="space-y-2">
-                  {[{ id: 'paystack', label: 'Paystack', desc: 'Secure payment by Ghanaian card or Mobile Money' }].map((method) => (
+                {[
+                  {
+                    id: "paystack",
+                    label: "Paystack",
+                    desc: "Secure payment by Ghanaian card or Mobile Money",
+                  },
+                ].map((method) => (
                   <button
                     key={method.id}
                     type="button"
                     onClick={() => setPaymentMethod(method.id)}
                     className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
                       paymentMethod === method.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-warm-200 hover:border-warm-300'
+                        ? "border-primary bg-primary/5"
+                        : "border-warm-200 hover:border-warm-300"
                     }`}
                   >
                     <span className="font-medium text-sm text-warm-900">{method.label}</span>
@@ -765,17 +936,25 @@ function CheckoutContent() {
               <h3 className="font-semibold text-warm-900 mb-4">Order Summary</h3>
               <div className="space-y-4">
                 {shopGroups.map((group) => {
-                  const groupSubtotal = group.items.reduce((sum, item) => sum + (item.variant?.price || item.price) * item.quantity, 0)
+                  const groupSubtotal = group.items.reduce(
+                    (sum, item) => sum + (item.variant?.price || item.price) * item.quantity,
+                    0,
+                  );
                   return (
-                    <div key={group.shopId} className="pb-3 border-b border-warm-100 last:border-0 last:pb-0">
+                    <div
+                      key={group.shopId}
+                      className="pb-3 border-b border-warm-100 last:border-0 last:pb-0"
+                    >
                       <p className="font-medium text-sm text-warm-900 mb-1">{group.shopName}</p>
                       <div className="space-y-1">
                         {group.items.map((item, idx) => (
                           <div key={idx} className="flex items-center justify-between text-sm">
                             <span className="text-warm-800/70 truncate flex-1 mr-2">
-                              {item.product?.name || item.service?.name || 'Item'} × {item.quantity}
+                              {item.product?.name || item.service?.name || "Item"} × {item.quantity}
                             </span>
-                            <span className="font-medium text-warm-900">GH₵{((item.variant?.price || item.price) * item.quantity).toFixed(2)}</span>
+                            <span className="font-medium text-warm-900">
+                              GH₵{((item.variant?.price || item.price) * item.quantity).toFixed(2)}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -790,7 +969,7 @@ function CheckoutContent() {
                         </span>
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
               <div className="border-t border-warm-200 pt-3 mt-4 space-y-2">
@@ -801,7 +980,9 @@ function CheckoutContent() {
                 {promoApplied && (
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-green-600">Promo discount ({promoApplied.code})</span>
-                    <span className="font-medium text-green-600">-GH₵{promoApplied.discountAmount.toFixed(2)}</span>
+                    <span className="font-medium text-green-600">
+                      -GH₵{promoApplied.discountAmount.toFixed(2)}
+                    </span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-sm">
@@ -814,20 +995,15 @@ function CheckoutContent() {
                 </div>
               </div>
 
-              <Button
-                fullWidth
-                className="mt-6"
-                type="submit"
-                disabled={submitting}
-              >
-                {submitting ? 'Processing...' : `Pay GH₵${total.toFixed(2)}`}
+              <Button fullWidth className="mt-6" type="submit" disabled={submitting}>
+                {submitting ? "Processing..." : `Pay GH₵${total.toFixed(2)}`}
               </Button>
             </div>
           </form>
         </main>
         <BottomNav />
       </div>
-    )
+    );
   }
 
   return (
@@ -837,13 +1013,14 @@ function CheckoutContent() {
       <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <PaymentSafetyNotice />
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-warm-100 transition-colors">
+          <button
+            onClick={() => router.back()}
+            className="p-2 rounded-xl hover:bg-warm-100 transition-colors"
+          >
             <ArrowLeft size={20} className="text-warm-800" />
           </button>
           <div>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-              Checkout
-            </h1>
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Checkout</h1>
             <p className="text-warm-800/60">Complete your order</p>
           </div>
         </div>
@@ -861,54 +1038,66 @@ function CheckoutContent() {
               <MapPin size={20} className="text-primary" />
               Delivery Method
             </h3>
-            <div className={`grid ${canDelivery && canPickup ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+            <div
+              className={`grid ${canDelivery && canPickup ? "grid-cols-2" : "grid-cols-1"} gap-3`}
+            >
               {canDelivery && (
-              <button
-                type="button"
-                onClick={() => setDeliveryType('delivery')}
-                className={`p-4 rounded-xl border-2 text-center transition-all ${
-                  deliveryType === 'delivery'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-warm-200 hover:border-warm-300'
-                }`}
-              >
-                <Truck size={24} className={`mx-auto mb-2 ${deliveryType === 'delivery' ? 'text-primary' : 'text-warm-800/50'}`} />
-                <span className="font-medium text-sm text-warm-900">Delivery</span>
-                <p className="text-xs text-warm-800/60 mt-1">Deliver to address</p>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryType("delivery")}
+                  className={`p-4 rounded-xl border-2 text-center transition-all ${
+                    deliveryType === "delivery"
+                      ? "border-primary bg-primary/5"
+                      : "border-warm-200 hover:border-warm-300"
+                  }`}
+                >
+                  <Truck
+                    size={24}
+                    className={`mx-auto mb-2 ${deliveryType === "delivery" ? "text-primary" : "text-warm-800/50"}`}
+                  />
+                  <span className="font-medium text-sm text-warm-900">Delivery</span>
+                  <p className="text-xs text-warm-800/60 mt-1">Deliver to address</p>
+                </button>
               )}
               {canPickup && (
-              <button
-                type="button"
-                onClick={() => setDeliveryType('pickup')}
-                className={`p-4 rounded-xl border-2 text-center transition-all ${
-                  deliveryType === 'pickup'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-warm-200 hover:border-warm-300'
-                }`}
-              >
-                <ShoppingBag size={24} className={`mx-auto mb-2 ${deliveryType === 'pickup' ? 'text-primary' : 'text-warm-800/50'}`} />
-                <span className="font-medium text-sm text-warm-900">Pickup</span>
-                <p className="text-xs text-warm-800/60 mt-1">Collect at shop</p>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryType("pickup")}
+                  className={`p-4 rounded-xl border-2 text-center transition-all ${
+                    deliveryType === "pickup"
+                      ? "border-primary bg-primary/5"
+                      : "border-warm-200 hover:border-warm-300"
+                  }`}
+                >
+                  <ShoppingBag
+                    size={24}
+                    className={`mx-auto mb-2 ${deliveryType === "pickup" ? "text-primary" : "text-warm-800/50"}`}
+                  />
+                  <span className="font-medium text-sm text-warm-900">Pickup</span>
+                  <p className="text-xs text-warm-800/60 mt-1">Collect at shop</p>
+                </button>
               )}
             </div>
           </div>
 
-          {deliveryType === 'pickup' && (
+          {deliveryType === "pickup" && (
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
               <h3 className="font-semibold text-warm-900 mb-2">Pickup location</h3>
-              <p className="text-sm text-warm-800/60 mb-4">Collect your order from the shop location below.</p>
+              <p className="text-sm text-warm-800/60 mb-4">
+                Collect your order from the shop location below.
+              </p>
               {pickupMarkers.length > 0 ? (
                 <MapboxMap markers={pickupMarkers} height="260px" />
               ) : (
-                <p className="text-sm text-warm-800/60">Shop location is not available yet. Please check the shop address.</p>
+                <p className="text-sm text-warm-800/60">
+                  Shop location is not available yet. Please check the shop address.
+                </p>
               )}
             </div>
           )}
 
           {/* Address Selection */}
-          {deliveryType === 'delivery' && (
+          {deliveryType === "delivery" && (
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-warm-900 flex items-center gap-2">
@@ -933,13 +1122,13 @@ function CheckoutContent() {
                       key={addr.id}
                       type="button"
                       onClick={() => {
-                        setSelectedAddressId(addr.id)
-                        setAddressConfirmed(false)
+                        setSelectedAddressId(addr.id);
+                        setAddressConfirmed(false);
                       }}
                       className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
                         selectedAddressId === addr.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-warm-200 hover:border-warm-300'
+                          ? "border-primary bg-primary/5"
+                          : "border-warm-200 hover:border-warm-300"
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -947,7 +1136,9 @@ function CheckoutContent() {
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm text-warm-900">{addr.label}</span>
                             {addr.isDefault && (
-                              <Badge variant="default" className="text-[10px]">Default</Badge>
+                              <Badge variant="default" className="text-[10px]">
+                                Default
+                              </Badge>
                             )}
                           </div>
                           <p className="text-xs text-warm-800/60 mt-0.5">
@@ -977,8 +1168,19 @@ function CheckoutContent() {
                       onValueChange={(v) => setNewAddress({ ...newAddress, street: v })}
                     />
                     <MapboxLocationPicker
-                      value={{ address: newAddress.street, latitude: newAddress.latitude ?? undefined, longitude: newAddress.longitude ?? undefined }}
-                      onChange={(result) => setNewAddress(prev => ({ ...prev, street: result.address, latitude: result.latitude, longitude: result.longitude }))}
+                      value={{
+                        address: newAddress.street,
+                        latitude: newAddress.latitude ?? undefined,
+                        longitude: newAddress.longitude ?? undefined,
+                      }}
+                      onChange={(result) =>
+                        setNewAddress((prev) => ({
+                          ...prev,
+                          street: result.address,
+                          latitude: result.latitude,
+                          longitude: result.longitude,
+                        }))
+                      }
                       placeholder="Search and confirm delivery location in Ghana"
                       height="240px"
                     />
@@ -1008,7 +1210,12 @@ function CheckoutContent() {
                       <Button type="button" size="sm" onClick={handleAddAddress}>
                         Save Address
                       </Button>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => setShowAddressForm(false)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setShowAddressForm(false)}
+                      >
                         Cancel
                       </Button>
                     </div>
@@ -1017,19 +1224,30 @@ function CheckoutContent() {
               )}
               {selectedAddress && !showAddressForm && (
                 <div className="mt-4 border-t border-warm-200 pt-4">
-                  <p className="text-sm font-medium text-warm-900 mb-2">Confirm delivery location</p>
+                  <p className="text-sm font-medium text-warm-900 mb-2">
+                    Confirm delivery location
+                  </p>
                   <MapboxLocationPicker
-                    value={{ address: selectedAddress.street, latitude: selectedAddress.latitude ?? undefined, longitude: selectedAddress.longitude ?? undefined }}
+                    value={{
+                      address: selectedAddress.street,
+                      latitude: selectedAddress.latitude ?? undefined,
+                      longitude: selectedAddress.longitude ?? undefined,
+                    }}
                     onChange={async (result) => {
-                      setAddressConfirmed(false)
-                      const response = await api.patch<Address>(`/addresses/${selectedAddress.id}`, {
-                        address: result.address,
-                        latitude: result.latitude,
-                        longitude: result.longitude,
-                      })
+                      setAddressConfirmed(false);
+                      const response = await api.patch<Address>(
+                        `/addresses/${selectedAddress.id}`,
+                        {
+                          address: result.address,
+                          latitude: result.latitude,
+                          longitude: result.longitude,
+                        },
+                      );
                       if (response.success && response.data) {
-                        const mapped = mapApiAddressToFrontend(response.data)
-                        setAddresses(prev => prev.map(address => address.id === mapped.id ? mapped : address))
+                        const mapped = mapApiAddressToFrontend(response.data);
+                        setAddresses((prev) =>
+                          prev.map((address) => (address.id === mapped.id ? mapped : address)),
+                        );
                       }
                     }}
                     placeholder="Search or adjust this delivery location"
@@ -1037,20 +1255,41 @@ function CheckoutContent() {
                   />
 
                   <div className="mt-4 rounded-xl border border-warm-200 bg-warm-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-warm-800/60 mb-2">Confirm delivery address</p>
+                    <p className="text-xs uppercase tracking-wide text-warm-800/60 mb-2">
+                      Confirm delivery address
+                    </p>
                     <p className="text-sm font-medium text-warm-900">{selectedAddress.label}</p>
-                    <p className="text-sm text-warm-800/70">{selectedAddress.street}, {selectedAddress.city}{selectedAddress.region ? `, ${selectedAddress.region}` : ''}</p>
+                    <p className="text-sm text-warm-800/70">
+                      {selectedAddress.street}, {selectedAddress.city}
+                      {selectedAddress.region ? `, ${selectedAddress.region}` : ""}
+                    </p>
                     <p className="text-xs text-warm-800/60 mt-1">{selectedAddress.phone}</p>
                     <div className="mt-3 space-y-2">
-                      <p className="text-sm font-medium text-warm-900">Is this delivery address correct?</p>
+                      <p className="text-sm font-medium text-warm-900">
+                        Is this delivery address correct?
+                      </p>
                       <div className="flex gap-2">
-                        <Button type="button" size="sm" onClick={() => { setAddressConfirmed(true); setError('') }}>
-                          {addressConfirmed ? 'Address confirmed' : 'Yes, use this address'}
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            setAddressConfirmed(true);
+                            setError("");
+                          }}
+                        >
+                          {addressConfirmed ? "Address confirmed" : "Yes, use this address"}
                         </Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => {
-                          setAddressConfirmed(false)
-                          setShowAddressForm(true)
-                        }}>Edit address</Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setAddressConfirmed(false);
+                            setShowAddressForm(true);
+                          }}
+                        >
+                          Edit address
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -1059,114 +1298,80 @@ function CheckoutContent() {
             </div>
           )}
 
-            {/* Promo Code */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                <Ticket size={20} className="text-primary" />
-                Promo Code
-              </h3>
-              {promoApplied ? (
-                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
-                  <div>
-                    <p className="font-mono font-semibold text-sm text-green-900">{promoApplied.code}</p>
-                    <p className="text-xs text-green-700 mt-0.5">
-                      {promoApplied.discountType === 'PERCENTAGE' ? `${promoApplied.discountValue}%` : `GH₵${promoApplied.discountValue}`} off
-                      {promoApplied.maxDiscount && ` (max GH₵${promoApplied.maxDiscount})`}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRemovePromo}
-                    className="p-2 rounded-lg hover:bg-green-100 text-green-700"
-                  >
-                    <X size={16} />
-                  </button>
+          {/* Promo Code */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+            <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+              <Ticket size={20} className="text-primary" />
+              Promo Code
+            </h3>
+            {promoApplied ? (
+              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+                <div>
+                  <p className="font-mono font-semibold text-sm text-green-900">
+                    {promoApplied.code}
+                  </p>
+                  <p className="text-xs text-green-700 mt-0.5">
+                    {promoApplied.discountType === "PERCENTAGE"
+                      ? `${promoApplied.discountValue}%`
+                      : `GH₵${promoApplied.discountValue}`}{" "}
+                    off
+                    {promoApplied.maxDiscount && ` (max GH₵${promoApplied.maxDiscount})`}
+                  </p>
                 </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter promo code"
-                    value={promoCode}
-                    onValueChange={(v) => { setPromoCode(v.toUpperCase()); setPromoError('') }}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleApplyPromo}
-                    disabled={!promoCode.trim() || promoLoading}
-                    loading={promoLoading}
-                  >
-                    Apply
-                  </Button>
-                </div>
-              )}
-              {promoError && (
-                <p className="text-xs text-red-600 mt-2">{promoError}</p>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={handleRemovePromo}
+                  className="p-2 rounded-lg hover:bg-green-100 text-green-700"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter promo code"
+                  value={promoCode}
+                  onValueChange={(v) => {
+                    setPromoCode(v.toUpperCase());
+                    setPromoError("");
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={handleApplyPromo}
+                  disabled={!promoCode.trim() || promoLoading}
+                  loading={promoLoading}
+                >
+                  Apply
+                </Button>
+              </div>
+            )}
+            {promoError && <p className="text-xs text-red-600 mt-2">{promoError}</p>}
+          </div>
 
-            {/* Promo Code */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                <Ticket size={20} className="text-primary" />
-                Promo Code
-              </h3>
-              {promoApplied ? (
-                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
-                  <div>
-                    <p className="font-mono font-semibold text-sm text-green-900">{promoApplied.code}</p>
-                    <p className="text-xs text-green-700 mt-0.5">
-                      {promoApplied.discountType === 'PERCENTAGE' ? `${promoApplied.discountValue}%` : `GH₵${promoApplied.discountValue}`} off
-                      {promoApplied.maxDiscount && ` (max GH₵${promoApplied.maxDiscount})`}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRemovePromo}
-                    className="p-2 rounded-lg hover:bg-green-100 text-green-700"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter promo code"
-                    value={promoCode}
-                    onValueChange={(v) => { setPromoCode(v.toUpperCase()); setPromoError('') }}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleApplyPromo}
-                    disabled={!promoCode.trim() || promoLoading}
-                    loading={promoLoading}
-                  >
-                    Apply
-                  </Button>
-                </div>
-              )}
-              {promoError && (
-                <p className="text-xs text-red-600 mt-2">{promoError}</p>
-              )}
-            </div>
-
-            {/* Payment Method */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                <CreditCard size={20} className="text-primary" />
-                Payment Method
-              </h3>
+          {/* Payment Method */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+            <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+              <CreditCard size={20} className="text-primary" />
+              Payment Method
+            </h3>
             <div className="space-y-2">
-                {[{ id: 'paystack', label: 'Paystack', desc: 'Secure payment by Ghanaian card or Mobile Money' }].map((method) => (
+              {[
+                {
+                  id: "paystack",
+                  label: "Paystack",
+                  desc: "Secure payment by Ghanaian card or Mobile Money",
+                },
+              ].map((method) => (
                 <button
                   key={method.id}
                   type="button"
                   onClick={() => setPaymentMethod(method.id)}
                   className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
                     paymentMethod === method.id
-                      ? 'border-primary bg-primary/5'
-                      : 'border-warm-200 hover:border-warm-300'
+                      ? "border-primary bg-primary/5"
+                      : "border-warm-200 hover:border-warm-300"
                   }`}
                 >
                   <span className="font-medium text-sm text-warm-900">{method.label}</span>
@@ -1193,66 +1398,77 @@ function CheckoutContent() {
           {/* Order Summary */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
             <h3 className="font-semibold text-warm-900 mb-4">Order Summary</h3>
-             <div className="space-y-4">
-               {shopGroups.map((group) => {
-                 const groupSubtotal = group.items.reduce((sum, item) => sum + (item.variant?.price || item.price) * item.quantity, 0)
-                 return (
-                   <div key={group.shopId} className="pb-3 border-b border-warm-100 last:border-0 last:pb-0">
-                     <p className="font-medium text-sm text-warm-900 mb-1">{group.shopName}</p>
-                     <div className="space-y-1">
-                       {group.items.map((item, idx) => (
-                         <div key={idx} className="flex items-center justify-between text-sm">
-                           <span className="text-warm-800/70 truncate flex-1 mr-2">
-                             {item.product?.name || item.service?.name || 'Item'} × {item.quantity}
-                           </span>
-                           <span className="font-medium text-warm-900">GH₵{((item.variant?.price || item.price) * item.quantity).toFixed(2)}</span>
-                         </div>
-                       ))}
-                     </div>
-                     <div className="flex items-center justify-between text-sm mt-1">
-                       <span className="text-warm-800/60">Delivery</span>
-                       <span className="font-medium text-warm-900">
-                         {group.deliveryFee === 0 ? (
-                           <Badge variant="deal">Free</Badge>
-                         ) : (
-                           `GH₵${group.deliveryFee.toFixed(2)}`
-                         )}
-                       </span>
-                     </div>
-                   </div>
-                 )
-               })}
-             </div>
-             <div className="border-t border-warm-200 pt-3 mt-4 space-y-2">
-               <div className="flex items-center justify-between text-sm">
-                 <span className="text-warm-800/70">Subtotal ({cart?.items.length} items)</span>
-                 <span className="font-medium text-warm-900">GH₵{subtotal.toFixed(2)}</span>
-               </div>
-               {promoApplied && (
-                 <div className="flex items-center justify-between text-sm">
-                   <span className="text-green-600">Promo discount ({promoApplied.code})</span>
-                   <span className="font-medium text-green-600">-GH₵{promoApplied.discountAmount.toFixed(2)}</span>
-                 </div>
-               )}
-               <div className="flex items-center justify-between text-sm">
-                 <span className="text-warm-800/70">Total Delivery</span>
-                 <span className="font-medium text-warm-900">GH₵{deliveryFee.toFixed(2)}</span>
-               </div>
-               <div className="border-t border-warm-200 pt-3 flex items-center justify-between">
-                 <span className="font-semibold text-warm-900">Total</span>
-                 <span className="font-bold text-xl text-warm-900">GH₵{total.toFixed(2)}</span>
-               </div>
-             </div>
+            <div className="space-y-4">
+              {shopGroups.map((group) => {
+                const groupSubtotal = group.items.reduce(
+                  (sum, item) => sum + (item.variant?.price || item.price) * item.quantity,
+                  0,
+                );
+                return (
+                  <div
+                    key={group.shopId}
+                    className="pb-3 border-b border-warm-100 last:border-0 last:pb-0"
+                  >
+                    <p className="font-medium text-sm text-warm-900 mb-1">{group.shopName}</p>
+                    <div className="space-y-1">
+                      {group.items.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm">
+                          <span className="text-warm-800/70 truncate flex-1 mr-2">
+                            {item.product?.name || item.service?.name || "Item"} × {item.quantity}
+                          </span>
+                          <span className="font-medium text-warm-900">
+                            GH₵{((item.variant?.price || item.price) * item.quantity).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between text-sm mt-1">
+                      <span className="text-warm-800/60">Delivery</span>
+                      <span className="font-medium text-warm-900">
+                        {group.deliveryFee === 0 ? (
+                          <Badge variant="deal">Free</Badge>
+                        ) : (
+                          `GH₵${group.deliveryFee.toFixed(2)}`
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-warm-200 pt-3 mt-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-warm-800/70">Subtotal ({cart?.items.length} items)</span>
+                <span className="font-medium text-warm-900">GH₵{subtotal.toFixed(2)}</span>
+              </div>
+              {promoApplied && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-green-600">Promo discount ({promoApplied.code})</span>
+                  <span className="font-medium text-green-600">
+                    -GH₵{promoApplied.discountAmount.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-warm-800/70">Total Delivery</span>
+                <span className="font-medium text-warm-900">GH₵{deliveryFee.toFixed(2)}</span>
+              </div>
+              <div className="border-t border-warm-200 pt-3 flex items-center justify-between">
+                <span className="font-semibold text-warm-900">Total</span>
+                <span className="font-bold text-xl text-warm-900">GH₵{total.toFixed(2)}</span>
+              </div>
+            </div>
 
             {selectedAddress && (
               <div className="mt-4 p-3 bg-warm-50 rounded-xl">
                 <p className="text-xs text-warm-800/60 mb-1">Delivering to:</p>
                 <p className="text-sm font-medium text-warm-900">{selectedAddress.label}</p>
                 <p className="text-xs text-warm-800/60">
-                  {selectedAddress.street}, {selectedAddress.city}{selectedAddress.region ? `, ${selectedAddress.region}` : ''}
+                  {selectedAddress.street}, {selectedAddress.city}
+                  {selectedAddress.region ? `, ${selectedAddress.region}` : ""}
                 </p>
                 <p className="mt-2 text-xs font-medium text-warm-900">
-                  {addressConfirmed ? 'Confirmed: yes' : 'Confirmed: not yet'}
+                  {addressConfirmed ? "Confirmed: yes" : "Confirmed: not yet"}
                 </p>
               </div>
             )}
@@ -1261,9 +1477,12 @@ function CheckoutContent() {
               fullWidth
               className="mt-6"
               type="submit"
-              disabled={submitting || (deliveryType === 'delivery' && (!selectedAddressId || !addressConfirmed))}
+              disabled={
+                submitting ||
+                (deliveryType === "delivery" && (!selectedAddressId || !addressConfirmed))
+              }
             >
-              {submitting ? 'Processing...' : `Pay GH₵${total.toFixed(2)}`}
+              {submitting ? "Processing..." : `Pay GH₵${total.toFixed(2)}`}
             </Button>
           </div>
         </form>
@@ -1271,7 +1490,7 @@ function CheckoutContent() {
 
       <BottomNav />
     </div>
-  )
+  );
 }
 
 export default function CheckoutPage() {
@@ -1279,5 +1498,5 @@ export default function CheckoutPage() {
     <Suspense fallback={<div className="min-h-screen bg-background" />}>
       <CheckoutContent />
     </Suspense>
-  )
+  );
 }
