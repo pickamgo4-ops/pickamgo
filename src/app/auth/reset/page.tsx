@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Key, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
@@ -55,6 +56,10 @@ function ResetPasswordForm() {
       <div className="min-h-screen flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200 text-center">
+            <Link href="/" className="inline-flex items-center gap-3 mb-6">
+              <Image src="/logo.png" alt="PickAmGo" width={40} height={40} className="rounded-xl" />
+              <span className="font-display text-2xl font-bold text-warm-900">PickAmGo</span>
+            </Link>
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle size={32} className="text-green-600" />
             </div>
@@ -77,6 +82,10 @@ function ResetPasswordForm() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
+          <Link href="/" className="inline-flex items-center gap-3 mb-6">
+            <Image src="/logo.png" alt="PickAmGo" width={40} height={40} className="rounded-xl" />
+            <span className="font-display text-2xl font-bold text-warm-900">PickAmGo</span>
+          </Link>
           <Link href="/auth/login" className="inline-flex items-center gap-2 text-warm-800/60 hover:text-warm-900 mb-6">
             <ArrowLeft size={18} />
             Back to login
@@ -132,6 +141,10 @@ export default function ResetPasswordPage() {
       <div className="min-h-screen flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200 text-center">
+            <Link href="/" className="inline-flex items-center gap-3 mb-6">
+              <Image src="/logo.png" alt="PickAmGo" width={40} height={40} className="rounded-xl" />
+              <span className="font-display text-2xl font-bold text-warm-900">PickAmGo</span>
+            </Link>
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-warm-800/60">Loading...</p>
           </div>

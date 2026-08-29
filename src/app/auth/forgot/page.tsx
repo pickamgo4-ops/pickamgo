@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
+import Image from 'next/image'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { api } from '../../../lib/api'
@@ -36,6 +37,10 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
+          <Link href="/" className="inline-flex items-center gap-3 mb-6">
+            <Image src="/logo.png" alt="PickAmGo" width={40} height={40} className="rounded-xl" />
+            <span className="font-display text-2xl font-bold text-warm-900">PickAmGo</span>
+          </Link>
           <Link href="/auth/login" className="inline-flex items-center gap-2 text-warm-800/60 hover:text-warm-900 mb-6">
             <ArrowLeft size={18} />
             Back to login

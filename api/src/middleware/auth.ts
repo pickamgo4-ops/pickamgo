@@ -7,20 +7,22 @@ function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET?.trim()
 
   if (!secret) {
-    const fallbackSecret = process.env.NODE_ENV === 'production'
-      ? 'pickamgo-production-fallback-secret'
-      : 'pickamgo-dev-secret'
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET is required in production. Set a strong random secret before starting the API.')
+    }
 
-    console.warn('JWT_SECRET is missing. Using a fallback secret for this runtime only. Set a real JWT_SECRET in the environment for production.')
+    const fallbackSecret = 'pickamgo-dev-secret'
+    console.warn('JWT_SECRET is missing. Using a local development fallback only.')
     return fallbackSecret
   }
 
   if (process.env.NODE_ENV === 'production' && (
     secret.includes('change-in-production') ||
     secret.includes('pickamgo-dev-secret') ||
-    secret.includes('pickamgo-production-fallback-secret')
+    secret.includes('pickamgo-production-fallback-secret') ||
+    secret.length < 32
   )) {
-    console.warn('JWT_SECRET is using a placeholder or fallback value. Please set a unique production secret.')
+    throw new Error('JWT_SECRET must be a long, unique secret in production. Update the environment before deployment.')
   }
 
   return secret
@@ -67,12 +69,18 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     const payload = verifyToken(token)
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true },
+      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true },
     })
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid or expired token' })
       return
     }
+
+    if (user.suspended || user.banned) {
+      res.status(403).json({ success: false, error: 'Your account is suspended or banned. Contact support for assistance.' })
+      return
+    }
+
     req.user = user
     next()
   } catch {
@@ -92,9 +100,9 @@ export async function optionalAuthMiddleware(req: AuthenticatedRequest, res: Res
     const payload = verifyToken(token)
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true },
+      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true },
     })
-    if (user) {
+    if (user && !user.suspended && !user.banned) {
       req.user = user
     }
   } catch {

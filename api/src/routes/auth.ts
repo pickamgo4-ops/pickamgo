@@ -236,6 +236,10 @@ router.post('/login', validateBody(loginSchema), async (req: AuthenticatedReques
       return errorResponse(res, 'Invalid email or password', 401)
     }
 
+    if (user.suspended || user.banned) {
+      return errorResponse(res, 'Your account has been suspended or banned. Contact support for assistance.', 403)
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
     if (!isPasswordValid) {
       return errorResponse(res, 'Invalid email or password', 401)
