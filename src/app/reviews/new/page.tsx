@@ -28,15 +28,23 @@ function NewReviewForm() {
       return
     }
 
+    const reviewTargetType = productId ? 'PRODUCT' : shopId ? 'SHOP' : null
+    const reviewTargetId = productId || shopId
+
+    if (!reviewTargetType || !reviewTargetId) {
+      setError('Review target is missing. Please return to the shop or product and try again.')
+      return
+    }
+
     setSubmitting(true)
     setError('')
 
     try {
       const response = await api.post('/reviews', {
+        targetType: reviewTargetType,
+        targetId: reviewTargetId,
         rating,
         comment,
-        productId: productId || undefined,
-        shopId: shopId || undefined,
       })
 
       if (response.success) {

@@ -5,6 +5,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import { errorHandler } from './middleware/errorHandler'
+import { verifyToken } from './middleware/auth'
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 dotenv.config({ path: path.resolve(process.cwd(), 'api/.env') })
@@ -96,6 +97,40 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '100kb' }))
+
+app.use(async (req, res, next) => {
+  const publicPaths = ['/api/health', '/api/auth/', '/api/admin/settings/public']
+  const isPublicPath = publicPaths.some(prefix => req.path === prefix.replace('/api/', '/api/') || req.path.startsWith(prefix))
+
+  if (req.method === 'OPTIONS' || isPublicPath || req.path.startsWith('/api/admin/')) {
+    next()
+    return
+  }
+
+  const maintenanceSetting = await prisma.setting.findUnique({ where: { key: 'maintenanceMode' } })
+  if ((maintenanceSetting?.value || 'false') !== 'true') {
+    next()
+    return
+  }
+
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(503).json({ success: false, error: 'PickAmGo is currently undergoing maintenance. Please check back soon.' })
+  }
+
+  try {
+    const token = authHeader.split(' ')[1]
+    const payload = verifyToken(token)
+    if (payload.isAdmin) {
+      next()
+      return
+    }
+  } catch {
+    // fall through to deny non-admin access during maintenance
+  }
+
+  return res.status(503).json({ success: false, error: 'PickAmGo is currently undergoing maintenance. Please check back soon.' })
+})
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,

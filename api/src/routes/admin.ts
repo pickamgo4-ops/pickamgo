@@ -901,6 +901,19 @@ router.get('/payments', authMiddleware, requireRole(['ADMIN']), async (req: Auth
   }
 })
 
+router.get('/settings/public', async (_req, res) => {
+  try {
+    const dbSettings = await prisma.setting.findMany()
+    const settingMap = new Map(dbSettings.map(s => [s.key, s.value]))
+    return successResponse(res, {
+      maintenanceMode: settingMap.get('maintenanceMode') === 'true',
+      platformName: settingMap.get('platformName') || 'PickAmGo',
+    })
+  } catch (error) {
+    return successResponse(res, { maintenanceMode: false, platformName: 'PickAmGo' })
+  }
+})
+
 router.get('/settings', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
   try {
     let dbSettings: any[] = []
@@ -1578,7 +1591,7 @@ router.post('/emails/send', authMiddleware, requireRole(['ADMIN']), async (req: 
       const result = await sendEmail({
         to: testEmail,
         subject,
-        html: html.replace('{{name}}', 'Test User'),
+        html: buildBaseHtml(subject, html.replace('{{name}}', 'Test User')),
         text: text ? text.replace('{{name}}', 'Test User') : undefined,
       })
       return successResponse(res, { ...result, message: 'Test email sent' })
@@ -1637,7 +1650,7 @@ router.post('/emails/send', authMiddleware, requireRole(['ADMIN']), async (req: 
           const result = await sendEmail({
             to: user.email!,
             subject,
-            html: html.replace('{{name}}', user.name || 'User'),
+            html: buildBaseHtml(subject, html.replace('{{name}}', user.name || 'User')),
             text: text ? text.replace('{{name}}', user.name || 'User') : undefined,
           })
 

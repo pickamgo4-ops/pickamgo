@@ -24,6 +24,9 @@ export default function ShopPage() {
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [followMessage, setFollowMessage] = useState('')
+  const [reviews, setReviews] = useState<any[]>([])
+  const [averageRating, setAverageRating] = useState(0)
+  const [totalReviews, setTotalReviews] = useState(0)
 
   useEffect(() => {
     loadShop()
@@ -35,7 +38,19 @@ export default function ShopPage() {
     try {
       const response = await api.get<Shop>(`/shops/${params.slug}`)
       if (response.success && response.data) {
-        setShop(mapApiShopToFrontend(response.data))
+        const mappedShop = mapApiShopToFrontend(response.data)
+        setShop(mappedShop)
+
+        const reviewsResponse = await api.get<{ reviews: any[]; averageRating: number; totalReviews: number }>(`/reviews/shop/${response.data.id}`)
+        if (reviewsResponse.success && reviewsResponse.data) {
+          setReviews(reviewsResponse.data.reviews || [])
+          setAverageRating(reviewsResponse.data.averageRating || 0)
+          setTotalReviews(reviewsResponse.data.totalReviews || 0)
+        } else {
+          setReviews([])
+          setAverageRating(0)
+          setTotalReviews(0)
+        }
       }
     } catch (err) {
       console.error('Failed to load shop:', err)
@@ -298,6 +313,66 @@ export default function ShopPage() {
             {visibleProducts.map((product) => (
               <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Reviews */}
+      {customization.showReviews && (
+        <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mt-8 sm:mt-10 mb-10">
+          <SectionHeader
+            title="Customer Reviews"
+            subtitle={`${totalReviews} review${totalReviews === 1 ? '' : 's'} • ${averageRating ? averageRating.toFixed(1) : 'No ratings yet'}`}
+          />
+
+          <div className="rounded-2xl border border-black/10 bg-[var(--shop-secondary)] p-4 sm:p-6">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="text-3xl font-bold text-warm-900">{averageRating ? averageRating.toFixed(1) : '0.0'}</div>
+              <div>
+                <div className="flex items-center gap-1 text-yellow-500">
+                  {[1,2,3,4,5].map((star) => (
+                    <Star key={star} size={16} className={star <= Math.round(averageRating || 0) ? 'fill-current' : 'text-warm-300'} />
+                  ))}
+                </div>
+                <p className="text-sm text-warm-800/60">Based on {totalReviews} review{totalReviews === 1 ? '' : 's'}</p>
+              </div>
+            </div>
+
+            {reviews.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-warm-300 bg-white/30 p-6 text-center text-warm-800/60">
+                No reviews yet. Be the first to review this shop.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((review) => (
+                  <div key={review.id} className="rounded-xl border border-black/10 bg-white/50 p-4 sm:p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-warm-200 overflow-hidden flex-shrink-0">
+                        {review.userAvatar ? (
+                          <img src={review.userAvatar} alt={review.userName} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-warm-800">{(review.userName || 'A').slice(0, 1).toUpperCase()}</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                          <div>
+                            <p className="font-semibold text-warm-900">{review.userName || 'Anonymous'}</p>
+                            <div className="flex items-center gap-1 text-yellow-500 mt-1">
+                              {[1,2,3,4,5].map((star) => (
+                                <Star key={star} size={14} className={star <= (review.rating || 0) ? 'fill-current' : 'text-warm-300'} />
+                              ))}
+                            </div>
+                          </div>
+                          <time className="text-xs text-warm-800/60">{new Date(review.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</time>
+                        </div>
+                        <p className="mt-3 text-sm text-warm-800/80 whitespace-pre-wrap">{review.comment}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}

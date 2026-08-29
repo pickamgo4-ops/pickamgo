@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { MapPin, ChevronDown, Flame, Sparkles, Tag, Star, Eye, CheckCircle2 } from 'lucide-react'
+import { MapPin, ChevronDown, Flame, Sparkles, Tag, Star, Eye, CheckCircle2, Wrench } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { BottomNav } from '../components/layout/BottomNav'
 import { Footer } from '../components/layout/Footer'
@@ -26,6 +26,7 @@ export default function HomePage() {
   const [shops, setShops] = useState<Shop[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [maintenanceMode, setMaintenanceMode] = useState(false)
   const generationRef = useRef(0)
 
   const locations = ['Accra', 'Kumasi', 'Takoradi', 'Tema', 'Cape Coast']
@@ -47,6 +48,11 @@ export default function HomePage() {
     setLoading(true)
     setLoadError(null)
     try {
+      const publicSettings = await api.get<{ maintenanceMode: boolean; platformName: string }>('/admin/settings/public')
+      if (publicSettings.success && publicSettings.data) {
+        setMaintenanceMode(Boolean(publicSettings.data.maintenanceMode))
+      }
+
       const results = await Promise.allSettled([
         api.get<{ products: any[] }>(`/products?limit=20${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=25` : locationQuery ? `&location=${encodeURIComponent(locationQuery)}` : ''}`),
         api.get<{ shops: any[] }>(`/shops?limit=6${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=5` : ''}`),
@@ -107,6 +113,23 @@ export default function HomePage() {
   const newProducts = products.filter(p => p.isNew)
   const affordableProducts = products.filter(p => p.price < 50)
   const nearbyProducts = coordinates ? products.slice(0, 4) : []
+
+  if (maintenanceMode) {
+    return (
+      <div className="min-h-screen bg-warm-50 flex items-center justify-center px-4">
+        <div className="max-w-xl w-full rounded-3xl border border-warm-200 bg-white shadow-lg p-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-primary/10 flex items-center justify-center">
+            <Wrench className="text-primary" size={28} />
+          </div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary mb-3">Maintenance</p>
+          <h1 className="font-display text-3xl md:text-4xl font-bold text-warm-900 mb-4">We&apos;ll be back soon 🚧</h1>
+          <p className="text-base md:text-lg text-warm-800/70 leading-relaxed">
+            PickAmGo is currently undergoing maintenance. We&apos;re making some improvements and will be back shortly.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
