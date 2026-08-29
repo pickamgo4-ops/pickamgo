@@ -174,6 +174,9 @@ router.get('/public', async (_req, res) => {
       isDismissible: notice.isDismissible,
       rememberDismissal: notice.rememberDismissal,
       reappearAfterHours: notice.reappearAfterHours,
+      status: notice.status,
+      startsAt: notice.startsAt,
+      endsAt: notice.endsAt,
       createdAt: notice.createdAt,
     }))
 
@@ -416,20 +419,11 @@ router.post('/:id/dismiss', authMiddleware, async (req: AuthenticatedRequest, re
   }
 })
 
-router.get('/:id/dismissals', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
+router.get('/dismissals', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const notice = await prisma.publicNotice.findUnique({
-      where: { id: req.params.id },
-    })
-
-    if (!notice) {
-      return errorResponse(res, 'Public notice not found', 404)
-    }
-
     const dismissals = await prisma.publicNoticeDismissal.findMany({
-      where: { noticeId: req.params.id },
+      where: { userId: req.user!.id },
       orderBy: { dismissedAt: 'desc' },
-      take: 100,
     })
 
     return successResponse(res, { dismissals })
