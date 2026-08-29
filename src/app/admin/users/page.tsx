@@ -204,21 +204,32 @@ export default function AdminUsersPage() {
     if (!actionDialog) return
     setActionLoading(actionDialog.userId)
     try {
-      const response = await api.patch(`/admin/users/${actionDialog.userId}/status`, {
-        suspended: actionDialog.action === 'SUSPEND',
-        banned: actionDialog.action === 'BAN',
-        reason: actionReason || undefined,
-      })
+      const payload = actionDialog.action === 'REACTIVATE'
+        ? { suspended: false, banned: false, reason: actionReason || undefined }
+        : {
+            suspended: actionDialog.action === 'SUSPEND',
+            banned: actionDialog.action === 'BAN',
+            reason: actionReason || undefined,
+          }
+
+      const response = await api.patch(`/admin/users/${actionDialog.userId}/status`, payload)
       if (response.success) {
+        const nextSuspended = actionDialog.action === 'SUSPEND'
+        const nextBanned = actionDialog.action === 'BAN'
+
         setUsers(prev => prev.map(u => {
           if (u.id !== actionDialog.userId) return u
-          return { ...u, suspended: actionDialog.action === 'SUSPEND', banned: actionDialog.action === 'BAN' }
+          return {
+            ...u,
+            suspended: actionDialog.action === 'REACTIVATE' ? false : nextSuspended,
+            banned: actionDialog.action === 'REACTIVATE' ? false : nextBanned,
+          }
         }))
         if (selectedUser?.id === actionDialog.userId) {
           setSelectedUser(prev => prev ? {
             ...prev,
-            suspended: actionDialog.action === 'SUSPEND',
-            banned: actionDialog.action === 'BAN',
+            suspended: actionDialog.action === 'REACTIVATE' ? false : nextSuspended,
+            banned: actionDialog.action === 'REACTIVATE' ? false : nextBanned,
           } : null)
         }
         setActionDialog(null)
@@ -434,29 +445,29 @@ export default function AdminUsersPage() {
                     </div>
                   </div>
 
-                  {!selectedUser.banned && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-warm-800/50 uppercase">Account Moderation</p>
-                      <div className="flex flex-wrap gap-2">
-                        {!selectedUser.suspended && (
-                          <Button size="sm" variant="outline" onClick={() => setActionDialog({ open: true, userId: selectedUser.id, action: 'SUSPEND' })}>
-                            <ShieldOff size={16} />
-                            Suspend
-                          </Button>
-                        )}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-warm-800/50 uppercase">Account Moderation</p>
+                    <div className="flex flex-wrap gap-2">
+                      {!selectedUser.suspended && !selectedUser.banned && (
+                        <Button size="sm" variant="outline" onClick={() => setActionDialog({ open: true, userId: selectedUser.id, action: 'SUSPEND' })}>
+                          <ShieldOff size={16} />
+                          Suspend
+                        </Button>
+                      )}
+                      {!selectedUser.banned && (
                         <Button size="sm" variant="outline" onClick={() => setActionDialog({ open: true, userId: selectedUser.id, action: 'BAN' })}>
                           <Ban size={16} />
                           Ban
                         </Button>
-                        {selectedUser.suspended && (
-                          <Button size="sm" onClick={() => setActionDialog({ open: true, userId: selectedUser.id, action: 'REACTIVATE' })}>
-                            <Shield size={16} />
-                            Reactivate
-                          </Button>
-                        )}
-                      </div>
+                      )}
+                      {(selectedUser.suspended || selectedUser.banned) && (
+                        <Button size="sm" onClick={() => setActionDialog({ open: true, userId: selectedUser.id, action: 'REACTIVATE' })}>
+                          <Shield size={16} />
+                          Reactivate
+                        </Button>
+                      )}
                     </div>
-                  )}
+                  </div>
 
                   {selectedUser.addresses && selectedUser.addresses.length > 0 && (
                     <div>

@@ -55,7 +55,17 @@ export function Header() {
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center h-16 md:h-20 gap-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2" aria-label="Go to PickAmGo home">
-            <img src="/logo.png" alt="PickAmGo logo" className="h-10 w-10 rounded-xl object-contain shadow-sm" />
+            <img
+              src="/logo.png"
+              alt="PickAmGo logo"
+              className="h-10 w-10 rounded-xl object-contain shadow-sm"
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement
+                if (!target.src.endsWith('/logo.jpg')) {
+                  target.src = '/logo.jpg'
+                }
+              }}
+            />
             <div className="block">
               <h1 className="font-display font-bold text-lg sm:text-xl text-warm-900 leading-tight">
                 PickAmGo

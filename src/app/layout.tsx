@@ -93,8 +93,10 @@ export default function RootLayout({
         <ThemeProvider>
           <RoleProvider>
             <RoleRedirector />
-            {children}
-            <Footer />
+            <div className="min-h-screen flex flex-col">
+              <div className="flex-1">{children}</div>
+              <Footer />
+            </div>
           </RoleProvider>
         </ThemeProvider>
         <script

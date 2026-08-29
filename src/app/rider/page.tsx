@@ -78,7 +78,7 @@ export default function RiderDashboardPage() {
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, Rider
+            Rider Dashboard
           </h1>
           <p className="text-warm-800/60 mt-1">Here's your delivery overview</p>
         </div>

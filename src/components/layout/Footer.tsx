@@ -38,7 +38,7 @@ const footerLinks = [
 
 export function Footer() {
   return (
-    <footer className="bg-warm-900 text-warm-100 mt-12">
+    <footer className="w-full bg-warm-900 text-warm-100 mt-auto shrink-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {footerLinks.map((section) => (
@@ -66,7 +66,17 @@ export function Footer() {
 
         <div className="border-t border-warm-800 mt-10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="PickAmGo" className="h-8 w-8 rounded-lg object-contain" />
+            <img
+              src="/logo.png"
+              alt="PickAmGo"
+              className="h-8 w-8 rounded-lg object-contain"
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement
+                if (!target.src.endsWith('/logo.jpg')) {
+                  target.src = '/logo.jpg'
+                }
+              }}
+            />
             <span className="font-display font-bold text-white">PickAmGo</span>
           </div>
           <p className="text-sm text-warm-100/60">

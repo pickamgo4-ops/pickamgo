@@ -176,13 +176,12 @@ export default function EditAdminPromoPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Basic Info */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+              <h3 className="font-semibold text-warm-900 mb-5 flex items-center gap-2">
                 <Ticket size={20} className="text-primary" />
                 Promo Code
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-warm-900 mb-1.5">Promo Code *</label>
                   <Input
@@ -200,145 +199,185 @@ export default function EditAdminPromoPage() {
                     onValueChange={(v) => updateField('campaignName', v)}
                   />
                 </div>
-                <div className="md:col-span-2">
+                <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-warm-900 mb-1.5">Description</label>
                   <textarea
                     value={form.description}
                     onChange={(e) => updateField('description', e.target.value)}
                     placeholder="Optional description for internal reference"
-                    className="w-full bg-warm-50 border border-warm-200 rounded-xl py-3 px-4 text-warm-900 placeholder:text-warm-800/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none h-20"
+                    className="w-full bg-warm-50 border border-warm-200 rounded-xl py-3 px-4 text-warm-900 placeholder:text-warm-800/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none h-24"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Discount Settings */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                <Percent size={20} className="text-primary" />
-                Discount Settings
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Discount Type *</label>
-                  <select
-                    value={form.discountType}
-                    onChange={(e) => updateField('discountType', e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-warm-200 bg-warm-50 text-sm text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="PERCENTAGE">Percentage</option>
-                    <option value="FIXED">Fixed Amount</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">
-                    Discount Value * ({form.discountType === 'PERCENTAGE' ? '%' : 'GH₵'})
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.discountValue}
-                    onValueChange={(v) => updateField('discountValue', v)}
-                  />
-                </div>
-                {form.discountType === 'PERCENTAGE' && (
+            <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.9fr] gap-6">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+                <h3 className="font-semibold text-warm-900 mb-5 flex items-center gap-2">
+                  <Percent size={20} className="text-primary" />
+                  Discount Settings
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-warm-900 mb-1.5">Maximum Discount (GH₵)</label>
+                    <label className="block text-sm font-medium text-warm-900 mb-1.5">Discount Type *</label>
+                    <select
+                      value={form.discountType}
+                      onChange={(e) => updateField('discountType', e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-warm-200 bg-warm-50 text-sm text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      <option value="PERCENTAGE">Percentage</option>
+                      <option value="FIXED">Fixed Amount</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-warm-900 mb-1.5">
+                      Discount Value * ({form.discountType === 'PERCENTAGE' ? '%' : 'GH₵'})
+                    </label>
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
-                      value={form.maxDiscount}
-                      onValueChange={(v) => updateField('maxDiscount', v)}
+                      value={form.discountValue}
+                      onValueChange={(v) => updateField('discountValue', v)}
                     />
                   </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Minimum Order Amount (GH₵)</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.minimumOrderAmount}
-                    onValueChange={(v) => updateField('minimumOrderAmount', v)}
-                  />
+                  {form.discountType === 'PERCENTAGE' && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-warm-900 mb-1.5">Maximum Discount (GH₵)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.maxDiscount}
+                        onValueChange={(v) => updateField('maxDiscount', v)}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-warm-900 mb-1.5">Minimum Order Amount (GH₵)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.minimumOrderAmount}
+                      onValueChange={(v) => updateField('minimumOrderAmount', v)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-warm-900 mb-1.5">Discount Applies To</label>
+                    <select
+                      value={form.discountAppliesTo}
+                      onChange={(e) => updateField('discountAppliesTo', e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-warm-200 bg-warm-50 text-sm text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      <option value="PRODUCTS">Products only</option>
+                      <option value="PRODUCTS_AND_DELIVERY">Products + Delivery</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Discount Applies To</label>
-                  <select
-                    value={form.discountAppliesTo}
-                    onChange={(e) => updateField('discountAppliesTo', e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-warm-200 bg-warm-50 text-sm text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="PRODUCTS">Products only</option>
-                    <option value="PRODUCTS_AND_DELIVERY">Products + Delivery</option>
-                  </select>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+                <h3 className="font-semibold text-warm-900 mb-5 flex items-center gap-2">
+                  <Users size={20} className="text-primary" />
+                  Usage Limits
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-warm-900 mb-1.5">Total Usage Limit</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={form.usageLimit}
+                      onValueChange={(v) => updateField('usageLimit', v)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-warm-900 mb-1.5">Uses Per Customer</label>
+                    <select
+                      value={form.usagePerCustomer}
+                      onChange={(e) => updateField('usagePerCustomer', e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-warm-200 bg-warm-50 text-sm text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      <option value="1">Once</option>
+                      <option value="2">2 times</option>
+                      <option value="3">3 times</option>
+                      <option value="0">Unlimited</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Usage Limits */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                <Users size={20} className="text-primary" />
-                Usage Limits
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Total Usage Limit</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={form.usageLimit}
-                    onValueChange={(v) => updateField('usageLimit', v)}
-                  />
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+                <h3 className="font-semibold text-warm-900 mb-5 flex items-center gap-2">
+                  <Calendar size={20} className="text-primary" />
+                  Promotion Dates
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-warm-900 mb-1.5">Start Date & Time *</label>
+                    <Input
+                      type="datetime-local"
+                      value={form.startAt}
+                      onValueChange={(v) => updateField('startAt', v)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-warm-900 mb-1.5">End Date & Time *</label>
+                    <Input
+                      type="datetime-local"
+                      value={form.endAt}
+                      onValueChange={(v) => updateField('endAt', v)}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Uses Per Customer</label>
-                  <select
-                    value={form.usagePerCustomer}
-                    onChange={(e) => updateField('usagePerCustomer', e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-warm-200 bg-warm-50 text-sm text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="1">Once</option>
-                    <option value="2">2 times</option>
-                    <option value="3">3 times</option>
-                    <option value="0">Unlimited</option>
-                  </select>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
+                <h3 className="font-semibold text-warm-900 mb-5 flex items-center gap-2">
+                  <Wallet size={20} className="text-primary" />
+                  Funding Type
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-warm-900 mb-1.5">Who funds the discount?</label>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => updateField('fundingType', 'SELLER')}
+                        className={`flex-1 p-4 rounded-xl border-2 text-center transition-all ${form.fundingType === 'SELLER' ? 'border-primary bg-primary/5' : 'border-warm-200 hover:border-warm-300'}`}
+                      >
+                        <p className="font-medium text-sm text-warm-900">Seller-funded</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateField('fundingType', 'PICKAMGO')}
+                        className={`flex-1 p-4 rounded-xl border-2 text-center transition-all ${form.fundingType === 'PICKAMGO' ? 'border-primary bg-primary/5' : 'border-warm-200 hover:border-warm-300'}`}
+                      >
+                        <p className="font-medium text-sm text-warm-900">PickAmGo-funded</p>
+                      </button>
+                    </div>
+                  </div>
+                  {form.fundingType === 'PICKAMGO' && (
+                    <div>
+                      <label className="block text-sm font-medium text-warm-900 mb-1.5">Campaign Budget (GH₵) *</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.campaignBudget}
+                        onValueChange={(v) => updateField('campaignBudget', v)}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Dates */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                <Calendar size={20} className="text-primary" />
-                Promotion Dates
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Start Date & Time *</label>
-                  <Input
-                    type="datetime-local"
-                    value={form.startAt}
-                    onValueChange={(v) => updateField('startAt', v)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">End Date & Time *</label>
-                  <Input
-                    type="datetime-local"
-                    value={form.endAt}
-                    onValueChange={(v) => updateField('endAt', v)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Targeting */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+              <h3 className="font-semibold text-warm-900 mb-5 flex items-center gap-2">
                 <Target size={20} className="text-primary" />
                 Targeting
               </h3>
@@ -372,60 +411,18 @@ export default function EditAdminPromoPage() {
               </div>
             </div>
 
-            {/* Funding */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
-                <Wallet size={20} className="text-primary" />
-                Funding Type
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Who funds the discount?</label>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => updateField('fundingType', 'SELLER')}
-                      className={`flex-1 p-4 rounded-xl border-2 text-center transition-all ${form.fundingType === 'SELLER' ? 'border-primary bg-primary/5' : 'border-warm-200 hover:border-warm-300'}`}
-                    >
-                      <p className="font-medium text-sm text-warm-900">Seller-funded</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateField('fundingType', 'PICKAMGO')}
-                      className={`flex-1 p-4 rounded-xl border-2 text-center transition-all ${form.fundingType === 'PICKAMGO' ? 'border-primary bg-primary/5' : 'border-warm-200 hover:border-warm-300'}`}
-                    >
-                      <p className="font-medium text-sm text-warm-900">PickAmGo-funded</p>
-                    </button>
-                  </div>
-                </div>
-                {form.fundingType === 'PICKAMGO' && (
-                  <div>
-                    <label className="block text-sm font-medium text-warm-900 mb-1.5">Campaign Budget (GH₵) *</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={form.campaignBudget}
-                      onValueChange={(v) => updateField('campaignBudget', v)}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Status */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
-              <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
+              <h3 className="font-semibold text-warm-900 mb-5 flex items-center gap-2">
                 <Shield size={20} className="text-primary" />
                 Status
               </h3>
-              <div className="flex gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 {(['DRAFT', 'ACTIVE', 'PAUSED'] as Status[]).map((status) => (
                   <button
                     key={status}
                     type="button"
                     onClick={() => updateField('status', status)}
-                    className={`flex-1 p-3 rounded-xl border-2 text-center transition-all ${form.status === status ? 'border-primary bg-primary/5' : 'border-warm-200 hover:border-warm-300'}`}
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${form.status === status ? 'border-primary bg-primary/5' : 'border-warm-200 hover:border-warm-300'}`}
                   >
                     <span className="font-medium text-sm text-warm-900">{status}</span>
                   </button>
@@ -433,8 +430,7 @@ export default function EditAdminPromoPage() {
               </div>
             </div>
 
-            {/* Submit */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-2">
               <Button type="submit" fullWidth disabled={saving || !isValid}>
                 {saving ? 'Saving...' : 'Save Changes'}
               </Button>

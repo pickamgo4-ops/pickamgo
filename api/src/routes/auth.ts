@@ -258,7 +258,7 @@ router.post('/login', validateBody(loginSchema), async (req: AuthenticatedReques
     return successResponse(res, { user: userWithoutPassword, token })
   } catch (error: any) {
     console.error('Login error:', error)
-    const message = process.env.NODE_ENV !== 'production' && error?.message
+    const message = error?.message
       ? error.message
       : 'Login failed. Please try again later.'
     return errorResponse(res, message, 500)

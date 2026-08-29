@@ -135,7 +135,7 @@ export default function SellerDashboard() {
         {/* Welcome Header */}
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0] || 'Seller'}
+            Seller Dashboard
           </h1>
           <p className="text-warm-800/60 mt-1">Here's what's happening with your shop today</p>
         </div>
