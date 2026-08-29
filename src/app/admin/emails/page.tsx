@@ -1,151 +1,209 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, Mail, Loader2, XCircle, X, Send, Eye, Users, UserCheck, UserX, CheckCircle2, XCircle as XCircleIcon, ChevronDown, FileText, Clock, BarChart3, Filter } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { Card } from '@/components/ui/Card'
-import { api } from '@/lib/api'
-import { useRole } from '@/contexts/RoleContext'
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Mail,
+  Loader2,
+  XCircle,
+  X,
+  Send,
+  Eye,
+  Users,
+  UserCheck,
+  UserX,
+  CheckCircle2,
+  XCircle as XCircleIcon,
+  ChevronDown,
+  FileText,
+  Clock,
+  BarChart3,
+  Filter,
+} from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { api } from "@/lib/api";
+import { useRole } from "@/contexts/RoleContext";
 
 interface EmailTemplate {
-  id: string
-  name: string
-  subject: string
-  body: string
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
 }
 
 interface EmailCampaign {
-  id: string
-  subject: string
-  audiences: string
-  recipientCount: number
-  successCount: number
-  failedCount: number
-  status: string
-  sentBy: string
-  sentAt?: string
-  createdAt: string
+  id: string;
+  subject: string;
+  audiences: string;
+  recipientCount: number;
+  successCount: number;
+  failedCount: number;
+  status: string;
+  sentBy: string;
+  sentAt?: string;
+  createdAt: string;
 }
 
-type Tab = 'compose' | 'history' | 'templates'
+type Tab = "compose" | "history" | "templates";
 
 export default function AdminEmailsPage() {
-  const router = useRouter()
-  const { user, loading, authInitialized } = useRole()
-  const [activeTab, setActiveTab] = useState<Tab>('compose')
-  const [sending, setSending] = useState(false)
-  const [testSending, setTestSending] = useState(false)
-  const [loadingData, setLoadingData] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const router = useRouter();
+  const { user, loading, authInitialized } = useRole();
+  const [activeTab, setActiveTab] = useState<Tab>("compose");
+  const [sending, setSending] = useState(false);
+  const [testSending, setTestSending] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   // Compose state
-  const [audiences, setAudiences] = useState<string[]>([])
-  const [subject, setSubject] = useState('')
-  const [message, setMessage] = useState('')
-  const [selectedUsers, setSelectedUsers] = useState<any[]>([])
-  const [userSearch, setUserSearch] = useState('')
-  const [userSearchResults, setUserSearchResults] = useState<any[]>([])
-  const [showUserSearch, setShowUserSearch] = useState(false)
-  const [previewHtml, setPreviewHtml] = useState('')
-  const [showPreview, setShowPreview] = useState(false)
-  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; total: number } | null>(null)
+  const [audiences, setAudiences] = useState<string[]>([]);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
+  const [showUserSearch, setShowUserSearch] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; total: number } | null>(null);
+  const [senderType, setSenderType] = useState<string>("marketing");
 
   // History state
-  const [campaigns, setCampaigns] = useState<EmailCampaign[]>([])
-  const [campaignPage, setCampaignPage] = useState(1)
-  const [totalCampaignPages, setTotalCampaignPages] = useState(1)
+  const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
+  const [campaignPage, setCampaignPage] = useState(1);
+  const [totalCampaignPages, setTotalCampaignPages] = useState(1);
 
   // Templates
   const [templates] = useState<EmailTemplate[]>([
-    { id: 'general', name: 'General Announcement', subject: 'Important Update from PickAmGo', body: '<p>Dear valued user,</p><p>We have an important update to share with you.</p><p>Thank you for being part of PickAmGo.</p>' },
-    { id: 'promotion', name: 'Promotion', subject: 'Exclusive Offer Just for You!', body: '<p>Don\'t miss out on our latest promotions.</p><p>Shop now and enjoy amazing discounts.</p>' },
-    { id: 'update', name: 'Important Update', subject: 'Important Changes to Your PickAmGo Account', body: '<p>We have made some important updates to improve your experience.</p><p>Please review the changes and let us know if you have any questions.</p>' },
-    { id: 'maintenance', name: 'Maintenance Notice', subject: 'Scheduled Maintenance Notice', body: '<p>PickAmGo will be undergoing scheduled maintenance.</p><p>During this time, some features may be temporarily unavailable.</p>' },
-    { id: 'seller', name: 'Seller Announcement', subject: 'Updates for Sellers on PickAmGo', body: '<p>Dear Seller,</p><p>We have new features and updates to help you grow your business.</p>' },
-    { id: 'rider', name: 'Rider Announcement', subject: 'Updates for Riders on PickAmGo', body: '<p>Dear Rider,</p><p>We have new features and updates to help you deliver more efficiently.</p>' },
-    { id: 'buyer', name: 'Buyer Announcement', subject: 'Exciting News for PickAmGo Buyers', body: '<p>Dear Buyer,</p><p>We have new features and updates to enhance your shopping experience.</p>' },
-  ])
+    {
+      id: "general",
+      name: "General Announcement",
+      subject: "Important Update from PickAmGo",
+      body: "<p>Dear valued user,</p><p>We have an important update to share with you.</p><p>Thank you for being part of PickAmGo.</p>",
+    },
+    {
+      id: "promotion",
+      name: "Promotion",
+      subject: "Exclusive Offer Just for You!",
+      body: "<p>Don't miss out on our latest promotions.</p><p>Shop now and enjoy amazing discounts.</p>",
+    },
+    {
+      id: "update",
+      name: "Important Update",
+      subject: "Important Changes to Your PickAmGo Account",
+      body: "<p>We have made some important updates to improve your experience.</p><p>Please review the changes and let us know if you have any questions.</p>",
+    },
+    {
+      id: "maintenance",
+      name: "Maintenance Notice",
+      subject: "Scheduled Maintenance Notice",
+      body: "<p>PickAmGo will be undergoing scheduled maintenance.</p><p>During this time, some features may be temporarily unavailable.</p>",
+    },
+    {
+      id: "seller",
+      name: "Seller Announcement",
+      subject: "Updates for Sellers on PickAmGo",
+      body: "<p>Dear Seller,</p><p>We have new features and updates to help you grow your business.</p>",
+    },
+    {
+      id: "rider",
+      name: "Rider Announcement",
+      subject: "Updates for Riders on PickAmGo",
+      body: "<p>Dear Rider,</p><p>We have new features and updates to help you deliver more efficiently.</p>",
+    },
+    {
+      id: "buyer",
+      name: "Buyer Announcement",
+      subject: "Exciting News for PickAmGo Buyers",
+      body: "<p>Dear Buyer,</p><p>We have new features and updates to enhance your shopping experience.</p>",
+    },
+  ]);
 
-  const loadingRef = useRef(false)
+  const loadingRef = useRef(false);
 
   const loadCampaigns = useCallback(async (pageNum: number) => {
-    if (loadingRef.current) return
-    loadingRef.current = true
-    setLoadingData(true)
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    setLoadingData(true);
     try {
-      const response = await api.get<any>(`/admin/emails/history?page=${pageNum}&limit=20`)
+      const response = await api.get<any>(`/admin/emails/history?page=${pageNum}&limit=20`);
       if (response.success && response.data) {
-        setCampaigns(response.data.campaigns || [])
-        setTotalCampaignPages(response.data.pagination?.totalPages || 1)
+        setCampaigns(response.data.campaigns || []);
+        setTotalCampaignPages(response.data.pagination?.totalPages || 1);
       } else {
-        setError(response.error || 'Failed to load email history')
+        setError(response.error || "Failed to load email history");
       }
     } catch {
-      setError('Network error. Please try again.')
+      setError("Network error. Please try again.");
     } finally {
-      setLoadingData(false)
-      loadingRef.current = false
+      setLoadingData(false);
+      loadingRef.current = false;
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    if (!authInitialized) return
+    if (!authInitialized) return;
     if (!user || !user.isAdmin) {
-      router.push('/')
-      return
+      router.push("/");
+      return;
     }
-    if (activeTab === 'history') {
-      loadCampaigns(campaignPage)
+    if (activeTab === "history") {
+      loadCampaigns(campaignPage);
     }
-  }, [authInitialized, user, activeTab, campaignPage, loadCampaigns, router])
+  }, [authInitialized, user, activeTab, campaignPage, loadCampaigns, router]);
 
   const searchUsers = async (query: string) => {
     if (!query.trim()) {
-      setUserSearchResults([])
-      return
+      setUserSearchResults([]);
+      return;
     }
     try {
-      const response = await api.get<any>(`/admin/users?search=${encodeURIComponent(query)}&limit=20`)
+      const response = await api.get<any>(
+        `/admin/users?search=${encodeURIComponent(query)}&limit=20`,
+      );
       if (response.success && response.data) {
-        setUserSearchResults(response.data.users || [])
+        setUserSearchResults(response.data.users || []);
       }
     } catch {
-      console.error('Failed to search users')
+      console.error("Failed to search users");
     }
-  }
+  };
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      searchUsers(userSearch)
-    }, 300)
-    return () => clearTimeout(timeout)
-  }, [userSearch])
+      searchUsers(userSearch);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [userSearch]);
 
   const toggleAudience = (aud: string) => {
-    setAudiences(prev => prev.includes(aud) ? prev.filter(a => a !== aud) : [...prev, aud])
-  }
+    setAudiences((prev) => (prev.includes(aud) ? prev.filter((a) => a !== aud) : [...prev, aud]));
+  };
 
   const addUser = (u: any) => {
-    if (!selectedUsers.find(su => su.id === u.id)) {
-      setSelectedUsers(prev => [...prev, u])
+    if (!selectedUsers.find((su) => su.id === u.id)) {
+      setSelectedUsers((prev) => [...prev, u]);
     }
-    setUserSearch('')
-    setUserSearchResults([])
-    setShowUserSearch(false)
-  }
+    setUserSearch("");
+    setUserSearchResults([]);
+    setShowUserSearch(false);
+  };
 
   const removeUser = (userId: string) => {
-    setSelectedUsers(prev => prev.filter(u => u.id !== userId))
-  }
+    setSelectedUsers((prev) => prev.filter((u) => u.id !== userId));
+  };
 
   const selectTemplate = (template: EmailTemplate) => {
-    setSubject(template.subject)
-    setMessage(template.body)
-  }
+    setSubject(template.subject);
+    setMessage(template.body);
+  };
 
   const generatePreview = () => {
     const preview = `<!DOCTYPE html>
@@ -174,68 +232,72 @@ export default function AdminEmailsPage() {
     </div>
   </div>
 </body>
-</html>`
-    setPreviewHtml(preview)
-    setShowPreview(true)
-  }
+</html>`;
+    setPreviewHtml(preview);
+    setShowPreview(true);
+  };
 
   const sendTestEmail = async () => {
-    if (!subject.trim() || !message.trim()) return
-    setTestSending(true)
-    setError('')
+    if (!subject.trim() || !message.trim()) return;
+    setTestSending(true);
+    setError("");
     try {
-      const response = await api.post<{ message?: string }>('/admin/emails/send', {
+      const response = await api.post<{ message?: string }>("/admin/emails/send", {
         audiences: [],
         subject,
         html: message,
-        text: message.replace(/<[^>]*>/g, ''),
-        testEmail: user?.email || 'test@example.com',
-      })
+        text: message.replace(/<[^>]*>/g, ""),
+        testEmail: user?.email || "test@example.com",
+        senderType,
+      });
       if (response.success) {
-        setSuccess('Test email sent successfully!')
+        setSuccess("Test email sent successfully!");
       } else {
-        setError(response.error || 'Failed to send test email')
+        setError(response.error || "Failed to send test email");
       }
     } catch {
-      setError('Network error. Please try again.')
+      setError("Network error. Please try again.");
     } finally {
-      setTestSending(false)
+      setTestSending(false);
     }
-  }
+  };
 
   const handleSendCampaign = async () => {
-    if (!subject.trim() || !message.trim() || audiences.length === 0) return
-    const totalRecipients = audiences.includes('selected') ? selectedUsers.length : 5000
-    setConfirmDialog({ open: true, total: totalRecipients })
-  }
+    if (!subject.trim() || !message.trim() || audiences.length === 0) return;
+    const totalRecipients = audiences.includes("selected") ? selectedUsers.length : 5000;
+    setConfirmDialog({ open: true, total: totalRecipients });
+  };
 
   const confirmSendCampaign = async () => {
-    setConfirmDialog(null)
-    setSending(true)
-    setError('')
+    setConfirmDialog(null);
+    setSending(true);
+    setError("");
     try {
-      const response = await api.post<{ totalRecipients?: number }>('/admin/emails/send', {
+      const response = await api.post<{ totalRecipients?: number }>("/admin/emails/send", {
         audiences,
         subject,
         html: message,
-        text: message.replace(/<[^>]*>/g, ''),
-        selectedUserIds: selectedUsers.map(u => u.id),
-      })
+        text: message.replace(/<[^>]*>/g, ""),
+        selectedUserIds: selectedUsers.map((u) => u.id),
+        senderType,
+      });
       if (response.success && response.data) {
-        setSuccess(`Email campaign sent to ${(response.data as any).totalRecipients || 0} recipients!`)
-        setSubject('')
-        setMessage('')
-        setAudiences([])
-        setSelectedUsers([])
+        setSuccess(
+          `Email campaign sent to ${(response.data as any).totalRecipients || 0} recipients!`,
+        );
+        setSubject("");
+        setMessage("");
+        setAudiences([]);
+        setSelectedUsers([]);
       } else {
-        setError(response.error || 'Failed to send campaign')
+        setError(response.error || "Failed to send campaign");
       }
     } catch {
-      setError('Network error. Please try again.')
+      setError("Network error. Please try again.");
     } finally {
-      setSending(false)
+      setSending(false);
     }
-  }
+  };
 
   if (loading || !authInitialized) {
     return (
@@ -244,7 +306,7 @@ export default function AdminEmailsPage() {
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -274,17 +336,17 @@ export default function AdminEmailsPage() {
 
       <div className="flex gap-2 border-b border-warm-200">
         {[
-          { key: 'compose', label: 'Compose', icon: Mail },
-          { key: 'templates', label: 'Templates', icon: FileText },
-          { key: 'history', label: 'History', icon: Clock },
+          { key: "compose", label: "Compose", icon: Mail },
+          { key: "templates", label: "Templates", icon: FileText },
+          { key: "history", label: "History", icon: Clock },
         ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as Tab)}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab.key
-                ? 'border-primary text-primary'
-                : 'border-transparent text-warm-800/60 hover:text-warm-800'
+                ? "border-primary text-primary"
+                : "border-transparent text-warm-800/60 hover:text-warm-800"
             }`}
           >
             <tab.icon size={16} />
@@ -293,24 +355,24 @@ export default function AdminEmailsPage() {
         ))}
       </div>
 
-      {activeTab === 'compose' && (
+      {activeTab === "compose" && (
         <div className="space-y-6">
           <Card className="p-6">
             <h3 className="font-semibold text-warm-900 mb-4">Recipients</h3>
             <div className="flex flex-wrap gap-2 mb-4">
               {[
-                { key: 'buyers', label: 'Buyers', icon: Users },
-                { key: 'sellers', label: 'Sellers', icon: UserCheck },
-                { key: 'riders', label: 'Riders', icon: UserX },
-                { key: 'selected', label: 'Selected Users', icon: Filter },
+                { key: "buyers", label: "Buyers", icon: Users },
+                { key: "sellers", label: "Sellers", icon: UserCheck },
+                { key: "riders", label: "Riders", icon: UserX },
+                { key: "selected", label: "Selected Users", icon: Filter },
               ].map((aud) => (
                 <button
                   key={aud.key}
                   onClick={() => toggleAudience(aud.key)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border-2 transition-colors ${
                     audiences.includes(aud.key)
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-warm-200 hover:border-warm-300 text-warm-800'
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-warm-200 hover:border-warm-300 text-warm-800"
                   }`}
                 >
                   <aud.icon size={16} />
@@ -319,10 +381,13 @@ export default function AdminEmailsPage() {
               ))}
             </div>
 
-            {audiences.includes('selected') && (
+            {audiences.includes("selected") && (
               <div className="space-y-3">
                 <div className="relative">
-                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-800/50" />
+                  <Search
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-800/50"
+                  />
                   <Input
                     placeholder="Search users by name, email, or phone..."
                     value={userSearch}
@@ -357,7 +422,9 @@ export default function AdminEmailsPage() {
                         </button>
                       </Badge>
                     ))}
-                    <span className="text-xs text-warm-800/60 self-center">{selectedUsers.length} selected</span>
+                    <span className="text-xs text-warm-800/60 self-center">
+                      {selectedUsers.length} selected
+                    </span>
                   </div>
                 )}
               </div>
@@ -368,12 +435,36 @@ export default function AdminEmailsPage() {
             <h3 className="font-semibold text-warm-900 mb-4">Email Content</h3>
             <div className="space-y-4">
               <div>
+                <label className="text-sm font-medium text-warm-900 mb-1.5 block">
+                  Sender Type
+                </label>
+                <select
+                  value={senderType}
+                  onChange={(e) => setSenderType(e.target.value)}
+                  className="w-full rounded-xl border border-warm-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="hello">hello@pickamgo.com — General / Welcome</option>
+                  <option value="support">support@pickamgo.com — Support</option>
+                  <option value="orders">orders@pickamgo.com — Orders</option>
+                  <option value="accounts">
+                    accounts@pickamgo.com — Accounts / Password Reset
+                  </option>
+                  <option value="payments">payments@pickamgo.com — Payments</option>
+                  <option value="payouts">payouts@pickamgo.com — Payouts</option>
+                  <option value="sellers">sellers@pickamgo.com — Sellers</option>
+                  <option value="riders">riders@pickamgo.com — Riders</option>
+                  <option value="bookings">bookings@pickamgo.com — Bookings</option>
+                  <option value="messages">messages@pickamgo.com — Messages</option>
+                  <option value="notifications">notifications@pickamgo.com — Notifications</option>
+                  <option value="admin">admin@pickamgo.com — Admin</option>
+                  <option value="security">security@pickamgo.com — Security</option>
+                  <option value="marketing">marketing@pickamgo.com — Marketing</option>
+                  <option value="noreply">noreply@pickamgo.com — No Reply</option>
+                </select>
+              </div>
+              <div>
                 <label className="text-sm font-medium text-warm-900 mb-1.5 block">Subject</label>
-                <Input
-                  placeholder="Email subject"
-                  value={subject}
-                  onValueChange={setSubject}
-                />
+                <Input placeholder="Email subject" value={subject} onValueChange={setSubject} />
               </div>
               <div>
                 <label className="text-sm font-medium text-warm-900 mb-1.5 block">Message</label>
@@ -394,34 +485,53 @@ export default function AdminEmailsPage() {
               disabled={sending || !subject.trim() || !message.trim() || audiences.length === 0}
               icon={<Send size={16} />}
             >
-              {sending ? 'Sending...' : 'Send Campaign'}
+              {sending ? "Sending..." : "Send Campaign"}
             </Button>
-            <Button variant="outline" onClick={generatePreview} disabled={!subject.trim() || !message.trim()} icon={<Eye size={16} />}>
+            <Button
+              variant="outline"
+              onClick={generatePreview}
+              disabled={!subject.trim() || !message.trim()}
+              icon={<Eye size={16} />}
+            >
               Preview
             </Button>
-            <Button variant="outline" onClick={sendTestEmail} disabled={testSending || !subject.trim() || !message.trim()} icon={<Mail size={16} />}>
-              {testSending ? 'Sending Test...' : 'Send Test'}
+            <Button
+              variant="outline"
+              onClick={sendTestEmail}
+              disabled={testSending || !subject.trim() || !message.trim()}
+              icon={<Mail size={16} />}
+            >
+              {testSending ? "Sending Test..." : "Send Test"}
             </Button>
           </div>
         </div>
       )}
 
-      {activeTab === 'templates' && (
+      {activeTab === "templates" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((template) => (
-            <Card key={template.id} className="p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => { selectTemplate(template); setActiveTab('compose') }}>
+            <Card
+              key={template.id}
+              className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => {
+                selectTemplate(template);
+                setActiveTab("compose");
+              }}
+            >
               <div className="flex items-center gap-2 mb-2">
                 <FileText size={18} className="text-primary" />
                 <h4 className="font-medium text-warm-900">{template.name}</h4>
               </div>
               <p className="text-sm text-warm-800/60 mb-2">{template.subject}</p>
-              <p className="text-xs text-warm-800/50 line-clamp-3">{template.body.replace(/<[^>]*>/g, '')}</p>
+              <p className="text-xs text-warm-800/50 line-clamp-3">
+                {template.body.replace(/<[^>]*>/g, "")}
+              </p>
             </Card>
           ))}
         </div>
       )}
 
-      {activeTab === 'history' && (
+      {activeTab === "history" && (
         <div className="space-y-4">
           {loadingData ? (
             <div className="flex justify-center py-8">
@@ -440,28 +550,46 @@ export default function AdminEmailsPage() {
                     <tr>
                       <th className="px-4 py-3 font-semibold text-warm-800/70">Subject</th>
                       <th className="px-4 py-3 font-semibold text-warm-800/70">Audience</th>
-                      <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">Recipients</th>
-                      <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">Success</th>
-                      <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">Failed</th>
+                      <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">
+                        Recipients
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">
+                        Success
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">
+                        Failed
+                      </th>
                       <th className="px-4 py-3 font-semibold text-warm-800/70">Status</th>
-                      <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">Date</th>
+                      <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">
+                        Date
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-warm-200">
                     {campaigns.map((campaign) => (
                       <tr key={campaign.id} className="hover:bg-warm-50">
                         <td className="px-4 py-3 font-medium text-warm-900">{campaign.subject}</td>
-                        <td className="px-4 py-3 text-warm-800/70 capitalize">{campaign.audiences}</td>
-                        <td className="px-4 py-3 text-warm-800/70 hidden sm:table-cell">{campaign.recipientCount}</td>
-                        <td className="px-4 py-3 text-green-600 hidden md:table-cell">{campaign.successCount}</td>
-                        <td className="px-4 py-3 text-red-600 hidden md:table-cell">{campaign.failedCount}</td>
+                        <td className="px-4 py-3 text-warm-800/70 capitalize">
+                          {campaign.audiences}
+                        </td>
+                        <td className="px-4 py-3 text-warm-800/70 hidden sm:table-cell">
+                          {campaign.recipientCount}
+                        </td>
+                        <td className="px-4 py-3 text-green-600 hidden md:table-cell">
+                          {campaign.successCount}
+                        </td>
+                        <td className="px-4 py-3 text-red-600 hidden md:table-cell">
+                          {campaign.failedCount}
+                        </td>
                         <td className="px-4 py-3">
-                          <Badge variant={campaign.status === 'SENT' ? 'verified' : 'default'}>
+                          <Badge variant={campaign.status === "SENT" ? "verified" : "default"}>
                             {campaign.status}
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-warm-800/60 hidden lg:table-cell">
-                          {campaign.sentAt ? new Date(campaign.sentAt).toLocaleString() : new Date(campaign.createdAt).toLocaleString()}
+                          {campaign.sentAt
+                            ? new Date(campaign.sentAt).toLocaleString()
+                            : new Date(campaign.createdAt).toLocaleString()}
                         </td>
                       </tr>
                     ))}
@@ -473,11 +601,23 @@ export default function AdminEmailsPage() {
 
           {totalCampaignPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
-              <Button variant="outline" size="sm" onClick={() => setCampaignPage(p => Math.max(1, p - 1))} disabled={campaignPage === 1}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCampaignPage((p) => Math.max(1, p - 1))}
+                disabled={campaignPage === 1}
+              >
                 <ChevronLeft size={16} />
               </Button>
-              <span className="text-sm text-warm-800/60">Page {campaignPage} of {totalCampaignPages}</span>
-              <Button variant="outline" size="sm" onClick={() => setCampaignPage(p => Math.min(totalCampaignPages, p + 1))} disabled={campaignPage === totalCampaignPages}>
+              <span className="text-sm text-warm-800/60">
+                Page {campaignPage} of {totalCampaignPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCampaignPage((p) => Math.min(totalCampaignPages, p + 1))}
+                disabled={campaignPage === totalCampaignPages}
+              >
                 <ChevronRight size={16} />
               </Button>
             </div>
@@ -486,17 +626,30 @@ export default function AdminEmailsPage() {
       )}
 
       {showPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowPreview(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setShowPreview(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+          >
             <Card className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-warm-900">Email Preview</h3>
-                <button onClick={() => setShowPreview(false)} className="p-2 rounded-xl hover:bg-warm-100">
+                <button
+                  onClick={() => setShowPreview(false)}
+                  className="p-2 rounded-xl hover:bg-warm-100"
+                >
                   <X size={20} className="text-warm-800" />
                 </button>
               </div>
               <div className="border border-warm-200 rounded-xl overflow-hidden">
-                <iframe srcDoc={previewHtml} className="w-full h-[500px] border-0" title="Email Preview" />
+                <iframe
+                  srcDoc={previewHtml}
+                  className="w-full h-[500px] border-0"
+                  title="Email Preview"
+                />
               </div>
             </Card>
           </div>
@@ -509,12 +662,15 @@ export default function AdminEmailsPage() {
             <Card className="p-6">
               <h3 className="font-display text-xl font-bold text-warm-900 mb-2">Confirm Send</h3>
               <p className="text-sm text-warm-800/60 mb-4">
-                You are about to send this email to <strong>{confirmDialog.total.toLocaleString()}</strong> recipients. Continue?
+                You are about to send this email to{" "}
+                <strong>{confirmDialog.total.toLocaleString()}</strong> recipients. Continue?
               </p>
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setConfirmDialog(null)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setConfirmDialog(null)}>
+                  Cancel
+                </Button>
                 <Button onClick={confirmSendCampaign} disabled={sending}>
-                  {sending ? 'Sending...' : 'Confirm Send'}
+                  {sending ? "Sending..." : "Confirm Send"}
                 </Button>
               </div>
             </Card>
@@ -522,5 +678,5 @@ export default function AdminEmailsPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
