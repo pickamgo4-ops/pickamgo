@@ -242,18 +242,26 @@ router.post('/login', validateBody(loginSchema), async (req: AuthenticatedReques
     }
 
     const token = generateToken(user)
-
     const { passwordHash: _, ...userWithoutPassword } = user
 
-    sendSignInNotificationEmail(user.email, user.name, {
-      date: new Date().toLocaleString(),
-      browser: (req as any).get?.('user-agent') || undefined,
-    }).catch(err => console.error('Failed to send sign-in notification email:', err))
+    void (async () => {
+      try {
+        await sendSignInNotificationEmail(user.email, user.name, {
+          date: new Date().toLocaleString(),
+          browser: (req as any).get?.('user-agent') || undefined,
+        })
+      } catch (notificationError) {
+        console.error('Failed to send sign-in notification email:', notificationError)
+      }
+    })()
 
     return successResponse(res, { user: userWithoutPassword, token })
   } catch (error: any) {
     console.error('Login error:', error)
-    return errorResponse(res, 'Login failed. Please try again later.', 500)
+    const message = process.env.NODE_ENV !== 'production' && error?.message
+      ? error.message
+      : 'Login failed. Please try again later.'
+    return errorResponse(res, message, 500)
   }
 })
 
