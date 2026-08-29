@@ -75,6 +75,13 @@ const publishedToResponse = (customization: any) => customization?.publishedAt ?
   showServices: customization.publishedShowServices,
 } : null
 
+const effectiveCustomization = (customization: any) => {
+  if (!customization) return null
+  const published = publishedToResponse(customization)
+  if (published) return published
+  return draftToResponse(customization)
+}
+
 const draftData = (data: any) => Object.fromEntries(Object.entries(data).map(([key, value]) => [`draft${key[0].toUpperCase()}${key.slice(1)}`, value]))
 
 router.get('/:id/customization', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
@@ -150,6 +157,39 @@ router.post('/:id/customization/reset', authMiddleware, requireRole(['SELLER']),
     },
   })
   return successResponse(res, { draft: draftToResponse(customization), published: publishedToResponse(customization) }, 200, 'Draft reset to default')
+})
+
+router.get('/:slug/customization', async (req: AuthenticatedRequest, res) => {
+  try {
+    const shop = await prisma.shop.findFirst({
+      where: { slug: req.params.slug, status: 'ACTIVE' },
+      include: { customization: true },
+    })
+    if (!shop) return errorResponse(res, 'Shop not found', 404)
+
+    let customization = shop.customization
+    if (!customization) {
+      customization = await prisma.shopCustomization.create({
+        data: {
+          shopId: shop.id,
+          draftTheme: 'CLEAN',
+          draftLayout: 'CLASSIC',
+          draftPrimaryColor: '#FF6B35',
+          draftSecondaryColor: '#FFF5E6',
+          draftAccentColor: '#2C1F15',
+          draftShowReviews: true,
+          draftShowCategories: true,
+          draftShowFeatured: true,
+          draftShowServices: true,
+        },
+      })
+    }
+
+    return successResponse(res, { customization: effectiveCustomization(customization) })
+  } catch (error) {
+    console.error('Failed to load public shop customization:', error)
+    return errorResponse(res, 'Failed to load shop customization', 500)
+  }
 })
 
 const listShopsQuerySchema = z.object({
@@ -254,9 +294,27 @@ router.get('/:slug', async (req, res) => {
   if (!shop) return errorResponse(res, 'Shop not found', 404)
   if (shop.status !== 'ACTIVE') return errorResponse(res, 'Shop not found', 404)
 
+  let customization = shop.customization
+  if (!customization) {
+    customization = await prisma.shopCustomization.create({
+      data: {
+        shopId: shop.id,
+        draftTheme: 'CLEAN',
+        draftLayout: 'CLASSIC',
+        draftPrimaryColor: '#FF6B35',
+        draftSecondaryColor: '#FFF5E6',
+        draftAccentColor: '#2C1F15',
+        draftShowReviews: true,
+        draftShowCategories: true,
+        draftShowFeatured: true,
+        draftShowServices: true,
+      },
+    })
+  }
+
   const shopResponse = {
     ...shop,
-    customization: publishedToResponse(shop.customization),
+    customization: effectiveCustomization(customization),
     followersCount: shop.followersCount,
     deliveryAvailable: shop.deliveryAvailable,
     pickupAvailable: shop.pickupAvailable,
@@ -300,6 +358,20 @@ router.post('/', authMiddleware, requireRole(['SELLER']), validateBody(createSho
     const shop = await prisma.shop.create({
       data: { ...shopData, slug: baseSlug },
       include: { owner: { select: { id: true, name: true, avatar: true } } },
+    })
+    await prisma.shopCustomization.create({
+      data: {
+        shopId: shop.id,
+        draftTheme: 'CLEAN',
+        draftLayout: 'CLASSIC',
+        draftPrimaryColor: '#FF6B35',
+        draftSecondaryColor: '#FFF5E6',
+        draftAccentColor: '#2C1F15',
+        draftShowReviews: true,
+        draftShowCategories: true,
+        draftShowFeatured: true,
+        draftShowServices: true,
+      },
     })
     return successResponse(res, shop, 201, 'Shop created successfully')
   } catch (error: any) {
