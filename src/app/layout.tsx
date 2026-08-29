@@ -3,7 +3,6 @@ import { Inter, Space_Grotesk } from 'next/font/google'
 import { RoleProvider } from '@/contexts/RoleContext'
 import { RoleRedirector } from '@/components/RoleRedirector'
 import { ThemeProvider, ThemeScript } from '@/components/theme/ThemeProvider'
-import { Footer } from '@/components/layout/Footer'
 import './globals.css'
 
 const inter = Inter({ 
@@ -95,7 +94,6 @@ export default function RootLayout({
             <RoleRedirector />
             <div className="min-h-screen flex flex-col">
               <div className="flex-1">{children}</div>
-              <Footer />
             </div>
           </RoleProvider>
         </ThemeProvider>

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { MapPin, ChevronDown, Flame, Sparkles, Tag, Star, Eye, CheckCircle2 } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { BottomNav } from '../components/layout/BottomNav'
+import { Footer } from '../components/layout/Footer'
 import { ProductCard } from '../components/product/ProductCard'
 import { SectionHeader } from '../components/ui/SectionHeader'
 import { Button } from '../components/ui/Button'
@@ -332,6 +333,7 @@ export default function HomePage() {
         <div className="h-8 md:h-0" />
       </main>
 
+      <Footer />
       <BottomNav />
     </div>
   )
