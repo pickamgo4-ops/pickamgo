@@ -35,6 +35,7 @@ export interface TokenPayload {
   isSeller: boolean
   isRider: boolean
   isAdmin: boolean
+  emailVerified?: boolean
 }
 
 export interface AuthenticatedRequest extends Express.Request {
@@ -49,6 +50,7 @@ export function generateToken(user: User & { roles?: UserRole[] }): string {
     isSeller: user.isSeller,
     isRider: user.isRider,
     isAdmin: user.isAdmin,
+    emailVerified: user.emailVerified,
   }
   return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' })
 }
@@ -69,7 +71,7 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     const payload = verifyToken(token)
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true },
+      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true, emailVerified: true },
     })
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid or expired token' })
@@ -100,7 +102,7 @@ export async function optionalAuthMiddleware(req: AuthenticatedRequest, res: Res
     const payload = verifyToken(token)
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true },
+      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true, emailVerified: true },
     })
     if (user && !user.suspended && !user.banned) {
       req.user = user

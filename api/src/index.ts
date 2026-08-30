@@ -42,6 +42,7 @@ import adminRoutes from './routes/admin'
 import promoRoutes from './routes/promo'
 import sellerPromoRoutes from './routes/seller-promo'
 import emailTestRoutes from './routes/email-test'
+import emailVerificationRoutes from './routes/email-verification'
 import publicNoticeRoutes from './routes/public-notices'
 import prisma from './utils/prisma'
 
@@ -99,6 +100,9 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '100kb' }))
 
+const CACHE_TTL_MS = 30_000
+let maintenanceModeCache: { value: boolean; expiresAt: number } | null = null
+
 app.use(async (req, res, next) => {
   const publicPaths = ['/api/health', '/api/auth/', '/api/admin/settings/public']
   const isPublicPath = publicPaths.some(prefix => req.path === prefix.replace('/api/', '/api/') || req.path.startsWith(prefix))
@@ -108,8 +112,23 @@ app.use(async (req, res, next) => {
     return
   }
 
-  const maintenanceSetting = await prisma.setting.findUnique({ where: { key: 'maintenanceMode' } })
-  if ((maintenanceSetting?.value || 'false') !== 'true') {
+  const now = Date.now()
+  let isMaintenanceMode = false
+
+  if (maintenanceModeCache && maintenanceModeCache.expiresAt > now) {
+    isMaintenanceMode = maintenanceModeCache.value
+  } else {
+    try {
+      const maintenanceSetting = await prisma.setting.findUnique({ where: { key: 'maintenanceMode' } })
+      isMaintenanceMode = (maintenanceSetting?.value || 'false') === 'true'
+      maintenanceModeCache = { value: isMaintenanceMode, expiresAt: now + CACHE_TTL_MS }
+    } catch (error) {
+      console.error('Failed to check maintenance mode:', error)
+      maintenanceModeCache = null
+    }
+  }
+
+  if (!isMaintenanceMode) {
     next()
     return
   }
@@ -211,6 +230,7 @@ app.use('/api/seller/promos', sellerPromoRoutes)
 app.use('/api/payouts', payoutRoutes)
 app.use('/api/seller/delivery-settings', deliverySettingsRoutes)
 app.use('/api/public-notices', publicNoticeRoutes)
+app.use('/api/email-verification', emailVerificationRoutes)
 
 if (process.env.NODE_ENV !== 'production') {
   app.use('/api/dev', emailTestRoutes)

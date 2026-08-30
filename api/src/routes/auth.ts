@@ -12,11 +12,14 @@ import {
   validateBody,
 } from "../types/express";
 import {
+  sendEmail,
   sendWelcomeEmail,
   sendPasswordResetEmail,
   sendSignInNotificationEmail,
 } from "../services/email";
 import { validatePasswordOrThrow } from "../utils/password-validation";
+import { generateVerificationCode, hashCode } from "../utils/email-verification";
+import { getAppUrl } from "../utils/url";
 
 const router = Router();
 
@@ -262,15 +265,104 @@ router.post("/register", validateBody(registerSchema), async (req: Authenticated
 
     const { passwordHash: _, ...userWithoutPassword } = user;
 
+    const code = generateVerificationCode()
+    const hashedCode = await hashCode(code)
+
+    await prisma.emailVerification.create({
+      data: {
+        userId: user.id,
+        email,
+        code,
+        hashedCode,
+      },
+    })
+
+    const appUrl = getAppUrl()
+    const verifyUrl = `${appUrl}/auth/verify-email?email=${encodeURIComponent(email)}`
+
     sendWelcomeEmail(user.email, user.name).catch((err) =>
       console.error("Failed to send welcome email:", err),
-    );
+    )
+
+    const verificationHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify your PickAmGo email</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f9fafb;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" max-width="480" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#FF6B35,#FF8F35);padding:32px 24px;text-align:center;">
+              <h1 style="color:#ffffff;font-size:24px;font-weight:700;margin:0;">PickAmGo</h1>
+              <p style="color:#ffffff;opacity:0.9;font-size:14px;margin:8px 0 0 0;">Verify your email address</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 24px;text-align:center;">
+              <p style="color:#4b5563;font-size:16px;line-height:1.6;margin:0 0 24px 0;">Hi ${user.name},</p>
+              <p style="color:#4b5563;font-size:16px;line-height:1.6;margin:0 0 24px 0;">Thanks for joining PickAmGo. Use the code below to verify your email address:</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 24px auto;">
+                <tr>
+                  <td style="background:#f3f4f6;border:2px dashed #e5e7eb;border-radius:12px;padding:16px 24px;text-align:center;">
+                    <span style="font-size:28px;font-weight:700;letter-spacing:6px;color:#1f2937;">${code}</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 32px 0;">This code expires in 10 minutes. If you didn&apos;t create an account, you can safely ignore this email.</p>
+              <a href="${verifyUrl}" style="display:inline-block;background:#FF6B35;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;font-size:14px;">Verify Email</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px;text-align:center;border-top:1px solid #f3f4f6;">
+              <p style="color:#9ca3af;font-size:12px;margin:0;">&copy; ${new Date().getFullYear()} PickAmGo. All rights reserved.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+    const verificationText = `Hi ${user.name},
+
+Thanks for joining PickAmGo. Use the code below to verify your email address:
+
+${code}
+
+This code expires in 10 minutes. If you didn't create an account, you can safely ignore this email.
+
+Verify your email: ${verifyUrl}
+
+© ${new Date().getFullYear()} PickAmGo. All rights reserved.`
+
+    const emailResult = await sendEmail({
+      to: email,
+      subject: "Verify your PickAmGo email address",
+      html: verificationHtml,
+      text: verificationText,
+      purpose: "email_verification",
+    })
+
+    if (!emailResult.success) {
+      console.error("Failed to send verification email:", emailResult.error)
+    }
 
     return successResponse(
       res,
-      { user: userWithoutPassword, token },
+      {
+        user: userWithoutPassword,
+        token,
+        verificationSent: true,
+        verifyUrl,
+      },
       201,
-      "Registration successful",
+      "Registration successful. Please verify your email.",
     );
   } catch (error) {
     return errorResponse(res, "Registration failed", 500);

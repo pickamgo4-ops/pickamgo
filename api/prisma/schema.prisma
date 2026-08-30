@@ -44,6 +44,7 @@ model User {
   riderOrders            Order[]                 @relation("OrderRider")
   sellerOrders           Order[]                 @relation("OrderSeller")
   passwordResetTokens    PasswordResetToken[]
+  emailVerifications     EmailVerification[]
   payouts                Payout[]
   payoutMethods          PayoutMethod[]
   products               Product[]
@@ -91,6 +92,24 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([token])
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  email     String
+  code      String
+  hashedCode String  @unique
+  expiresAt DateTime @default(dbgenerated("(CURRENT_TIMESTAMP + INTERVAL '10 minutes')"))
+  used      Boolean  @default(false)
+  attempts  Int      @default(0)
+  maxAttempts Int    @default(5)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([email])
+  @@index([hashedCode])
 }
 
 model Address {
@@ -257,6 +276,7 @@ model Shop {
   @@index([ownerId])
   @@index([slug])
   @@index([campus])
+  @@index([status])
 }
 
 model ShopCustomization {
