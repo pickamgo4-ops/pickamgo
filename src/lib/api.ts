@@ -2,13 +2,14 @@ import { Cart, CartItemWithRelations, Address, Order, RiderDelivery, RiderProfil
 
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL
 const FALLBACK_API_URL = '/api'
+const PRODUCTION_API_URL = 'https://pickamgo-production.up.railway.app/api'
 
 function resolveApiUrl(): string {
   if (CONFIGURED_API_URL) return CONFIGURED_API_URL
 
   if (typeof window === 'undefined') {
     return process.env.NODE_ENV === 'production'
-      ? 'https://pickamgo-production.up.railway.app/api'
+      ? PRODUCTION_API_URL
       : FALLBACK_API_URL
   }
 
@@ -16,7 +17,7 @@ function resolveApiUrl(): string {
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
   if (isLocalhost) return FALLBACK_API_URL
 
-  return 'https://pickamgo-production.up.railway.app/api'
+  return PRODUCTION_API_URL
 }
 
 const API_URL = resolveApiUrl()
@@ -66,6 +67,7 @@ async function request<T>(
 ): Promise<ApiResponse<T>> {
   const primaryUrl = `${API_URL}${endpoint}`
   const fallbackUrl = `${FALLBACK_API_URL}${endpoint}`
+  const productionFallbackUrl = `${PRODUCTION_API_URL}${endpoint}`
   const isFormDataRequest = typeof FormData !== 'undefined' && options.body instanceof FormData
 
   const buildConfig = (url: string, signal?: AbortSignal): RequestInit => ({
@@ -101,7 +103,16 @@ async function request<T>(
     const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
     const method = (options.method || 'GET').toUpperCase()
     const isIdempotentRequest = method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
-    if (isProduction && isIdempotentRequest && API_URL !== FALLBACK_API_URL) {
+
+    if (primaryUrl !== fallbackUrl && isIdempotentRequest) {
+      urlsToTry.push(fallbackUrl)
+    }
+
+    if (primaryUrl !== productionFallbackUrl && isIdempotentRequest) {
+      urlsToTry.push(productionFallbackUrl)
+    }
+
+    if (isProduction && isIdempotentRequest && API_URL !== FALLBACK_API_URL && API_URL !== PRODUCTION_API_URL) {
       urlsToTry.push(fallbackUrl)
     }
 
