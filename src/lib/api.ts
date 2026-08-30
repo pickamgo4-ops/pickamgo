@@ -6,13 +6,17 @@ const FALLBACK_API_URL = '/api'
 function resolveApiUrl(): string {
   if (CONFIGURED_API_URL) return CONFIGURED_API_URL
 
-  if (typeof window === 'undefined') return FALLBACK_API_URL
+  if (typeof window === 'undefined') {
+    return process.env.NODE_ENV === 'production'
+      ? 'https://pickamgo-production.up.railway.app/api'
+      : FALLBACK_API_URL
+  }
 
   const hostname = window.location.hostname
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
   if (isLocalhost) return FALLBACK_API_URL
 
-  return FALLBACK_API_URL
+  return 'https://pickamgo-production.up.railway.app/api'
 }
 
 const API_URL = resolveApiUrl()
