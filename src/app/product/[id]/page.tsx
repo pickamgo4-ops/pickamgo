@@ -15,6 +15,7 @@ import { PaymentSafetyNotice } from '../../../components/ui/PaymentSafetyNotice'
 export default function ProductPage() {
   const params = useParams()
   const router = useRouter()
+  const productId = typeof params?.id === 'string' ? params.id : ''
   const [product, setProduct] = useState<Product | null>(null)
   const [recommendations, setRecommendations] = useState<Product[]>([])
   const [recommendationsLoading, setRecommendationsLoading] = useState(true)
@@ -24,21 +25,25 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(true)
   const [addingToCart, setAddingToCart] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!productId) return
     loadProduct()
     checkFavoriteStatus()
-  }, [params.id])
+  }, [productId])
 
   useEffect(() => {
+    if (!productId) return
     loadRecommendations()
-  }, [params.id])
+  }, [productId])
 
   const checkFavoriteStatus = async () => {
+    if (!productId) return
     try {
       const res = await api.getFavorites({ type: 'PRODUCT' })
       if (res.success && res.data) {
-        const isFav = res.data.favorites.some((fav: any) => fav.targetId === params.id)
+        const isFav = res.data.favorites.some((fav: any) => fav.targetId === productId)
         setIsFavorite(isFav)
       }
     } catch {
@@ -65,23 +70,29 @@ export default function ProductPage() {
   }
 
   const loadProduct = async () => {
+    if (!productId) return
     setLoading(true)
+    setLoadError(null)
     try {
-      const response = await api.get<Product>(`/products/${params.id}`)
+      const response = await api.get<Product>(`/products/${productId}`)
       if (response.success && response.data) {
         setProduct(mapApiProductToFrontend(response.data))
+      } else {
+        setLoadError(response.error || 'Failed to load product')
       }
     } catch (err) {
       console.error('Failed to load product:', err)
+      setLoadError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   const loadRecommendations = async () => {
+    if (!productId) return
     setRecommendationsLoading(true)
     try {
-      const response = await api.get<any[]>(`/products/${params.id}/recommendations`)
+      const response = await api.get<any[]>(`/products/${productId}/recommendations`)
       if (response.success && response.data) {
         setRecommendations(response.data.map(mapApiProductToFrontend))
       }
@@ -137,6 +148,17 @@ export default function ProductPage() {
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-warm-800/60 text-lg">{loadError}</p>
+          <Button className="mt-4" onClick={() => router.push('/')}>Go back home</Button>
+        </div>
+      </div>
+    )
+  }
+
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -148,7 +170,29 @@ export default function ProductPage() {
     )
   }
 
-  const images = Array.from(new Set([product.image, ...(product.images || []), product.image].filter(Boolean)))
+  const safeProduct = {
+    image: product.image || '',
+    images: Array.isArray(product.images) ? product.images.filter(Boolean) : [],
+    name: product.name || 'Untitled Product',
+    price: product.price || 0,
+    originalPrice: product.originalPrice,
+    discount: product.discount,
+    description: product.description || '',
+    category: product.category || '',
+    seller: product.seller || { id: '', name: 'Unknown Seller', avatar: '', location: '', rating: 0, isVerified: false, responseTime: '' },
+    shop: product.shop || null,
+    location: product.location || '',
+    distance: product.distance || '',
+    rating: product.rating || 0,
+    reviews: product.reviews || 0,
+    isTrending: product.isTrending || false,
+    isNew: product.isNew || false,
+    isDeal: product.isDeal || false,
+    isVerified: product.isVerified || false,
+    isFavorite: product.isFavorite || false,
+  }
+
+  const images = Array.from(new Set([safeProduct.image, ...safeProduct.images, safeProduct.image].filter(Boolean)))
 
   useEffect(() => {
     if (selectedImage >= images.length) {
@@ -165,27 +209,27 @@ export default function ProductPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-[110px_minmax(0,1fr)] gap-4 lg:gap-5">
           <div className="order-2 lg:order-1 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
-            {images.map((image, index) => (
-              <button
-                key={`${image}-${index}`}
-                type="button"
-                onClick={() => setSelectedImage(index)}
-                className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border transition-all ${
-                  index === selectedImage ? 'border-primary ring-2 ring-primary/20 shadow-sm' : 'border-warm-200 hover:border-primary/40'
-                }`}
-              >
-                <img src={image} alt={`${product.name} view ${index + 1}`} className="h-full w-full object-cover" />
-              </button>
-            ))}
+             {images.map((image, index) => (
+               <button
+                 key={`${image}-${index}`}
+                 type="button"
+                 onClick={() => setSelectedImage(index)}
+                 className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border transition-all ${
+                   index === selectedImage ? 'border-primary ring-2 ring-primary/20 shadow-sm' : 'border-warm-200 hover:border-primary/40'
+                 }`}
+               >
+                 <img src={image} alt={`${safeProduct.name} view ${index + 1}`} className="h-full w-full object-cover" />
+               </button>
+             ))}
           </div>
 
           <div className="order-1 lg:order-2 relative overflow-hidden rounded-3xl border border-warm-200 bg-warm-100 shadow-sm">
             <div className="relative aspect-square md:aspect-[4/3]">
-              <img
-                src={images[selectedImage] || product.image}
-                alt={product.name}
-                className="h-full w-full object-cover"
-              />
+               <img
+                 src={images[selectedImage] || safeProduct.image}
+                 alt={safeProduct.name}
+                 className="h-full w-full object-cover"
+               />
             </div>
             <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
               <button onClick={() => router.back()} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
@@ -224,112 +268,112 @@ export default function ProductPage() {
 
       {/* Product Info */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Category & Badges */}
-        <div className="flex flex-wrap gap-2 mb-3">
-          {product.isTrending && <Badge variant="trending"><Flame size={12} /> Trending</Badge>}
-          {product.isNew && <Badge variant="new"><Sparkles size={12} /> New</Badge>}
-          {product.isDeal && <Badge variant="deal"><Tag size={12} /> Deal</Badge>}
-          {product.isVerified && <Badge variant="verified"><CheckCircle2 size={12} /> Verified</Badge>}
-        </div>
+         {/* Category & Badges */}
+         <div className="flex flex-wrap gap-2 mb-3">
+           {safeProduct.isTrending && <Badge variant="trending"><Flame size={12} /> Trending</Badge>}
+           {safeProduct.isNew && <Badge variant="new"><Sparkles size={12} /> New</Badge>}
+           {safeProduct.isDeal && <Badge variant="deal"><Tag size={12} /> Deal</Badge>}
+           {safeProduct.isVerified && <Badge variant="verified"><CheckCircle2 size={12} /> Verified</Badge>}
+         </div>
 
-        {/* Name */}
-        <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900 mb-2">
-          {product.name}
-        </h1>
+         {/* Name */}
+         <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900 mb-2">
+           {safeProduct.name}
+         </h1>
 
-        {/* Price */}
-        <div className="flex items-baseline gap-3 mb-4">
-          <span className="text-3xl font-bold text-warm-900">
-            GH₵{product.price}
-          </span>
-          {product.originalPrice && (
-            <span className="text-lg text-warm-800/40 line-through">
-              GH₵{product.originalPrice}
-            </span>
-          )}
-          {product.discount && (
-            <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-              Save {product.discount}%
-            </span>
-          )}
-        </div>
+         {/* Price */}
+         <div className="flex items-baseline gap-3 mb-4">
+           <span className="text-3xl font-bold text-warm-900">
+             GH₵{safeProduct.price}
+           </span>
+           {safeProduct.originalPrice && (
+             <span className="text-lg text-warm-800/40 line-through">
+               GH₵{safeProduct.originalPrice}
+             </span>
+           )}
+           {safeProduct.discount && (
+             <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+               Save {safeProduct.discount}%
+             </span>
+           )}
+         </div>
 
-        {/* Rating & Location */}
-        <div className="flex flex-wrap items-center gap-4 mb-6 text-sm text-warm-800/70">
-          <div className="flex items-center gap-1">
-            <Star size={18} className="fill-yellow-400 text-yellow-400" />
-            <span className="font-semibold text-warm-900">{product.rating}</span>
-            <span>({product.reviews} reviews)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <MapPin size={18} />
-            <span>{product.distance} away</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Truck size={18} />
-            <span>{product.deliveryTime}</span>
-          </div>
-        </div>
+         {/* Rating & Location */}
+         <div className="flex flex-wrap items-center gap-4 mb-6 text-sm text-warm-800/70">
+           <div className="flex items-center gap-1">
+             <Star size={18} className="fill-yellow-400 text-yellow-400" />
+             <span className="font-semibold text-warm-900">{safeProduct.rating}</span>
+             <span>({safeProduct.reviews} reviews)</span>
+           </div>
+           <div className="flex items-center gap-1">
+             <MapPin size={18} />
+             <span>{safeProduct.distance} away</span>
+           </div>
+           <div className="flex items-center gap-1">
+             <Truck size={18} />
+             <span>2-3 days</span>
+           </div>
+         </div>
 
-        {/* Description */}
-        <div className="mb-8">
-          <h2 className="font-semibold text-lg text-warm-900 mb-2">Description</h2>
-          <p className="text-warm-800/70 leading-relaxed">{product.description}</p>
-        </div>
+         {/* Description */}
+         <div className="mb-8">
+           <h2 className="font-semibold text-lg text-warm-900 mb-2">Description</h2>
+           <p className="text-warm-800/70 leading-relaxed">{safeProduct.description}</p>
+         </div>
 
-        {/* Seller Info */}
-        <div className="bg-white rounded-2xl p-4 border border-warm-200 mb-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-full overflow-hidden bg-warm-200">
-              <img
-                src={product.seller.avatar}
-                alt={product.seller.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-warm-900">{product.seller.name}</h3>
-              {product.shop && (
-                <button
-                  onClick={() => window.location.assign(getShopUrl(product.shop!.slug))}
-                  className="text-sm text-primary hover:underline flex items-center gap-1 mt-0.5"
-                >
-                  <Store size={14} />
-                  {product.shop.name}
-                </button>
-              )}
-              <p className="text-sm text-warm-800/60">{product.seller.location}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              {product.shop && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<Store size={16} />}
-                  onClick={() => window.location.assign(getShopUrl(product.shop!.slug))}
-                >
-                  Visit Shop
-                </Button>
-              )}
-              <Button variant="outline" size="sm" icon={<MessageCircle size={16} />} onClick={() => {
-                if (!localStorage.getItem('token')) {
-                  router.push('/auth/login')
-                  return
-                }
-                router.push(`/messages/${product.seller.id}`)
-              }}>
-                Message
-              </Button>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 text-sm text-warm-800/60">
-            <div className="flex items-center gap-1">
-              <Star size={14} className="fill-yellow-400 text-yellow-400" />
-              <span>{product.seller.rating} seller rating</span>
-            </div>
-            <span>Usually responds in {product.seller.responseTime}</span>
-          </div>
-        </div>
+         {/* Seller Info */}
+         <div className="bg-white rounded-2xl p-4 border border-warm-200 mb-6">
+           <div className="flex items-center gap-3 mb-3">
+             <div className="w-12 h-12 rounded-full overflow-hidden bg-warm-200">
+               <img
+                 src={safeProduct.seller.avatar}
+                 alt={safeProduct.seller.name}
+                 className="w-full h-full object-cover"
+               />
+             </div>
+             <div className="flex-1">
+               <h3 className="font-semibold text-warm-900">{safeProduct.seller.name}</h3>
+               {safeProduct.shop && (
+                 <button
+                   onClick={() => safeProduct.shop && window.location.assign(getShopUrl(safeProduct.shop.slug))}
+                   className="text-sm text-primary hover:underline flex items-center gap-1 mt-0.5"
+                 >
+                   <Store size={14} />
+                   {safeProduct.shop.name}
+                 </button>
+               )}
+               <p className="text-sm text-warm-800/60">{safeProduct.seller.location}</p>
+             </div>
+             <div className="flex flex-col gap-2">
+               {safeProduct.shop && (
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   icon={<Store size={16} />}
+                   onClick={() => safeProduct.shop && window.location.assign(getShopUrl(safeProduct.shop.slug))}
+                 >
+                   Visit Shop
+                 </Button>
+               )}
+               <Button variant="outline" size="sm" icon={<MessageCircle size={16} />} onClick={() => {
+                 if (!localStorage.getItem('token')) {
+                   router.push('/auth/login')
+                   return
+                 }
+                 router.push(`/messages/${safeProduct.seller.id}`)
+               }}>
+                 Message
+               </Button>
+             </div>
+           </div>
+           <div className="flex items-center gap-4 text-sm text-warm-800/60">
+             <div className="flex items-center gap-1">
+               <Star size={14} className="fill-yellow-400 text-yellow-400" />
+               <span>{safeProduct.seller.rating} seller rating</span>
+             </div>
+             <span>Usually responds in {safeProduct.seller.responseTime}</span>
+           </div>
+         </div>
 
         {/* Quantity & Actions */}
         <div className="hidden sm:flex gap-3 sticky bottom-4 md:relative z-10">

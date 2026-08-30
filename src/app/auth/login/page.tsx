@@ -24,6 +24,8 @@ export default function LoginPage() {
   const [showGoogleRoleModal, setShowGoogleRoleModal] = useState(false)
   const [googleUser, setGoogleUser] = useState<{ email: string; name: string; avatar: string } | null>(null)
   const [selectedRole, setSelectedRole] = useState<UserRole>('buyer')
+  const [showVerificationPrompt, setShowVerificationPrompt] = useState(false)
+  const [verificationEmail, setVerificationEmail] = useState('')
   const submittingRef = useRef(false)
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID
 
@@ -186,12 +188,20 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const response = await api.post<{ token: string; user: any }>('/auth/login', {
+      const response = await api.post<{ token?: string; user?: any; verificationRequired?: boolean; email?: string }>('/auth/login', {
         email,
         password,
       })
 
       if (response.success && response.data) {
+        if (response.data.verificationRequired) {
+          setVerificationEmail(response.data.email || email)
+          setShowVerificationPrompt(true)
+          setLoading(false)
+          submittingRef.current = false
+          return
+        }
+
         const u = response.data.user
         const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
         const normalizedUser = {
@@ -206,7 +216,7 @@ export default function LoginPage() {
           isAdmin: u.isAdmin || false,
         }
 
-        localStorage.setItem('token', response.data.token)
+        localStorage.setItem('token', response.data.token || '')
         localStorage.setItem('user', JSON.stringify(normalizedUser))
         setUser(normalizedUser)
         window.dispatchEvent(new Event('auth-changed'))
@@ -369,6 +379,40 @@ export default function LoginPage() {
               </Button>
               <Button variant="ghost" fullWidth onClick={() => { setShowGoogleRoleModal(false); setGoogleUser(null); }}>
                 Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVerificationPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-md">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Mail className="text-primary" size={28} />
+              </div>
+              <h2 className="font-display text-2xl font-bold text-warm-900 mb-2">
+                Verify your email
+              </h2>
+              <p className="text-warm-800/60">
+                We&apos;ve sent a verification code to <strong>{verificationEmail}</strong>
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <Button
+                fullWidth
+                onClick={() => router.push(`/auth/verify-email?email=${encodeURIComponent(verificationEmail)}`)}
+              >
+                Verify Email
+              </Button>
+              <Button
+                variant="ghost"
+                fullWidth
+                onClick={() => setShowVerificationPrompt(false)}
+              >
+                I&apos;ll do this later
               </Button>
             </div>
           </div>

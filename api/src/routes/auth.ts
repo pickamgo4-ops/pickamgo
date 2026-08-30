@@ -16,6 +16,7 @@ import {
   sendWelcomeEmail,
   sendPasswordResetEmail,
   sendSignInNotificationEmail,
+  buildBaseHtml,
 } from "../services/email";
 import { validatePasswordOrThrow } from "../utils/password-validation";
 import { generateVerificationCode, hashCode } from "../utils/email-verification";
@@ -398,6 +399,61 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       return errorResponse(res, "Invalid email or password", 401);
+    }
+
+    if (!user.emailVerified) {
+      const code = generateVerificationCode();
+      const hashedCode = await hashCode(code);
+
+      await prisma.emailVerification.create({
+        data: {
+          userId: user.id,
+          email: user.email,
+          code,
+          hashedCode,
+        },
+      });
+
+      const appUrl = getAppUrl();
+      const verifyUrl = `${appUrl}/auth/verify-email?email=${encodeURIComponent(user.email)}`;
+
+      const html = buildBaseHtml("Verify your PickAmGo email", `
+        <div style="text-align: center; padding: 20px 0;">
+          <div style="font-size: 48px; margin-bottom: 20px;">🔐</div>
+          <h2 style="color: #FF6B35; margin-bottom: 10px;">Verify Your Email</h2>
+          <p style="color: #6b7280; margin-bottom: 30px;">Enter this code to verify your email address:</p>
+          <div style="background: #f9fafb; border: 2px dashed #e5e7eb; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1f2937;">${code}</span>
+          </div>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">This code expires in 10 minutes.</p>
+          <p style="color: #6b7280; font-size: 14px;">If you didn't request this, please ignore this email.</p>
+        </div>
+      `);
+
+      const text = `Verify your PickAmGo email\n\nYour verification code is: ${code}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, please ignore this email.`;
+
+      const emailResult = await sendEmail({
+        to: user.email,
+        subject: "Verify your PickAmGo email address",
+        html,
+        text,
+        purpose: "email_verification",
+      });
+
+      if (!emailResult.success) {
+        console.error("Failed to send verification email:", emailResult.error);
+      }
+
+      return successResponse(
+        res,
+        {
+          verificationRequired: true,
+          email: user.email,
+          verifyUrl,
+        },
+        200,
+        "Please verify your email address.",
+      );
     }
 
     const token = generateToken(user);
