@@ -144,6 +144,16 @@ export default function ProductPage() {
     }
   }
 
+  const images = product
+    ? Array.from(new Set([product.image, ...(product.images || []), product.image].filter(Boolean)))
+    : []
+
+  useEffect(() => {
+    if (selectedImage >= images.length) {
+      setSelectedImage(0)
+    }
+  }, [images.length, selectedImage])
+
   if (loading) {
     return (
       <div className="min-h-screen pb-24 md:pb-8">
@@ -206,14 +216,6 @@ export default function ProductPage() {
     variants: product.variants,
     createdAt: product.createdAt,
   } as Product
-
-  const images = Array.from(new Set([safeProduct.image, ...(safeProduct.images || []), safeProduct.image].filter(Boolean)))
-
-  useEffect(() => {
-    if (selectedImage >= images.length) {
-      setSelectedImage(0)
-    }
-  }, [images.length, selectedImage])
 
   return (
     <div className="min-h-screen pb-24 md:pb-8">

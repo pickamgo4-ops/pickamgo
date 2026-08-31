@@ -75,7 +75,7 @@ async function request<T>(
     signal,
     headers: {
       ...(isFormDataRequest ? {} : { 'Content-Type': 'application/json' }),
-      ...options.headers,
+      ...requestHeaders,
     },
   })
 

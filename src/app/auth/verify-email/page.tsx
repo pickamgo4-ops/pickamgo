@@ -7,6 +7,7 @@ import { Shield, Mail, ArrowLeft } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { api } from "../../../lib/api";
+import { useRole } from "@/contexts/RoleContext";
 
 interface VerifyResponse {
   message: string;
@@ -14,6 +15,9 @@ interface VerifyResponse {
     id: string;
     email: string;
     name: string;
+    avatar?: string;
+    location?: string;
+    phone?: string;
     isSeller: boolean;
     isRider: boolean;
     isAdmin: boolean;
@@ -25,6 +29,7 @@ function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailFromQuery = searchParams.get("email") || "";
+  const { setUser } = useRole();
 
   const [email, setEmail] = useState(emailFromQuery);
   const [code, setCode] = useState("");
@@ -102,6 +107,19 @@ function VerifyEmailForm() {
         if (user && token) {
           localStorage.setItem("token", token);
           localStorage.setItem("user", JSON.stringify(user));
+          const role = user.isAdmin ? 'admin' : user.isRider ? 'rider' : user.isSeller ? 'seller' : 'buyer'
+          const normalizedUser = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar,
+            location: user.location,
+            role: role as 'buyer' | 'seller' | 'rider' | 'admin',
+            isSeller: user.isSeller || false,
+            isRider: user.isRider || false,
+            isAdmin: user.isAdmin || false,
+          }
+          setUser(normalizedUser)
           window.dispatchEvent(new Event("auth-changed"));
         }
         setTimeout(() => {
