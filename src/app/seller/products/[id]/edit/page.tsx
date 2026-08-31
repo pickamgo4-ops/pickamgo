@@ -79,26 +79,17 @@ export default function EditProductPage() {
         for (const file of files) {
           const body = new FormData()
           body.append('image', file)
-          const controller = new AbortController()
-          const timeout = setTimeout(() => controller.abort(), 60000)
-          const response = await fetch('/api/upload/image', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-            body,
-            signal: controller.signal,
-          })
-          clearTimeout(timeout)
-          const data = await response.json().catch(() => null)
-          if (response.ok && data?.success) {
-            uploadedUrls.push(data.data.url)
+          const response = await api.uploadFile<{ url: string; filename: string }>('/upload/image', body)
+          if (response.success && response.data?.url) {
+            uploadedUrls.push(response.data.url)
           } else {
-            throw new Error(data?.error || `Image upload failed (${response.status || 'request'}). Please try again.`)
+            throw new Error(response.error || 'Image upload failed. Please try again.')
           }
         }
 
         update('images', [...parseImages(form.images), ...uploadedUrls].join('\n'))
       } catch (err) {
-        console.error('Upload fetch error:', err)
+        console.error('Upload error:', err)
         setError(err instanceof Error ? err.message : 'Upload failed. Please try again.')
       } finally {
         setUploading(false)

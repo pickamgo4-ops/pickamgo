@@ -56,13 +56,13 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2" aria-label="Go to PickAmGo home">
             <img
-              src="/logo.png"
+              src="/bimi.svg"
               alt="PickAmGo logo"
               className="h-10 w-10 rounded-xl object-contain shadow-sm"
               onError={(e) => {
                 const target = e.currentTarget as HTMLImageElement
-                if (!target.src.endsWith('/logo.jpg')) {
-                  target.src = '/logo.jpg'
+                if (!target.src.endsWith('/logo.png')) {
+                  target.src = '/logo.png'
                 }
               }}
             />
@@ -169,14 +169,6 @@ export function Header() {
                 )}
               </>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              icon={<Search size={18} />}
-              onClick={() => router.push('/discover')}
-            >
-              Browse
-            </Button>
             <Button
               size="sm"
               icon={<ShoppingCart size={18} />}

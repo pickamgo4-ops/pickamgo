@@ -16,6 +16,11 @@ interface GoogleLocationPickerProps {
 const GOOGLE_MAPS_API_KEY = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim()
 const GHANA_CENTER: { lat: number; lng: number } = { lat: 5.6037, lng: -0.187 }
 
+// Check if API key is configured
+if (!GOOGLE_MAPS_API_KEY) {
+  console.warn('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not configured. Google Maps will not work.')
+}
+
 const mapContainerStyle = {
   width: '100%',
   height: '100%',
@@ -44,6 +49,24 @@ export default function GoogleLocationPicker({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
   const mapRef = useRef<google.maps.Map | null>(null)
   const proximityRef = useRef<{ lat: number; lng: number } | null>(null)
+
+  // Check if API key is missing
+  if (!GOOGLE_MAPS_API_KEY) {
+    return (
+      <div className="w-full space-y-3">
+        <div className="relative flex gap-2">
+          <input
+            type="text"
+            value={value?.address || ''}
+            onChange={(e) => onChange({ address: e.target.value, latitude: value?.latitude || 0, longitude: value?.longitude || 0 })}
+            placeholder={placeholder}
+            className="flex-1 bg-white dark:bg-warm-900 border border-warm-200 dark:border-warm-700 rounded-xl py-3 px-4 text-sm text-warm-900 dark:text-white placeholder:text-warm-800/40"
+          />
+        </div>
+        <p className="text-xs text-amber-600">⚠️ Google Maps is not configured. Please contact support or enter address manually.</p>
+      </div>
+    )
+  }
 
   const isDark = theme === 'dark'
   const mapStyles = isDark ? [
@@ -256,12 +279,22 @@ export default function GoogleLocationPicker({
           <input
             type="text"
             value={searchValue}
-            readOnly
+            onChange={(e) => setSearchValue(e.target.value)}
             placeholder={placeholder}
             className="flex-1 bg-white dark:bg-warm-900 border border-warm-200 dark:border-warm-700 rounded-xl py-3 px-4 text-sm text-warm-900 dark:text-white placeholder:text-warm-800/40"
           />
+          <button
+            onClick={() => {
+              if (searchValue.trim()) {
+                onChange({ address: searchValue, latitude: 0, longitude: 0 })
+              }
+            }}
+            className="px-4 py-3 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Search size={16} />
+          </button>
         </div>
-        <p className="text-xs text-red-600">Google Maps failed to load. Please check your API key or network connection.</p>
+        <p className="text-xs text-red-600">⚠️ Google Maps failed to load (HTTP 403). This usually means the API key is missing or not authorized for this domain. Please enter your address manually or contact support.</p>
       </div>
     )
   }

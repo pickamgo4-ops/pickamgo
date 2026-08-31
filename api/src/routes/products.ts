@@ -471,8 +471,15 @@ router.patch(
       })
 
       return successResponse(res, product)
-    } catch (error) {
-      return errorResponse(res, 'Failed to update product', 500)
+    } catch (error: any) {
+      console.error('Product update error:', error)
+      const errorMessage = error?.message || 'Failed to update product'
+      
+      if (errorMessage.includes('unique constraint')) {
+        return errorResponse(res, 'A product with this value already exists', 409)
+      }
+      
+      return errorResponse(res, 'Failed to update product. Please check your information and try again.', 500)
     }
   }
 )

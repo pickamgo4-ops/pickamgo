@@ -65,19 +65,22 @@ export function Footer() {
         </div>
 
         <div className="border-t border-warm-800 mt-10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <img
-              src="/logo.png"
-              alt="PickAmGo"
-              className="h-8 w-8 rounded-lg object-contain"
-              onError={(e) => {
-                const target = e.currentTarget as HTMLImageElement
-                if (!target.src.endsWith('/logo.jpg')) {
-                  target.src = '/logo.jpg'
-                }
-              }}
-            />
-            <span className="font-display font-bold text-white">PickAmGo</span>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <img
+                src="/logo.png"
+                alt="PickAmGo"
+                className="h-8 w-8 rounded-lg object-contain"
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement
+                  if (!target.src.endsWith('/logo.jpg')) {
+                    target.src = '/logo.jpg'
+                  }
+                }}
+              />
+              <span className="font-display font-bold text-white">PickAmGo</span>
+            </div>
+            <p className="text-xs text-warm-100/60 italic">Where Every Pick Finds You</p>
           </div>
           <p className="text-sm text-warm-100/60">
             &copy; {new Date().getFullYear()} PickAmGo. All rights reserved.

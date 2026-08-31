@@ -140,6 +140,10 @@ export default function HomePage() {
         {/* Hero Section */}
         <section className="py-8 md:py-12">
           <div className="max-w-2xl">
+            <div className="mb-4 flex items-end gap-2">
+              <p className="text-sm font-display font-bold text-primary">PickAmGo</p>
+              <p className="text-xs text-primary/70 font-medium italic">Where Every Pick Finds You</p>
+            </div>
             <h1 className="font-display text-3xl md:text-5xl lg:text-6xl font-bold text-warm-900 leading-tight mb-4">
               Find something good{' '}
               <span className="text-primary">near you</span>{' '}

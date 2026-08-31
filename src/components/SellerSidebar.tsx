@@ -6,7 +6,7 @@ import {
   Home, LayoutDashboard, Store, Package, Tag, Archive, ShoppingBag, 
   TrendingUp, Star, MessageSquare, Bell, Settings, HelpCircle,
   FileText, MapPin, CheckCircle, ChevronLeft, LogOut, Calendar,
-  DollarSign, Truck, Ticket
+  DollarSign, Truck, Ticket, Users, Sparkles
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
@@ -39,6 +39,7 @@ const shopSections = [
     items: [
       { href: '/seller/orders', label: 'Orders', icon: ShoppingBag },
       { href: '/seller/bookings', label: 'Bookings', icon: Calendar },
+      { href: '/seller/booking-setup', label: 'Booking Setup', icon: Sparkles },
     ],
   },
   {
@@ -95,25 +96,28 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
     <>
       <div className="p-4 border-b border-warm-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl overflow-hidden bg-primary/5 ring-1 ring-primary/20 shrink-0">
-            <img
-              src="/logo.png"
-              alt="PickAmGo logo"
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                const target = e.currentTarget as HTMLImageElement
-                target.style.display = 'none'
-                const fallback = target.nextElementSibling as HTMLElement | null
-                if (fallback) fallback.style.display = 'flex'
-              }}
-            />
-            <div className="hidden h-full w-full items-center justify-center bg-primary text-white font-bold text-sm">
-              F
+          <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 ring-1 ring-primary/20 shrink-0 flex items-center justify-center text-white font-bold text-sm">
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user?.name || 'Seller'}
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement
+                  target.style.display = 'none'
+                  const fallback = target.nextElementSibling as HTMLElement | null
+                  if (fallback) fallback.style.display = 'flex'
+                }}
+              />
+            ) : null}
+            <div className="h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary/70" style={{ display: user?.avatar ? 'none' : 'flex' }}>
+              {user?.name?.charAt(0)?.toUpperCase() || 'S'}
             </div>
           </div>
-          <div>
-            <h2 className="font-display font-bold text-warm-900">Seller Dashboard</h2>
-            <p className="text-xs text-warm-800/60">{user?.name}</p>
+          <div className="min-w-0">
+            <h2 className="font-display font-bold text-warm-900 truncate">PickAmGo Seller</h2>
+            <p className="text-xs text-warm-800/60 truncate">{user?.name}</p>
+            <p className="text-xs text-primary/70 font-medium">Where Every Pick Finds You</p>
           </div>
         </div>
       </div>

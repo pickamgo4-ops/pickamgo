@@ -44,6 +44,7 @@ import sellerPromoRoutes from './routes/seller-promo'
 import emailTestRoutes from './routes/email-test'
 import emailVerificationRoutes from './routes/email-verification'
 import publicNoticeRoutes from './routes/public-notices'
+import bookingSetupRoutes from './routes/booking-setup'
 import prisma from './utils/prisma'
 
 const app = express()
@@ -231,6 +232,7 @@ app.use('/api/payouts', payoutRoutes)
 app.use('/api/seller/delivery-settings', deliverySettingsRoutes)
 app.use('/api/public-notices', publicNoticeRoutes)
 app.use('/api/email-verification', emailVerificationRoutes)
+app.use('/api/booking-setup', bookingSetupRoutes)
 
 if (process.env.NODE_ENV !== 'production') {
   app.use('/api/dev', emailTestRoutes)

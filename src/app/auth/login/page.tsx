@@ -35,12 +35,23 @@ export default function LoginPage() {
     script.src = 'https://accounts.google.com/gsi/client'
     script.async = true
     script.defer = true
-    document.body.appendChild(script)
+    script.crossOrigin = 'anonymous'
+    document.head.appendChild(script)
 
     script.onload = () => {
-      if (typeof window !== 'undefined' && (window as any).google?.accounts?.id) {
-        initializeGoogleSignIn()
+      try {
+        if (typeof window !== 'undefined' && (window as any).google?.accounts?.id) {
+          initializeGoogleSignIn()
+        }
+      } catch (err) {
+        console.error('Failed to initialize Google Sign-In:', err)
+        // Don't block login, just disable Google sign-in
       }
+    }
+
+    script.onerror = () => {
+      console.warn('Failed to load Google Sign-In script')
+      // Google sign-in failed to load, but allow email/password login
     }
 
     return () => {
@@ -51,41 +62,56 @@ export default function LoginPage() {
   }, [])
 
   const initializeGoogleSignIn = async () => {
-    const google = (window as any).google
-    if (!google?.accounts?.id) return
-
-    let clientId = googleClientId
-    if (!clientId) {
-      try {
-        const configRes = await api.get<{ clientId: string; configured: boolean }>('/auth/google-config')
-        if (configRes.success && configRes.data?.configured) {
-          clientId = configRes.data.clientId
-        }
-      } catch {
-        // ignore
+    try {
+      const google = (window as any).google
+      if (!google?.accounts?.id) {
+        console.warn('Google API not available')
+        return
       }
-    }
 
-    if (!clientId) {
-      setError('Google Sign-In is not configured. Please use email and password or contact support.')
-      return
-    }
+      let clientId = googleClientId
+      if (!clientId) {
+        try {
+          const configRes = await api.get<{ clientId: string; configured: boolean }>('/auth/google-config')
+          if (configRes.success && configRes.data?.configured) {
+            clientId = configRes.data.clientId
+          }
+        } catch (err) {
+          console.warn('Failed to fetch Google config:', err)
+        }
+      }
 
-    google.accounts.id.initialize({
-      client_id: clientId,
-      callback: handleGoogleCredentialResponse,
-      auto_select: false,
-      cancel_on_tap_outside: true,
-    })
+      if (!clientId) {
+        console.warn('Google Sign-In is not configured')
+        const buttonContainer = document.getElementById('googleSignInButton')
+        if (buttonContainer) {
+          buttonContainer.innerHTML = '<p class="text-xs text-warm-800/50">Google Sign-In unavailable</p>'
+        }
+        return
+      }
 
-    const buttonContainer = document.getElementById('googleSignInButton')
-    if (buttonContainer) {
-      google.accounts.id.renderButton(buttonContainer, {
-        theme: 'outline',
-        size: 'large',
-        width: '100%',
-        text: 'continue_with',
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true,
       })
+
+      const buttonContainer = document.getElementById('googleSignInButton')
+      if (buttonContainer && buttonContainer.innerHTML === '') {
+        google.accounts.id.renderButton(buttonContainer, {
+          theme: 'outline',
+          size: 'large',
+          width: '100%',
+          text: 'continue_with',
+        })
+      }
+    } catch (err) {
+      console.error('Error initializing Google Sign-In:', err)
+      const buttonContainer = document.getElementById('googleSignInButton')
+      if (buttonContainer) {
+        buttonContainer.innerHTML = '<p class="text-xs text-warm-800/50">Google Sign-In unavailable</p>'
+      }
     }
   }
 
@@ -238,9 +264,10 @@ export default function LoginPage() {
           <Link href="/">
             <img src="/logo.png" alt="PickAmGo logo" className="h-16 w-16 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity" />
           </Link>
-          <Link href="/" className="block text-2xl font-bold text-orange-500 hover:text-orange-600 transition-colors">
+          <Link href="/" className="block text-2xl font-bold text-orange-500 hover:text-orange-600 transition-colors mb-1">
             PickAmGo
           </Link>
+          <p className="text-xs text-primary/70 font-medium italic mb-4">Where Every Pick Finds You</p>
           <h1 className="font-display text-3xl font-bold text-warm-900 mb-2">
             Welcome back
           </h1>

@@ -20,6 +20,19 @@ const nextConfig = {
       },
     ]
   },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://maps.googleapis.com https://maps.gstatic.com; frame-src https://accounts.google.com; connect-src 'self' https://accounts.google.com https://apis.google.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com http://localhost:* https://*.up.railway.app https://pickamgo-production.up.railway.app; img-src 'self' data: https: http://localhost:*;",
+          },
+        ],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

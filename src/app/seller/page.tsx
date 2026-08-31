@@ -173,9 +173,12 @@ export default function SellerDashboard() {
       <div className="space-y-6">
         {/* Welcome Header */}
         <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-            Seller Dashboard
-          </h1>
+          <div className="flex items-baseline gap-3 mb-2">
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
+              Seller Dashboard
+            </h1>
+            <p className="text-sm text-primary/70 font-medium hidden md:block">Where Every Pick Finds You</p>
+          </div>
           <p className="text-warm-800/60 mt-1">Here's what's happening with your shop today</p>
         </div>
 
