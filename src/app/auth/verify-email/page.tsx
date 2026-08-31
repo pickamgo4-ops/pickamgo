@@ -18,6 +18,7 @@ interface VerifyResponse {
     isRider: boolean;
     isAdmin: boolean;
   };
+  token?: string;
 }
 
 function VerifyEmailForm() {
@@ -97,12 +98,11 @@ function VerifyEmailForm() {
       if (response.success) {
         setSuccess(true);
         const user = response.data?.user;
-        if (user) {
-          const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-          if (token) {
-            localStorage.setItem("user", JSON.stringify(user));
-            window.dispatchEvent(new Event("auth-changed"));
-          }
+        const token = response.data?.token;
+        if (user && token) {
+          localStorage.setItem("token", token);
+          localStorage.setItem("user", JSON.stringify(user));
+          window.dispatchEvent(new Event("auth-changed"));
         }
         setTimeout(() => {
           router.push("/");

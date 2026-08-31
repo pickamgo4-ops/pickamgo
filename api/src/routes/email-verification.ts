@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import prisma from '../utils/prisma'
-import { authMiddleware, requireRole } from '../middleware/auth'
+import { authMiddleware, requireRole, generateToken } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
 import { sendEmail, buildBaseHtml } from '../services/email'
 import { generateVerificationCode, hashCode, compareCode } from '../utils/email-verification'
@@ -157,12 +157,19 @@ router.post('/verify', async (req: AuthenticatedRequest, res) => {
 
     const user = await prisma.user.findUnique({
       where: { id: verification.userId },
-      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true },
     })
+
+    if (!user) {
+      return errorResponse(res, 'User not found after verification', 404)
+    }
+
+    const token = generateToken(user)
+    const { passwordHash: _pw, ...userWithoutPassword } = user as any
 
     return successResponse(res, {
       message: 'Email verified successfully',
-      user,
+      user: userWithoutPassword,
+      token,
     })
   } catch (error) {
     console.error('Failed to verify code:', error)

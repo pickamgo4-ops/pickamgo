@@ -195,8 +195,7 @@ export default function LoginPage() {
 
       if (response.success && response.data) {
         if (response.data.verificationRequired) {
-          setVerificationEmail(response.data.email || email)
-          setShowVerificationPrompt(true)
+          router.push(`/auth/verify-email?email=${encodeURIComponent(response.data.email || email)}`)
           setLoading(false)
           submittingRef.current = false
           return
