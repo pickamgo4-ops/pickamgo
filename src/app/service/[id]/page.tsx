@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Heart, Share2, MapPin, Star, Clock, Calendar, Shield, ChevronLeft, MessageCircle, Minus, Plus, CheckCircle2, Flame, Sparkles } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
@@ -8,10 +8,12 @@ import { Button } from '../../../components/ui/Button'
 import { api } from '../../../lib/api'
 import { BeautyService } from '../../../types'
 import { mapApiServiceToFrontend } from '../../../lib/api-mappers'
+import { useRole } from '../../../contexts/RoleContext'
 
 export default function ServicePage() {
   const params = useParams()
   const router = useRouter()
+  const { user, authInitialized } = useRole()
   const [service, setService] = useState<BeautyService | null>(null)
   const [selectedImage, setSelectedImage] = useState(0)
   const [isFavorite, setIsFavorite] = useState(false)
@@ -25,10 +27,15 @@ export default function ServicePage() {
 
   useEffect(() => {
     loadService()
-    checkFavoriteStatus()
   }, [params.id])
 
-  const checkFavoriteStatus = async () => {
+  useEffect(() => {
+    if (!params.id || !authInitialized || !user) return
+    checkFavoriteStatus()
+  }, [params.id, authInitialized, user])
+
+  const checkFavoriteStatus = useCallback(async () => {
+    if (!params.id || !user) return
     try {
       const res = await api.getFavorites({ type: 'SERVICE' })
       if (res.success && res.data) {
@@ -38,7 +45,7 @@ export default function ServicePage() {
     } catch {
       // ignore
     }
-  }
+  }, [params.id, user])
 
   const toggleFavorite = async () => {
     if (!service) return

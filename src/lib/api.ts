@@ -113,7 +113,9 @@ async function request<T>(
     }
 
     if (isProduction && isIdempotentRequest && API_URL !== FALLBACK_API_URL && API_URL !== PRODUCTION_API_URL) {
-      urlsToTry.push(fallbackUrl)
+      if (!urlsToTry.includes(fallbackUrl)) {
+        urlsToTry.push(fallbackUrl)
+      }
     }
 
     for (const url of urlsToTry) {
@@ -160,9 +162,12 @@ async function request<T>(
 
     if (response.status === 401 && token) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        window.dispatchEvent(new Event('auth-changed'))
+        const hasToken = localStorage.getItem('token')
+        if (hasToken) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          window.dispatchEvent(new Event('auth-changed'))
+        }
       }
       return {
         success: false,

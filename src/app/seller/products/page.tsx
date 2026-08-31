@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { Edit3, Eye, EyeOff, Package, Plus, Search, Trash2 } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { api } from '@/lib/api'
 import { formatDate } from '@/lib/format'
+import { useDebounce } from '@/hooks/useDebounce'
 
 export default function SellerProductsPage() {
   const [products, setProducts] = useState<any[]>([])
@@ -20,10 +21,9 @@ export default function SellerProductsPage() {
   const [stockEditing, setStockEditing] = useState<string | null>(null)
   const [stock, setStock] = useState('')
   const [error, setError] = useState('')
+  const [shopId, setShopId] = useState<string | null>(null)
 
-  const load = async () => {
-    const shop = await api.get<any>('/seller/shop')
-    const shopId = shop.data?.shop?.id
+  const load = useCallback(async () => {
     if (!shopId) return
     const [productResponse, categoryResponse] = await Promise.all([
       api.get<any>(`/seller/products?search=${encodeURIComponent(search)}&status=${status}&categoryId=${categoryId}&sort=${sort}`),
@@ -31,9 +31,24 @@ export default function SellerProductsPage() {
     ])
     if (productResponse.success) setProducts(productResponse.data?.products || [])
     if (categoryResponse.success) setCategories(categoryResponse.data || [])
-  }
+  }, [shopId, search, status, categoryId, sort])
 
-  useEffect(() => { load() }, [search, status, categoryId, sort])
+  const debouncedLoad = useDebounce(load, 300)
+
+  useEffect(() => {
+    const init = async () => {
+      const shop = await api.get<any>('/seller/shop')
+      const id = shop.data?.shop?.id || null
+      setShopId(id)
+    }
+    init()
+  }, [])
+
+  useEffect(() => {
+    if (shopId) {
+      debouncedLoad()
+    }
+  }, [shopId, debouncedLoad])
 
   const toggleVisibility = async (product: any) => {
     const next = product.status === 'ACTIVE' ? 'HIDDEN' : 'ACTIVE'

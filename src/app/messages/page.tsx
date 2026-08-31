@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Send, MoreVertical, Search, MessageCircle, Plus } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
@@ -17,17 +17,65 @@ export default function MessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     loadConversations()
   }, [])
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshConversations()
-    }, 3000)
-    return () => clearInterval(interval)
+  const refreshConversations = useCallback(async () => {
+    try {
+      const response = await api.get<any>('/messages/conversations')
+      if (response.success && response.data) {
+        const mapped = (response.data.conversations || response.data || []).map((conv: any) => ({
+          userId: conv.otherParticipant?.id || conv.userId,
+          orderId: conv.orderId || conv.order?.id,
+          userName: conv.shop?.name || conv.otherParticipant?.name || conv.userName || conv.name || 'Unknown User',
+          userAvatar: conv.shop?.logo || conv.otherParticipant?.avatar || conv.userAvatar || conv.avatar || '',
+          lastMessage: conv.lastMessage?.content || conv.lastMessageText || '',
+          lastMessageAt: conv.lastMessageAt || conv.updatedAt || new Date().toISOString(),
+          unreadCount: conv.unreadCount || 0,
+        }))
+        setConversations(mapped)
+      }
+    } catch (err) {
+      console.error('Failed to refresh conversations:', err)
+    }
   }, [])
+
+  useEffect(() => {
+    const startPolling = () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      intervalRef.current = setInterval(() => {
+        refreshConversations()
+      }, 30000)
+    }
+
+    const stopPolling = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+
+    startPolling()
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshConversations()
+        startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      stopPolling()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refreshConversations])
 
   const loadConversations = async () => {
     setLoading(true)
@@ -49,26 +97,6 @@ export default function MessagesPage() {
       console.error('Failed to load conversations:', err)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const refreshConversations = async () => {
-    try {
-      const response = await api.get<any>('/messages/conversations')
-      if (response.success && response.data) {
-        const mapped = (response.data.conversations || response.data || []).map((conv: any) => ({
-          userId: conv.otherParticipant?.id || conv.userId,
-          orderId: conv.orderId || conv.order?.id,
-          userName: conv.shop?.name || conv.otherParticipant?.name || conv.userName || conv.name || 'Unknown User',
-          userAvatar: conv.shop?.logo || conv.otherParticipant?.avatar || conv.userAvatar || conv.avatar || '',
-          lastMessage: conv.lastMessage?.content || conv.lastMessageText || '',
-          lastMessageAt: conv.lastMessageAt || conv.updatedAt || new Date().toISOString(),
-          unreadCount: conv.unreadCount || 0,
-        }))
-        setConversations(mapped)
-      }
-    } catch (err) {
-      console.error('Failed to refresh conversations:', err)
     }
   }
 

@@ -145,9 +145,18 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     cleanOldAuthKeys()
     refreshUser()
-    const handleAuthChange = () => refreshUser()
+    let authTimeout: ReturnType<typeof setTimeout>
+    const handleAuthChange = () => {
+      if (authTimeout) clearTimeout(authTimeout)
+      authTimeout = setTimeout(() => {
+        refreshUser()
+      }, 250)
+    }
     window.addEventListener('auth-changed', handleAuthChange)
-    return () => window.removeEventListener('auth-changed', handleAuthChange)
+    return () => {
+      window.removeEventListener('auth-changed', handleAuthChange)
+      if (authTimeout) clearTimeout(authTimeout)
+    }
   }, [cleanOldAuthKeys, refreshUser])
 
   return (

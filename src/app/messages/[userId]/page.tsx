@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Send, MoreVertical, CheckCheck, MessageCircle } from 'lucide-react'
 import { Header } from '../../../components/layout/Header'
@@ -27,6 +27,7 @@ export default function ConversationPage() {
   const [conversationUser, setConversationUser] = useState<{ name: string; avatar: string } | null>(null)
   const [canSend, setCanSend] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const getCurrentUserId = () => {
     if (typeof window === 'undefined') return currentUserId
@@ -57,6 +58,19 @@ export default function ConversationPage() {
     })
   }
 
+  const refreshConversation = useCallback(async () => {
+    if (!userId) return
+    try {
+      const response = await api.get<any>(`/messages/conversations/${userId}${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`)
+      if (response.success && response.data) {
+        const msgs = response.data.messages || response.data || []
+        mergeServerMessages(mapMessages(msgs))
+      }
+    } catch (err) {
+      console.error('Failed to refresh conversation:', err)
+    }
+  }, [userId, orderId])
+
   useEffect(() => {
     const storedUserId = getCurrentUserId()
     if (storedUserId) setCurrentUserId(storedUserId)
@@ -67,11 +81,39 @@ export default function ConversationPage() {
 
   useEffect(() => {
     if (!userId) return
-    const interval = setInterval(() => {
-      refreshConversation()
-    }, 10000)
-    return () => clearInterval(interval)
-  }, [userId, orderId])
+
+    const startPolling = () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      intervalRef.current = setInterval(() => {
+        refreshConversation()
+      }, 30000)
+    }
+
+    const stopPolling = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+
+    startPolling()
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshConversation()
+        startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      stopPolling()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [userId, orderId, refreshConversation])
 
   useEffect(() => {
     scrollToBottom()
@@ -112,19 +154,6 @@ export default function ConversationPage() {
       setError('Failed to load messages. Please refresh and try again.')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const refreshConversation = async () => {
-    try {
-      const response = await api.get<any>(`/messages/conversations/${userId}${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`)
-      if (response.success && response.data) {
-        const msgs = response.data.messages || response.data || []
-        mergeServerMessages(mapMessages(msgs))
-        setCanSend(response.data.canSend !== false)
-      }
-    } catch (err) {
-      console.error('Failed to refresh conversation:', err)
     }
   }
 

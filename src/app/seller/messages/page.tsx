@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { MessageSquare, Send } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
@@ -30,27 +30,9 @@ export default function SellerMessagesPage() {
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    setCurrentUserId(user.id || '')
-    loadConversations()
-  }, [])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadConversations()
-      if (selectedConversation) {
-        const otherUserId = selectedConversation.participant1.id === currentUserId
-          ? selectedConversation.participant2.id
-          : selectedConversation.participant1.id
-        loadConversation(otherUserId, selectedConversation.orderId || selectedConversation.order?.id)
-      }
-    }, 10000)
-    return () => clearInterval(interval)
-  }, [selectedConversation, currentUserId])
-
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       const response = await api.get<Conversation[]>('/messages/conversations')
       if (response.success && response.data) {
@@ -66,9 +48,9 @@ export default function SellerMessagesPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }
+  }, [])
 
-  const loadConversation = async (userId: string, orderId?: string) => {
+  const loadConversation = useCallback(async (userId: string, orderId?: string) => {
     try {
       const query = orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''
       const response = await api.get<{ conversation: Conversation; messages: any[] }>(`/messages/conversations/${userId}${query}`)
@@ -81,7 +63,59 @@ export default function SellerMessagesPage() {
     } catch {
       setError('Failed to load conversation')
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    setCurrentUserId(user.id || '')
+    loadConversations()
+  }, [loadConversations])
+
+  useEffect(() => {
+    const startPolling = () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      intervalRef.current = setInterval(() => {
+        loadConversations()
+        if (selectedConversation) {
+          const otherUserId = selectedConversation.participant1.id === currentUserId
+            ? selectedConversation.participant2.id
+            : selectedConversation.participant1.id
+          loadConversation(otherUserId, selectedConversation.orderId || selectedConversation.order?.id)
+        }
+      }, 30000)
+    }
+
+    const stopPolling = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+
+    startPolling()
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadConversations()
+        if (selectedConversation) {
+          const otherUserId = selectedConversation.participant1.id === currentUserId
+            ? selectedConversation.participant2.id
+            : selectedConversation.participant1.id
+          loadConversation(otherUserId, selectedConversation.orderId || selectedConversation.order?.id)
+        }
+        startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      stopPolling()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [selectedConversation, currentUserId, loadConversations, loadConversation])
 
   const handleSendMessage = async () => {
     const cleanMessage = message.trim()

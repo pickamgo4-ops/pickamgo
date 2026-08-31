@@ -11,10 +11,12 @@ import { mapApiProductToFrontend } from '../../../lib/api-mappers'
 import { getShopUrl } from '../../../lib/shop-url'
 import { ProductCard } from '../../../components/product/ProductCard'
 import { PaymentSafetyNotice } from '../../../components/ui/PaymentSafetyNotice'
+import { useRole } from '../../../contexts/RoleContext'
 
 export default function ProductPage() {
   const params = useParams()
   const router = useRouter()
+  const { user, authInitialized } = useRole()
   const productId = typeof params?.id === 'string' ? params.id : ''
   const [product, setProduct] = useState<Product | null>(null)
   const [recommendations, setRecommendations] = useState<Product[]>([])
@@ -38,7 +40,6 @@ export default function ProductPage() {
   useEffect(() => {
     if (!productId) return
     loadProduct()
-    checkFavoriteStatus()
   }, [productId])
 
   useEffect(() => {
@@ -46,8 +47,13 @@ export default function ProductPage() {
     loadRecommendations()
   }, [productId])
 
-  const checkFavoriteStatus = async () => {
-    if (!productId) return
+  useEffect(() => {
+    if (!productId || !authInitialized || !user) return
+    checkFavoriteStatus()
+  }, [productId, authInitialized, user])
+
+  const checkFavoriteStatus = useCallback(async () => {
+    if (!productId || !user) return
     try {
       const res = await api.getFavorites({ type: 'PRODUCT' })
       if (res.success && res.data) {
@@ -57,7 +63,7 @@ export default function ProductPage() {
     } catch {
       // ignore
     }
-  }
+  }, [productId, user])
 
   const toggleFavorite = async () => {
     if (!product) return
