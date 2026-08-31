@@ -56,13 +56,13 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2" aria-label="Go to PickAmGo home">
             <img
-              src="/bimi.svg"
+              src="/logo.png"
               alt="PickAmGo logo"
               className="h-10 w-10 rounded-xl object-contain shadow-sm"
               onError={(e) => {
                 const target = e.currentTarget as HTMLImageElement
-                if (!target.src.endsWith('/logo.png')) {
-                  target.src = '/logo.png'
+                if (!target.src.endsWith('/logo.jpg')) {
+                  target.src = '/logo.jpg'
                 }
               }}
             />
