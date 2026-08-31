@@ -8,7 +8,9 @@ import { Button } from '../../../../components/ui/Button'
 import { Input } from '../../../../components/ui/Input'
 import { Card } from '../../../../components/ui/Card'
 import { api } from '../../../../lib/api'
-import MapboxLocationPicker from '@/components/map/MapboxLocationPicker'
+import dynamic from 'next/dynamic'
+
+const GoogleLocationPicker = dynamic(() => import('@/components/map/GoogleLocationPicker'), { ssr: false })
 
 export default function CreateShopPage() {
   const router = useRouter()
@@ -171,7 +173,7 @@ export default function CreateShopPage() {
             required
           />
 
-          <MapboxLocationPicker
+          <GoogleLocationPicker
             value={{ address: form.location, latitude: form.latitude ?? undefined, longitude: form.longitude ?? undefined }}
             onChange={(result) => setForm(prev => ({ ...prev, location: result.address, latitude: result.latitude, longitude: result.longitude }))}
             placeholder="Search and confirm your shop location in Ghana"

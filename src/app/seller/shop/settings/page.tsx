@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { api } from '@/lib/api'
 import { getShopUrl } from '@/lib/shop-url'
-import MapboxLocationPicker from '@/components/map/MapboxLocationPicker'
+import dynamic from 'next/dynamic'
+
+const GoogleLocationPicker = dynamic(() => import('@/components/map/GoogleLocationPicker'), { ssr: false })
 
 export default function ShopSettingsPage() {
   const router = useRouter()
@@ -270,7 +272,7 @@ export default function ShopSettingsPage() {
                   value={form.location}
                   onChange={(e) => updateField('location', e.target.value)}
                 />
-                <MapboxLocationPicker
+                <GoogleLocationPicker
                   value={{ address: form.location, latitude: form.latitude ?? undefined, longitude: form.longitude ?? undefined }}
                   onChange={(result) => {
                     updateField('location', result.address)

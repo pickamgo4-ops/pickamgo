@@ -12,7 +12,9 @@ import { api } from '../../../lib/api'
 import { Shop, Product, BeautyService } from '../../../types'
 import { mapApiShopToFrontend, mapApiProductToFrontend, mapApiServiceToFrontend } from '../../../lib/api-mappers'
 import { defaultShopCustomization, readableTextColor, themeClass, ShopCustomization } from '../../../lib/shop-themes'
-import MapboxMap from '../../../components/map/MapboxMap'
+import dynamic from 'next/dynamic'
+
+const GoogleMap = dynamic(() => import('../../../components/map/GoogleMap'), { ssr: false })
 import { useTheme } from '../../../components/theme/ThemeProvider'
 
 export default function ShopPage() {
@@ -286,7 +288,7 @@ export default function ShopPage() {
           <h2 className="font-display text-xl font-bold mb-1" style={{ color: surfaceTextColor }}>Find us</h2>
           <p className="text-sm opacity-75 mb-4">{shop.location}</p>
           {shop.latitude != null && shop.longitude != null ? (
-            <MapboxMap
+            <GoogleMap
               markers={[{ latitude: shop.latitude, longitude: shop.longitude, label: `${shop.name} - ${shop.location}` }]}
               height="280px"
             />

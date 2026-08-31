@@ -26,8 +26,10 @@ import { Cart, Address, CheckoutOrder, DeliverySettings } from "../../types";
 import { mapApiCartToFrontend, mapApiAddressToFrontend } from "../../lib/api-mappers";
 import { PaymentSafetyNotice } from "../../components/ui/PaymentSafetyNotice";
 import { useRole } from "../../contexts/RoleContext";
-import MapboxLocationPicker from "../../components/map/MapboxLocationPicker";
-import MapboxMap from "../../components/map/MapboxMap";
+import dynamic from 'next/dynamic'
+
+const GoogleMap = dynamic(() => import('../../components/map/GoogleMap'), { ssr: false })
+const GoogleLocationPicker = dynamic(() => import('../../components/map/GoogleLocationPicker'), { ssr: false })
 
 type CheckoutMode = "checking" | "guest" | "logged-in";
 type FulfillmentMethod = "FIND_IT_NEAR_ME_RIDER" | "SELLER_OWN_DELIVERY" | "CUSTOMER_PICKUP";
@@ -736,7 +738,7 @@ function CheckoutContent() {
                   Collect your order from the shop location below.
                 </p>
                 {pickupMarkers.length > 0 ? (
-                  <MapboxMap markers={pickupMarkers} height="260px" />
+                  <GoogleMap markers={pickupMarkers} height="260px" />
                 ) : (
                   <p className="text-sm text-warm-800/60">
                     Shop location is not available yet. Please check the shop address.
@@ -751,7 +753,7 @@ function CheckoutContent() {
                   <MapPin size={20} className="text-primary" />
                   Delivery Address
                 </h3>
-                <MapboxLocationPicker
+                <GoogleLocationPicker
                   value={{
                     address: guestInfo.deliveryAddress,
                     latitude: guestInfo.deliveryLatitude ?? undefined,
@@ -1087,7 +1089,7 @@ function CheckoutContent() {
                 Collect your order from the shop location below.
               </p>
               {pickupMarkers.length > 0 ? (
-                <MapboxMap markers={pickupMarkers} height="260px" />
+                <GoogleMap markers={pickupMarkers} height="260px" />
               ) : (
                 <p className="text-sm text-warm-800/60">
                   Shop location is not available yet. Please check the shop address.
@@ -1167,7 +1169,7 @@ function CheckoutContent() {
                       value={newAddress.street}
                       onValueChange={(v) => setNewAddress({ ...newAddress, street: v })}
                     />
-                    <MapboxLocationPicker
+                    <GoogleLocationPicker
                       value={{
                         address: newAddress.street,
                         latitude: newAddress.latitude ?? undefined,
@@ -1227,7 +1229,7 @@ function CheckoutContent() {
                   <p className="text-sm font-medium text-warm-900 mb-2">
                     Confirm delivery location
                   </p>
-                  <MapboxLocationPicker
+                  <GoogleLocationPicker
                     value={{
                       address: selectedAddress.street,
                       latitude: selectedAddress.latitude ?? undefined,

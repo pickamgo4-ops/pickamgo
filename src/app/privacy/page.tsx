@@ -153,7 +153,7 @@ export default function PrivacyPage() {
                 <span className="text-primary font-bold">•</span>
                 <span>
                   <strong>With service providers:</strong> Paystack (payments), Resend (email),
-                  Mapbox (maps and location), Google (authentication), and storage providers such as
+                  Google Maps (maps and location), Google (authentication), and storage providers such as
                   Cloudflare R2.
                 </span>
               </li>

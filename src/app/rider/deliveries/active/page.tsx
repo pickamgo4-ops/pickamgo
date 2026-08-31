@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { api } from '@/lib/api'
-import MapboxMap from '@/components/map/MapboxMap'
+import dynamic from 'next/dynamic'
+
+const GoogleMap = dynamic(() => import('@/components/map/GoogleMap'), { ssr: false })
 
 interface Delivery {
   id: string
@@ -152,7 +154,7 @@ export default function RiderActiveDeliveryPage() {
           <Card className="p-4 sm:p-6">
             <h2 className="font-semibold text-warm-900 mb-1">Delivery route</h2>
             <p className="text-sm text-warm-800/60 mb-4">Pickup to customer delivery route</p>
-            <MapboxMap
+            <GoogleMap
               markers={mapMarkers}
               route={{ from: pickup, to: dropoff }}
               height="320px"

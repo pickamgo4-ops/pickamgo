@@ -7,7 +7,9 @@ import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
-import MapboxMap from '@/components/map/MapboxMap'
+import dynamic from 'next/dynamic'
+
+const GoogleMap = dynamic(() => import('@/components/map/GoogleMap'), { ssr: false })
 import { api } from '@/lib/api'
 
 export default function SellerOrderDetailsPage() {
@@ -56,7 +58,7 @@ export default function SellerOrderDetailsPage() {
           <p className="flex items-center gap-2 text-sm text-warm-800/70"><Truck size={16} /> {order.fulfillmentMethod === 'CUSTOMER_PICKUP' ? 'Customer pickup' : 'PickAmGo delivery'}</p>
           <div className="grid gap-3 sm:grid-cols-2"><div><p className="text-xs uppercase text-warm-800/50">Pickup</p><p className="text-sm font-medium text-warm-900">{order.shop?.name}: {delivery?.pickupAddress || order.shop?.location}</p></div><div><p className="text-xs uppercase text-warm-800/50">Delivery</p><p className="text-sm font-medium text-warm-900">{order.deliveryAddress}</p></div></div>
           {order.rider ? <div className="rounded-xl bg-green-50 p-3 text-sm text-green-800"><strong>Rider Assigned:</strong> {order.rider.name}</div> : <p className="text-sm text-warm-800/60">Rider not assigned yet.</p>}
-          {hasRoute ? <MapboxMap markers={markers} route={{ from: markers[0], to: markers[1] }} height="300px" /> : <p className="text-sm text-warm-800/60">Delivery map unavailable because coordinates were not provided.</p>}
+          {hasRoute ? <GoogleMap markers={markers} route={{ from: markers[0], to: markers[1] }} height="300px" /> : <p className="text-sm text-warm-800/60">Delivery map unavailable because coordinates were not provided.</p>}
         </Card>
         <Card className="p-5"><h2 className="mb-3 flex items-center gap-2 font-semibold text-warm-900"><Package size={18} /> Items</h2>{(order.items || []).map((item: any) => <div key={item.id} className="flex justify-between border-b border-warm-100 py-2 text-sm"><span>{item.name} x{item.quantity}</span><span>GH₵{(Number(item.price) * item.quantity).toFixed(2)}</span></div>)}</Card>
       </div>

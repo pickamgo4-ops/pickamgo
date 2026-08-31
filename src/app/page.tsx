@@ -12,7 +12,9 @@ import { getShopUrl } from '../lib/shop-url'
 import { Product, Shop } from '../types'
 import { mapApiProductToFrontend, mapApiShopToFrontend } from '../lib/api-mappers'
 import { useRouter } from 'next/navigation'
-import MapboxLocationPicker from '../components/map/MapboxLocationPicker'
+import dynamic from 'next/dynamic'
+
+const GoogleLocationPicker = dynamic(() => import('../components/map/GoogleLocationPicker'), { ssr: false })
 
 export default function HomePage() {
   const router = useRouter()
@@ -161,7 +163,7 @@ export default function HomePage() {
               {isLocationOpen && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-warm-200 p-3 z-20 animate-fade-in">
                   <button onClick={useCurrentLocation} className="w-full text-left px-3 py-2.5 text-primary font-medium hover:bg-warm-100 rounded-lg">Use my current location</button>
-                  <MapboxLocationPicker
+                  <GoogleLocationPicker
                     value={coordinates ? { address: location, ...coordinates } : null}
                     onChange={(result) => {
                       const next = { latitude: result.latitude, longitude: result.longitude }

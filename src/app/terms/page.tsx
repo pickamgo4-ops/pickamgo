@@ -490,7 +490,7 @@ export default function TermsPage() {
               <li className="flex gap-3">
                 <span className="text-primary font-bold">•</span>
                 <span>
-                  <strong>Mapbox</strong> — maps and location services.
+                  <strong>Google Maps</strong> — maps and location services.
                 </span>
               </li>
               <li className="flex gap-3">
