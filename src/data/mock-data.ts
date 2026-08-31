@@ -70,6 +70,7 @@ export const products: Product[] = [
     isAvailable: true,
     isVerified: true,
     isTrending: true,
+    stock: 10,
     createdAt: '2024-01-15',
   },
   {
@@ -91,6 +92,7 @@ export const products: Product[] = [
     isAvailable: true,
     isVerified: true,
     isTrending: true,
+    stock: 5,
     createdAt: '2024-01-10',
   },
   {
@@ -109,6 +111,7 @@ export const products: Product[] = [
     deliveryTime: 'Today',
     isAvailable: true,
     isVerified: true,
+    stock: 8,
     createdAt: '2024-01-12',
   },
   {
@@ -130,6 +133,7 @@ export const products: Product[] = [
     isAvailable: true,
     isVerified: true,
     isTrending: true,
+    stock: 20,
     createdAt: '2024-01-14',
   },
   {
@@ -149,6 +153,7 @@ export const products: Product[] = [
     isAvailable: true,
     isVerified: true,
     isNew: true,
+    stock: 15,
     createdAt: '2024-01-13',
   },
   {
@@ -170,6 +175,7 @@ export const products: Product[] = [
     isAvailable: true,
     isVerified: true,
     isNew: true,
+    stock: 25,
     createdAt: '2024-01-11',
   },
   {
@@ -191,6 +197,7 @@ export const products: Product[] = [
     isAvailable: true,
     isVerified: false,
     isDeal: true,
+    stock: 12,
     createdAt: '2024-01-09',
   },
   {
@@ -210,6 +217,7 @@ export const products: Product[] = [
     isAvailable: true,
     isVerified: true,
     isNew: true,
+    stock: 6,
     createdAt: '2024-01-16',
   },
 ]

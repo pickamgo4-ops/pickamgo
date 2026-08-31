@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, Plus, Trash2 } from 'lucide-react'
+import { Package, Plus, Trash2, Hash, FileText, Tag } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '../../../../components/ui/Button'
 import { Input } from '../../../../components/ui/Input'
@@ -11,8 +11,10 @@ import { api } from '../../../../lib/api'
 
 interface Variant {
   name: string
+  sku: string
   price: string
   stock: string
+  image: string
 }
 
 export default function CreateProductPage() {
@@ -24,10 +26,14 @@ export default function CreateProductPage() {
   const [categories, setCategories] = useState<any[]>([])
   const [shopCategories, setShopCategories] = useState<any[]>([])
   const [platformCategories, setPlatformCategories] = useState<any[]>([])
+  const [isDraft, setIsDraft] = useState(false)
 
   const [form, setForm] = useState({
     name: '',
     description: '',
+    shortDescription: '',
+    sku: '',
+    brand: '',
     price: '',
     originalPrice: '',
     stock: '',
@@ -69,7 +75,7 @@ export default function CreateProductPage() {
   }
 
   const addVariant = () => {
-    setVariants(prev => [...prev, { name: '', price: '', stock: '' }])
+    setVariants(prev => [...prev, { name: '', sku: '', price: '', stock: '', image: '' }])
   }
 
   const removeVariant = (index: number) => {
@@ -78,6 +84,20 @@ export default function CreateProductPage() {
 
   const updateVariant = (index: number, field: string, value: string) => {
     setVariants(prev => prev.map((v, i) => i === index ? { ...v, [field]: value } : v))
+  }
+
+  const generateSku = () => {
+    const prefix = form.name.slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'PRD'
+    const random = Math.random().toString(36).slice(2, 6).toUpperCase()
+    updateField('sku', `${prefix}-${random}`)
+  }
+
+  const generateVariantSku = (index: number) => {
+    const base = form.sku || 'PRD'
+    const variantName = variants[index].name || 'VAR'
+    const cleanVariant = variantName.slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'VAR'
+    const random = Math.random().toString(36).slice(2, 4).toUpperCase()
+    updateVariant(index, 'sku', `${base}-${cleanVariant}-${random}`)
   }
 
   const parseImages = (value: string) => value.split(/\r?\n/).map((url) => url.trim()).filter(Boolean)
@@ -144,8 +164,9 @@ export default function CreateProductPage() {
         originalPrice: form.originalPrice ? parseFloat(form.originalPrice) : null,
         stock: parseInt(form.stock) || 0,
         images: parseImages(form.images),
-        isActive: true,
-        status: 'ACTIVE',
+        isActive: !isDraft,
+        status: isDraft ? 'DRAFT' : 'ACTIVE',
+        draft: isDraft,
       }
 
       const response = await api.post<any>('/products', productData)
@@ -157,8 +178,10 @@ export default function CreateProductPage() {
           if (variant.name && variant.price) {
             await api.post(`/variants/products/${productId}`, {
               name: variant.name,
+              sku: variant.sku || undefined,
               price: parseFloat(variant.price),
               stock: parseInt(variant.stock) || 0,
+              image: variant.image || undefined,
             })
           }
         }
@@ -203,6 +226,30 @@ export default function CreateProductPage() {
             onChange={(e) => updateField('name', e.target.value)}
             required
           />
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-warm-900 mb-1.5">SKU (optional)</label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="SKU"
+                  value={form.sku}
+                  onChange={(e) => updateField('sku', e.target.value)}
+                  className="flex-1"
+                />
+                <Button type="button" variant="outline" size="sm" onClick={generateSku}>
+                  <Hash size={16} />
+                </Button>
+              </div>
+            </div>
+            <Input
+              label="Brand (optional)"
+              placeholder="e.g., Nike, Apple"
+              value={form.brand}
+              onChange={(e) => updateField('brand', e.target.value)}
+            />
+          </div>
+
           <div>
             <div className="flex items-center justify-between gap-3 mb-2">
               <label className="block text-sm font-medium text-warm-900">Product images</label>
@@ -236,6 +283,17 @@ export default function CreateProductPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-warm-900 mb-1.5">Short Description (optional)</label>
+            <textarea
+              className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4 text-warm-900 placeholder:text-warm-800/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              rows={2}
+              placeholder="Brief summary for product cards..."
+              value={form.shortDescription}
+              onChange={(e) => updateField('shortDescription', e.target.value)}
+            />
           </div>
 
           <div>
@@ -300,12 +358,26 @@ export default function CreateProductPage() {
                 </div>
           </div>
 
-          <Input
-            label="Image URL"
-            placeholder="https://example.com/product.jpg"
-            value={form.images}
-            onChange={(e) => updateField('images', e.target.value)}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-warm-900 mb-1.5">Platform Category</label>
+              <select
+                className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4 text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                value={form.categoryId}
+                onChange={(e) => updateField('categoryId', e.target.value)}
+                required
+              >
+                <option value="">Select category</option>
+                {platformCategories.map((cat: any) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+                <div>
+                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Shop Category (optional)</label>
+                  <select className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4" value={form.shopCategoryId} onChange={(e) => updateField('shopCategoryId', e.target.value)}><option value="">No shop category</option>{categories.filter(category => category.shopCategory).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+                </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Input
@@ -314,6 +386,25 @@ export default function CreateProductPage() {
               value={form.area}
               onChange={(e) => updateField('area', e.target.value)}
             />
+            <Input
+              label="Condition"
+              value={form.condition}
+              onChange={(e) => updateField('condition', e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-warm-50 rounded-xl border border-warm-200">
+            <div>
+              <p className="text-sm font-medium text-warm-900">Publish immediately</p>
+              <p className="text-xs text-warm-800/60">Turn off to save as draft</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsDraft(!isDraft)}
+              className={`relative w-12 h-7 rounded-full transition-colors duration-200 flex-shrink-0 ${!isDraft ? 'bg-primary' : 'bg-warm-200'}`}
+            >
+              <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${!isDraft ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
           </div>
 
           {/* Variants */}
@@ -325,18 +416,35 @@ export default function CreateProductPage() {
               </Button>
             </div>
             {variants.map((variant, index) => (
-              <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2 mb-2">
+              <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 mb-2">
                 <Input
-                  placeholder="Name"
+                  placeholder="Name (e.g., Black / L)"
                   value={variant.name}
                   onChange={(e) => updateVariant(index, 'name', e.target.value)}
                 />
+                <div className="flex gap-1">
+                  <Input
+                    placeholder="SKU"
+                    value={variant.sku}
+                    onChange={(e) => updateVariant(index, 'sku', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={() => generateVariantSku(index)}>
+                    <Hash size={14} />
+                  </Button>
+                </div>
                 <Input
                   placeholder="Price"
                   type="number"
                   step="0.01"
                   value={variant.price}
                   onChange={(e) => updateVariant(index, 'price', e.target.value)}
+                />
+                <Input
+                  placeholder="Stock"
+                  type="number"
+                  value={variant.stock}
+                  onChange={(e) => updateVariant(index, 'stock', e.target.value)}
                 />
                 <Button
                   type="button"
@@ -349,10 +457,13 @@ export default function CreateProductPage() {
                 </Button>
               </div>
             ))}
+            {variants.length === 0 && (
+              <p className="text-xs text-warm-800/60">No variants added. Simple products don&apos;t need variants.</p>
+            )}
           </Card>
 
           <Button type="submit" fullWidth disabled={loading}>
-            {loading ? 'Creating Product...' : 'Create Product'}
+            {loading ? 'Creating Product...' : isDraft ? 'Save Draft' : 'Create Product'}
           </Button>
         </form>
       </div>

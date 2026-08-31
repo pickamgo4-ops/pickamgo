@@ -9,6 +9,24 @@ import { publicProductVisibility } from '../utils/visibility'
 const router = Router()
 const imageUrl = z.string().refine(value => value.startsWith('/') || /^https?:\/\//.test(value), 'Invalid image URL')
 
+function generateSku(sellerId: string, productId?: string): string {
+  const prefix = 'PGH'
+  const sellerPrefix = sellerId.substring(0, 4).toUpperCase()
+  const productPart = productId ? productId.substring(0, 8) : Date.now().toString(36)
+  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase()
+  return `${prefix}-${sellerPrefix}-${productPart}-${randomPart}`
+}
+
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+    .substring(0, 100)
+}
+
 const listProductsQuerySchema = z.object({
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
@@ -29,6 +47,10 @@ const listProductsQuerySchema = z.object({
 const createProductSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().min(1, 'Description is required'),
+  shortDescription: z.string().optional(),
+  sku: z.string().optional(),
+  slug: z.string().optional(),
+  brand: z.string().optional(),
   price: z.number().positive('Price must be positive'),
   originalPrice: z.number().positive().optional(),
   discount: z.number().min(0).max(100).optional(),
@@ -40,6 +62,8 @@ const createProductSchema = z.object({
   area: z.string().optional(),
   campus: z.string().optional(),
   condition: z.string().default('new'),
+  draft: z.boolean().optional(),
+  publishedAt: z.coerce.date().optional(),
   images: z.array(imageUrl).default([]),
   isTrending: z.boolean().optional(),
   isNew: z.boolean().optional(),
@@ -49,6 +73,10 @@ const createProductSchema = z.object({
 const updateProductSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
+  shortDescription: z.string().optional(),
+  sku: z.string().optional(),
+  slug: z.string().optional(),
+  brand: z.string().optional(),
   price: z.number().positive().optional(),
   originalPrice: z.number().positive().optional(),
   discount: z.number().min(0).max(100).optional(),
@@ -59,6 +87,8 @@ const updateProductSchema = z.object({
   area: z.string().optional(),
   campus: z.string().optional(),
   condition: z.string().optional(),
+  draft: z.boolean().optional(),
+  publishedAt: z.coerce.date().optional(),
   images: z.array(imageUrl).optional(),
   isTrending: z.boolean().optional(),
   isNew: z.boolean().optional(),
@@ -83,7 +113,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
       radius,
     } = req.query as z.infer<typeof listProductsQuerySchema>
 
-    const where: any = { ...publicProductVisibility }
+    const where: any = { ...publicProductVisibility, draft: false }
 
     const shopStatusOk = await prisma.shop.count({ where: { status: 'ACTIVE' } })
     if (shopStatusOk === 0) {
@@ -96,6 +126,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
+        { shortDescription: { contains: search, mode: 'insensitive' } },
         { shop: { name: { contains: search, mode: 'insensitive' } } },
         { category: { name: { contains: search, mode: 'insensitive' } } },
       ]
@@ -237,6 +268,10 @@ router.post(
       const {
         name,
         description,
+        shortDescription,
+        sku,
+        slug,
+        brand,
         price,
         originalPrice,
         discount,
@@ -248,6 +283,8 @@ router.post(
         area,
         campus,
         condition,
+        draft,
+        publishedAt,
         images,
         isTrending,
         isNew,
@@ -277,10 +314,31 @@ router.post(
         if (!shopCategory) return errorResponse(res, 'Shop category does not belong to your shop', 400)
       }
 
+      if (sku) {
+        const existingSku = await prisma.product.findFirst({
+          where: { sku, sellerId: userId },
+        })
+        if (existingSku) {
+          return errorResponse(res, 'A product with this SKU already exists for your account', 409)
+        }
+      }
+
+      const finalSlug = slug || generateSlug(name)
+      const slugExists = await prisma.product.findFirst({ where: { slug: finalSlug } })
+      if (slugExists) {
+        return errorResponse(res, 'A product with this slug already exists', 409)
+      }
+
+      const finalSku = sku || generateSku(userId)
+
       const product = await prisma.product.create({
         data: {
           name,
           description,
+          shortDescription,
+          sku: finalSku,
+          slug: finalSlug,
+          brand,
           price,
           originalPrice,
           discount,
@@ -292,6 +350,8 @@ router.post(
           isTrending: isTrending ?? false,
           isNew: isNew ?? false,
           isDeal: isDeal ?? false,
+          draft: draft ?? false,
+          publishedAt: publishedAt ? new Date(publishedAt) : null,
           shopId,
           sellerId: userId,
           categoryId,
@@ -362,6 +422,24 @@ router.patch(
         if (!category) return errorResponse(res, 'Category not found', 404)
       }
 
+      if (updateData.sku) {
+        const skuExists = await prisma.product.findFirst({
+          where: { sku: updateData.sku, sellerId: userId, id: { not: id } },
+        })
+        if (skuExists) {
+          return errorResponse(res, 'A product with this SKU already exists for your account', 409)
+        }
+      }
+
+      if (updateData.slug) {
+        const slugExists = await prisma.product.findFirst({
+          where: { slug: updateData.slug, id: { not: id } },
+        })
+        if (slugExists) {
+          return errorResponse(res, 'A product with this slug already exists', 409)
+        }
+      }
+
       const product = await prisma.$transaction(async (transaction) => {
         if (images) {
           await transaction.productImage.deleteMany({ where: { productId: id } })
@@ -370,6 +448,7 @@ router.patch(
         where: { id },
         data: {
           ...updateData,
+          ...(updateData.publishedAt ? { publishedAt: new Date(updateData.publishedAt) } : {}),
           ...(images ? { images: { create: images.map((url: string, index: number) => ({ url, sortOrder: index })) } } : {}),
         },
         include: {
@@ -431,5 +510,15 @@ router.delete(
     }
   }
 )
+
+router.get('/sku/generate', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = (req.user as any)?.userId || req.user?.id
+    const sku = generateSku(userId)
+    return successResponse(res, { sku })
+  } catch (error) {
+    return errorResponse(res, 'Failed to generate SKU', 500)
+  }
+})
 
 export default router

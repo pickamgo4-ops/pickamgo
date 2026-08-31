@@ -53,6 +53,7 @@ async function getCartForRequest(req: AuthenticatedRequest, res: any, createIfMi
                 shop: { select: { id: true, name: true, logo: true } },
               },
             },
+            variant: true,
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -77,6 +78,7 @@ async function getCartForRequest(req: AuthenticatedRequest, res: any, createIfMi
                   shop: { select: { id: true, name: true, logo: true } },
                 },
               },
+              variant: true,
             },
           },
         },
@@ -100,6 +102,7 @@ async function getCartForRequest(req: AuthenticatedRequest, res: any, createIfMi
                 shop: { select: { id: true, name: true, logo: true } },
               },
             },
+            variant: true,
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -124,6 +127,7 @@ async function getCartForRequest(req: AuthenticatedRequest, res: any, createIfMi
                   shop: { select: { id: true, name: true, logo: true } },
                 },
               },
+              variant: true,
             },
           },
         },
@@ -252,24 +256,25 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         const availableStock = variant?.stock ?? product?.stock ?? 0
         if (existingItem.quantity + quantity > availableStock) return errorResponse(res, 'Requested quantity exceeds available stock', 400)
       }
-      const updated = await prisma.cartItem.update({
-        where: { id: existingItem.id },
-        data: { quantity: existingItem.quantity + quantity },
-        include: {
-          product: {
-            include: {
-              images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-              shop: { select: { id: true, name: true, logo: true } },
-            },
-          },
-          service: {
-            include: {
-              images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-              shop: { select: { id: true, name: true, logo: true } },
-            },
+    const updated = await prisma.cartItem.update({
+      where: { id: existingItem.id },
+      data: { quantity: existingItem.quantity + quantity },
+      include: {
+        product: {
+          include: {
+            images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+            shop: { select: { id: true, name: true, logo: true } },
           },
         },
-      })
+        service: {
+          include: {
+            images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+            shop: { select: { id: true, name: true, logo: true } },
+          },
+        },
+        variant: true,
+      },
+    })
       return successResponse(res, updated, 200, 'Cart item updated')
     }
 
@@ -298,6 +303,7 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
             shop: { select: { id: true, name: true, logo: true } },
           },
         },
+        variant: true,
       },
     })
 
@@ -342,6 +348,7 @@ router.patch('/items/:id', optionalAuthMiddleware, validateBody(updateCartItemSc
             shop: { select: { id: true, name: true, logo: true } },
           },
         },
+        variant: true,
       },
     })
 
@@ -484,6 +491,7 @@ router.post('/merge', authMiddleware, async (req: AuthenticatedRequest, res) => 
                 shop: { select: { id: true, name: true, logo: true } },
               },
             },
+            variant: true,
           },
         },
       },

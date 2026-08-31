@@ -26,6 +26,14 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [addingToCart, setAddingToCart] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
+
+  const activeVariant = product?.variants?.find(v => v.id === selectedVariantId) || null
+  const hasVariants = (product?.variants?.length || 0) > 0
+  const selectedVariantStock = activeVariant ? activeVariant.stock : (product?.stock ?? 0)
+  const isOutOfStock = selectedVariantStock <= 0
+  const variantRequiredButNotSelected = hasVariants && !selectedVariantId
+  const canPurchase = !isOutOfStock && !variantRequiredButNotSelected
 
   useEffect(() => {
     if (!productId) return
@@ -109,6 +117,7 @@ export default function ProductPage() {
     try {
       const response = await api.post<CartItemWithRelations>('/cart/items', {
         productId: product.id,
+        variantId: selectedVariantId || undefined,
         quantity,
       })
       if (response.success) {
@@ -124,7 +133,7 @@ export default function ProductPage() {
     } finally {
       setAddingToCart(false)
     }
-  }, [product, quantity])
+  }, [product, quantity, selectedVariantId])
 
   const handleBuyNow = async () => {
     const success = await addToCart(true)
@@ -170,7 +179,7 @@ export default function ProductPage() {
     )
   }
 
-  const safeProduct = {
+  const safeProduct: Product = {
     image: product.image || '',
     images: Array.isArray(product.images) ? product.images.filter(Boolean) : [],
     name: product.name || 'Untitled Product',
@@ -180,7 +189,7 @@ export default function ProductPage() {
     description: product.description || '',
     category: product.category || '',
     seller: product.seller || { id: '', name: 'Unknown Seller', avatar: '', location: '', rating: 0, isVerified: false, responseTime: '' },
-    shop: product.shop || null,
+    shop: product.shop || undefined,
     location: product.location || '',
     distance: product.distance || '',
     rating: product.rating || 0,
@@ -190,9 +199,15 @@ export default function ProductPage() {
     isDeal: product.isDeal || false,
     isVerified: product.isVerified || false,
     isFavorite: product.isFavorite || false,
-  }
+    stock: product.stock ?? 0,
+    sku: product.sku,
+    brand: product.brand,
+    shortDescription: product.shortDescription,
+    variants: product.variants,
+    createdAt: product.createdAt,
+  } as Product
 
-  const images = Array.from(new Set([safeProduct.image, ...safeProduct.images, safeProduct.image].filter(Boolean)))
+  const images = Array.from(new Set([safeProduct.image, ...(safeProduct.images || []), safeProduct.image].filter(Boolean)))
 
   useEffect(() => {
     if (selectedImage >= images.length) {
@@ -276,29 +291,86 @@ export default function ProductPage() {
            {safeProduct.isVerified && <Badge variant="verified"><CheckCircle2 size={12} /> Verified</Badge>}
          </div>
 
-         {/* Name */}
-         <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900 mb-2">
-           {safeProduct.name}
-         </h1>
+          {/* Name */}
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900 mb-2">
+            {safeProduct.name}
+          </h1>
 
-         {/* Price */}
-         <div className="flex items-baseline gap-3 mb-4">
-           <span className="text-3xl font-bold text-warm-900">
-             GH₵{safeProduct.price}
-           </span>
-           {safeProduct.originalPrice && (
-             <span className="text-lg text-warm-800/40 line-through">
-               GH₵{safeProduct.originalPrice}
-             </span>
-           )}
-           {safeProduct.discount && (
-             <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-               Save {safeProduct.discount}%
-             </span>
-           )}
-         </div>
+          {safeProduct.variants && safeProduct.variants.length > 0 && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-warm-900 mb-2">Select Option</label>
+              <div className="flex flex-wrap gap-2">
+                {safeProduct.variants.map((variant) => {
+                  const isSelected = selectedVariantId === variant.id
+                  const isOutOfStock = variant.stock <= 0
+                  return (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      disabled={isOutOfStock}
+                      onClick={() => setSelectedVariantId(isSelected ? null : variant.id)}
+                      className={`px-4 py-2 rounded-xl border-2 text-sm font-medium transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : isOutOfStock
+                            ? 'border-warm-200 text-warm-800/40 cursor-not-allowed line-through'
+                            : 'border-warm-200 hover:border-primary/40 text-warm-900'
+                      }`}
+                    >
+                      {variant.name}
+                      {variant.stock <= 5 && variant.stock > 0 && (
+                        <span className="ml-2 text-xs text-orange-600">Only {variant.stock} left</span>
+                      )}
+                      {isOutOfStock && <span className="ml-2 text-xs text-red-600">Out of stock</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
-         {/* Rating & Location */}
+          {(() => {
+            const activeVariant = safeProduct.variants?.find(v => v.id === selectedVariantId)
+            const displayPrice = activeVariant ? (activeVariant.price || safeProduct.price) : safeProduct.price
+            const displayOriginalPrice = activeVariant ? (activeVariant.originalPrice || safeProduct.originalPrice) : safeProduct.originalPrice
+            const displayDiscount = activeVariant ? ((activeVariant.originalPrice && activeVariant.price && activeVariant.originalPrice > activeVariant.price) ? Math.round(((activeVariant.originalPrice - activeVariant.price) / activeVariant.originalPrice) * 100) : undefined) : safeProduct.discount
+            const displayStock = activeVariant ? activeVariant.stock : safeProduct.stock
+            const isOutOfStock = displayStock <= 0
+
+            return (
+              <>
+                <div className="flex items-baseline gap-3 mb-4">
+                  <span className="text-3xl font-bold text-warm-900">
+                    GH₵{displayPrice}
+                  </span>
+                  {displayOriginalPrice && (
+                    <span className="text-lg text-warm-800/40 line-through">
+                      GH₵{displayOriginalPrice}
+                    </span>
+                  )}
+                  {displayDiscount && (
+                    <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+                      Save {displayDiscount}%
+                    </span>
+                  )}
+                </div>
+
+                {isOutOfStock && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium">
+                    Out of stock
+                  </div>
+                )}
+
+                {!isOutOfStock && displayStock <= 5 && (
+                  <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-xl text-orange-700 text-sm font-medium">
+                    Only {displayStock} left in stock
+                  </div>
+                )}
+              </>
+            )
+          })()}
+
+          {/* Rating & Location */}
          <div className="flex flex-wrap items-center gap-4 mb-6 text-sm text-warm-800/70">
            <div className="flex items-center gap-1">
              <Star size={18} className="fill-yellow-400 text-yellow-400" />
@@ -407,7 +479,7 @@ export default function ProductPage() {
             fullWidth
             className="flex-1"
             onClick={() => addToCart(false)}
-            disabled={addingToCart}
+            disabled={addingToCart || !canPurchase}
           >
             {addingToCart ? 'Adding...' : 'Add to Cart'}
           </Button>
@@ -416,7 +488,7 @@ export default function ProductPage() {
             fullWidth
             className="flex-[2]"
             onClick={handleBuyNow}
-            disabled={addingToCart}
+            disabled={addingToCart || !canPurchase}
           >
             {addingToCart ? 'Adding...' : 'Buy Now'}
           </Button>
@@ -446,23 +518,23 @@ export default function ProductPage() {
               <Plus size={18} />
             </button>
           </div>
-          <button
-            onClick={() => addToCart(false)}
-            disabled={addingToCart}
-            className="p-2.5 rounded-xl border border-warm-200 hover:bg-warm-100 transition-colors"
-            aria-label="Add to cart"
-          >
-            <ShoppingCart size={20} className={addingToCart ? 'text-warm-800/50' : 'text-warm-800'} />
-          </button>
-          <Button
-            variant="primary"
-            fullWidth
-            className="flex-[2]"
-            onClick={handleBuyNow}
-            disabled={addingToCart}
-          >
-            {addingToCart ? 'Adding...' : 'Buy Now'}
-          </Button>
+           <button
+             onClick={() => addToCart(false)}
+             disabled={addingToCart || !canPurchase}
+             className="p-2.5 rounded-xl border border-warm-200 hover:bg-warm-100 transition-colors disabled:opacity-50"
+             aria-label="Add to cart"
+           >
+             <ShoppingCart size={20} className={addingToCart ? 'text-warm-800/50' : 'text-warm-800'} />
+           </button>
+           <Button
+             variant="primary"
+             fullWidth
+             className="flex-[2]"
+             onClick={handleBuyNow}
+             disabled={addingToCart || !canPurchase}
+           >
+             {addingToCart ? 'Adding...' : 'Buy Now'}
+           </Button>
         </div>
       </div>
 

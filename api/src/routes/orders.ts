@@ -23,6 +23,7 @@ const createOrderSchema = z.object({
   items: z.array(z.object({
     productId: z.string().optional(),
     serviceId: z.string().optional(),
+    variantId: z.string().optional(),
     quantity: z.number().min(1).default(1),
   })).min(1),
   deliveryAddress: z.string().min(5),
@@ -131,19 +132,45 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(createOrder
       if (!product || product.status !== 'ACTIVE') {
         return errorResponse(res, `Product ${item.productId} is not available`, 400)
       }
-      if (product.stock < item.quantity) {
-        return errorResponse(res, `Insufficient stock for ${product.name}`, 400)
+
+      let itemPrice = Number(product.price)
+      let variantId: string | undefined
+      let sku: string | undefined
+      let variantName: string | undefined
+      let variantAttributes: string | undefined
+
+      if (item.variantId) {
+        const variant = await prisma.productVariant.findUnique({ where: { id: item.variantId } })
+        if (!variant || !variant.isActive || variant.productId !== product.id) {
+          return errorResponse(res, 'Variant not found or unavailable', 404)
+        }
+        if (variant.stock < item.quantity) {
+          return errorResponse(res, `Insufficient stock for selected variant`, 400)
+        }
+        itemPrice = Number(variant.price || product.price)
+        variantId = variant.id
+        sku = variant.sku || undefined
+        variantName = variant.name
+        variantAttributes = variant.attributes || undefined
+      } else {
+        if (product.stock < item.quantity) {
+          return errorResponse(res, `Insufficient stock for ${product.name}`, 400)
+        }
       }
 
       orderItems.push({
         productId: product.id,
+        variantId,
+        sku,
+        variantName,
+        variantAttributes,
         name: product.name,
-        price: product.price,
+        price: itemPrice,
         image: product.images[0]?.url || '',
         quantity: item.quantity,
       })
 
-      total += Number(product.price) * item.quantity
+      total += itemPrice * item.quantity
     }
 
     if (item.serviceId) {
@@ -204,6 +231,13 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(createOrder
           where: { id: item.productId },
           data: { stock: { decrement: item.quantity } },
         })
+
+        if (item.variantId) {
+          await tx.productVariant.updateMany({
+            where: { id: item.variantId, productId: item.productId, isActive: true, stock: { gte: item.quantity } },
+            data: { stock: { decrement: item.quantity } },
+          })
+        }
       }
     }
 

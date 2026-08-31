@@ -43,8 +43,23 @@ router.post('/products/:productId', authMiddleware, requireRole(['SELLER']), val
     if (!product) return errorResponse(res, 'Product not found', 404)
     if (product.sellerId !== userId) return errorResponse(res, 'Not authorized', 403)
 
+    if (req.body.sku) {
+      const existingVariant = await prisma.productVariant.findFirst({
+        where: { productId, sku: req.body.sku },
+      })
+      if (existingVariant) {
+        return errorResponse(res, 'A variant with this SKU already exists for this product', 409)
+      }
+    }
+
+    const isLowStock = req.body.stock > 0 && req.body.stock <= 5
+
     const variant = await prisma.productVariant.create({
-      data: { ...req.body, productId },
+      data: {
+        ...req.body,
+        productId,
+        isLowStock,
+      },
     })
 
     return successResponse(res, variant, 201, 'Variant created successfully')
@@ -62,9 +77,25 @@ router.patch('/:id', authMiddleware, requireRole(['SELLER']), validateBody(updat
     if (!variant) return errorResponse(res, 'Variant not found', 404)
     if (variant.product.sellerId !== userId) return errorResponse(res, 'Not authorized', 403)
 
+    if (req.body.sku) {
+      const existingVariant = await prisma.productVariant.findFirst({
+        where: { productId: variant.productId, sku: req.body.sku, id: { not: id } },
+      })
+      if (existingVariant) {
+        return errorResponse(res, 'A variant with this SKU already exists for this product', 409)
+      }
+    }
+
+    const isLowStock = req.body.stock !== undefined
+      ? req.body.stock > 0 && req.body.stock <= 5
+      : variant.isLowStock
+
     const updated = await prisma.productVariant.update({
       where: { id },
-      data: req.body,
+      data: {
+        ...req.body,
+        isLowStock,
+      },
     })
 
     return successResponse(res, updated, undefined, 'Variant updated successfully')

@@ -27,6 +27,56 @@ const router = Router();
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 
+function parseUserAgent(userAgent?: string) {
+  if (!userAgent) return { device: null, browser: null, os: null }
+
+  let device = "desktop"
+  if (/mobile|android|iphone|ipod/i.test(userAgent)) {
+    device = /ipad|tablet/i.test(userAgent) ? "tablet" : "mobile"
+  } else if (/ipad|tablet/i.test(userAgent)) {
+    device = "tablet"
+  }
+
+  let browser: string | null = null
+  if (/edg\//i.test(userAgent)) browser = "Edge"
+  else if (/opr\//i.test(userAgent) || /opera/i.test(userAgent)) browser = "Opera"
+  else if (/chrome/i.test(userAgent) && !/edg|opr/i.test(userAgent)) browser = "Chrome"
+  else if (/safari/i.test(userAgent) && !/chrome/i.test(userAgent)) browser = "Safari"
+  else if (/firefox/i.test(userAgent)) browser = "Firefox"
+
+  let os: string | null = null
+  if (/windows/i.test(userAgent)) os = "Windows"
+  else if (/macintosh|mac os x/i.test(userAgent)) os = "macOS"
+  else if (/linux/i.test(userAgent) && !/android/i.test(userAgent)) os = "Linux"
+  else if (/android/i.test(userAgent)) os = "Android"
+  else if (/iphone|ipad|ipod/i.test(userAgent)) os = "iOS"
+
+  return { device, browser, os }
+}
+
+async function createLoginHistory(userId: string, req: any, success: boolean, failureReason?: string) {
+  const userAgent = req.get?.("user-agent") || req.headers?.["user-agent"]
+  const ipAddress = (req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress || undefined) as string | undefined
+  const { device, browser, os } = parseUserAgent(userAgent)
+
+  try {
+    await prisma.loginHistory.create({
+      data: {
+        userId,
+        ipAddress: ipAddress || null,
+        userAgent: userAgent || null,
+        device,
+        browser,
+        os,
+        success,
+        failureReason: success ? null : (failureReason || "invalid_credentials"),
+      },
+    })
+  } catch (error) {
+    console.error("Failed to create login history:", error)
+  }
+}
+
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
@@ -389,6 +439,7 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
     }
 
     if (user.suspended || user.banned) {
+      await createLoginHistory(user.id, req, false, "account_suspended")
       return errorResponse(
         res,
         "Your account has been suspended or banned. Contact support for assistance.",
@@ -398,6 +449,7 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
+      await createLoginHistory(user.id, req, false, "invalid_password")
       return errorResponse(res, "Invalid email or password", 401);
     }
 
@@ -455,6 +507,8 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
         "Please verify your email address.",
       );
     }
+
+    await createLoginHistory(user.id, req, true);
 
     const token = generateToken(user);
     const { passwordHash: _, ...userWithoutPassword } = user;

@@ -417,10 +417,18 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       productCampus = shop.campus || undefined
     }
 
+    const variant = item.variantId ? await prisma.productVariant.findUnique({
+      where: { id: item.variantId },
+      select: { sku: true, name: true, attributes: true },
+    }) : null
+
     const orderItem = {
       productId,
       serviceId,
       variantId: item.variantId || null,
+      sku: variant?.sku || null,
+      variantName: variant?.name || null,
+      variantAttributes: variant?.attributes || null,
       quantity: item.quantity,
       price: itemPrice,
       name: itemName,
@@ -523,6 +531,10 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
             orderId: newOrder.id,
             productId: item.productId || null,
             serviceId: item.serviceId || null,
+            variantId: item.variantId || null,
+            sku: item.sku || null,
+            variantName: item.variantName || null,
+            variantAttributes: item.variantAttributes || null,
             quantity: item.quantity,
             price: item.price,
             name: item.name,

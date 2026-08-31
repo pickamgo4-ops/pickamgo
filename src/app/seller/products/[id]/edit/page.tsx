@@ -31,6 +31,9 @@ export default function EditProductPage() {
       setForm({
         name: value.name,
         description: value.description,
+        shortDescription: value.shortDescription || '',
+        sku: value.sku || '',
+        brand: value.brand || '',
         price: value.price,
         originalPrice: value.originalPrice || '',
         stock: value.stock,
@@ -39,7 +42,10 @@ export default function EditProductPage() {
         location: value.location,
         area: value.area || '',
         condition: value.condition,
-        images: value.images?.map((image: any) => image.url).join('\n') || '',
+        images: value.images?.map((image: any) => image.url || image).join('\n') || '',
+        status: value.status || 'ACTIVE',
+        draft: value.draft || false,
+        publishedAt: value.publishedAt || '',
       })
       const [platformResponse, shop] = await Promise.all([
         api.get<any>('/categories'),
@@ -195,6 +201,13 @@ export default function EditProductPage() {
                 </div>
               )}
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="SKU" value={form.sku} onChange={e => update('sku', e.target.value)} placeholder="e.g., GEL-NAILS-01" />
+              <Input label="Brand" value={form.brand} onChange={e => update('brand', e.target.value)} placeholder="e.g., Nike" />
+            </div>
+            <label className="block text-sm font-medium">Short Description
+              <textarea value={form.shortDescription} onChange={e => update('shortDescription', e.target.value)} className="mt-2 w-full rounded-xl border border-warm-200 p-3" rows={2} placeholder="Brief summary for product cards..." />
+            </label>
             <div className="flex gap-3">
               <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Product'}</Button>
               <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>

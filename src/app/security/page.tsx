@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Shield, Mail, Phone, Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, Shield, Mail, Phone, Lock, Eye, EyeOff, CheckCircle, XCircle, Monitor, Globe } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
 import { Button } from '../../components/ui/Button'
@@ -12,6 +12,17 @@ import { Badge } from '../../components/ui/Badge'
 import { api } from '../../lib/api'
 import { useRole } from '../../contexts/RoleContext'
 
+interface LoginHistoryEntry {
+  id: string
+  success: boolean
+  failureReason?: string
+  device?: string
+  browser?: string
+  os?: string
+  location?: string
+  createdAt: string
+}
+
 export default function SecurityPage() {
   const router = useRouter()
   const { user, loading, authInitialized } = useRole()
@@ -19,14 +30,31 @@ export default function SecurityPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [loginHistory, setLoginHistory] = useState<LoginHistoryEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
 
   useEffect(() => {
     if (!authInitialized) return
     if (!user) router.push('/auth/login')
     else {
       setForm(f => ({ ...f, name: user.name || '', email: user.email || '', phone: '' }))
+      loadLoginHistory()
     }
   }, [user, authInitialized, router])
+
+  const loadLoginHistory = async () => {
+    setHistoryLoading(true)
+    try {
+      const response = await api.get<any>('/auth/login-history')
+      if (response.success && response.data) {
+        setLoginHistory(response.data.history || [])
+      }
+    } catch {
+      // ignore
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
 
   const updateField = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }))
 
@@ -142,6 +170,53 @@ export default function SecurityPage() {
               </button>
               <Button type="submit" fullWidth disabled={saving}>{saving ? 'Updating...' : 'Change Password'}</Button>
             </form>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Monitor size={18} className="text-primary" />
+              <h3 className="font-semibold text-warm-900">Login History</h3>
+            </div>
+            <p className="text-xs text-warm-800/60 mb-4">Review recent login activity on your PickAmGo account.</p>
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : loginHistory.length === 0 ? (
+              <p className="text-sm text-warm-800/60 text-center py-6">No login history available yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {loginHistory.slice(0, 20).map((entry) => (
+                  <div key={entry.id} className="flex items-start justify-between gap-3 p-3 bg-warm-50 rounded-xl border border-warm-200">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${entry.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {entry.success ? <CheckCircle size={16} /> : <XCircle size={16} />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-warm-900">
+                          {entry.success ? 'Successful login' : 'Failed login'}
+                        </p>
+                        <p className="text-xs text-warm-800/60">
+                          {[entry.browser, entry.os, entry.device].filter(Boolean).join(' • ') || 'Unknown device'}
+                        </p>
+                        <div className="flex items-center gap-1 text-xs text-warm-800/60 mt-1">
+                          <Globe size={12} />
+                          <span>{entry.location || 'Unknown location'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-warm-800/60 whitespace-nowrap">
+                        {new Date(entry.createdAt).toLocaleDateString('en-GH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                      <p className="text-xs text-warm-800/60">
+                        {new Date(entry.createdAt).toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
       </main>

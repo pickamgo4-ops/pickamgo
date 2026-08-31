@@ -28,6 +28,11 @@ export interface Product {
   isNew?: boolean;
   isDeal?: boolean;
   isFavorite?: boolean;
+  stock: number;
+  sku?: string;
+  brand?: string;
+  shortDescription?: string;
+  variants?: ProductVariant[];
   createdAt: string;
 }
 
