@@ -45,7 +45,7 @@ export default function EditProductPage() {
         images: value.images?.map((image: any) => image.url || image).join('\n') || '',
         status: value.status || 'ACTIVE',
         draft: value.draft || false,
-        publishedAt: value.publishedAt || '',
+        publishedAt: value.publishedAt || undefined,
       })
       const [platformResponse, shop] = await Promise.all([
         api.get<any>('/categories'),

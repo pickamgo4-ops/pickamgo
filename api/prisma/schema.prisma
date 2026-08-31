@@ -422,6 +422,8 @@ model ProductImage {
   productId String
   url       String
   sortOrder Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
@@ -470,6 +472,8 @@ model ServiceImage {
   serviceId String
   url       String
   sortOrder Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@index([serviceId])
