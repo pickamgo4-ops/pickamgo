@@ -135,19 +135,20 @@ export default function ConversationPage() {
 
         const conversation = response.data.conversation
         const shop = conversation?.shop
+        const nextUserId = getCurrentUserId()
         const participant = conversation?.participant1?.id === userId
           ? conversation.participant1
           : conversation?.participant2?.id === userId
             ? conversation.participant2
             : null
         if (participant) {
+          const viewingAsShop = shop?.ownerId === nextUserId
           setConversationUser({
-            name: participant.name || 'User',
-            avatar: participant.avatar || '',
-            shopName: shop?.name,
+            name: viewingAsShop ? participant.name || 'Customer' : shop?.name || participant.name || 'User',
+            avatar: viewingAsShop ? participant.avatar || '' : shop?.logo || participant.avatar || '',
+            shopName: viewingAsShop ? 'Customer' : 'Shop',
           })
         }
-        const nextUserId = getCurrentUserId()
         if (nextUserId) setCurrentUserId(nextUserId)
       }
     } catch (err) {

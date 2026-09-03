@@ -65,7 +65,7 @@ async function resolveConversationShop(currentUserId: string, otherUserId: strin
   if (shopId) {
     return prisma.shop.findUnique({
       where: { id: shopId },
-      select: { id: true, name: true, logo: true },
+      select: { id: true, name: true, logo: true, ownerId: true },
     })
   }
 
@@ -81,7 +81,7 @@ async function resolveConversationShop(currentUserId: string, otherUserId: strin
         { services: { some: { providerId: otherUserId } } },
       ],
     },
-    select: { id: true, name: true, logo: true },
+    select: { id: true, name: true, logo: true, ownerId: true },
   })
 }
 
@@ -120,7 +120,7 @@ router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, r
           include: { sender: { select: { id: true, name: true } } },
         },
         order: { select: { id: true, orderNumber: true, status: true } },
-        shop: { select: { id: true, name: true, logo: true } },
+        shop: { select: { id: true, name: true, logo: true, ownerId: true } },
         _count: { select: { messages: { where: { isRead: false, senderId: { not: userId } } } } },
       },
       orderBy: { updatedAt: 'desc' },
@@ -183,7 +183,7 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
           participant1: { select: { id: true, name: true, avatar: true } },
           participant2: { select: { id: true, name: true, avatar: true } },
           order: { select: { orderNumber: true, status: true } },
-          shop: { select: { id: true, name: true, logo: true } },
+          shop: { select: { id: true, name: true, logo: true, ownerId: true } },
         },
       })
     }
