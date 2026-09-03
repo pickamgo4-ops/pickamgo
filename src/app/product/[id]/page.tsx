@@ -23,6 +23,7 @@ export default function ProductPage() {
   const [recommendations, setRecommendations] = useState<Product[]>([])
   const [recommendationsLoading, setRecommendationsLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState(0)
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false)
   const [isFavorite, setIsFavorite] = useState(false)
   const [favoriteLoading, setFavoriteLoading] = useState(false)
   const [quantity, setQuantity] = useState(1)
@@ -186,6 +187,17 @@ export default function ProductPage() {
     setSelectedImage(current => (current + 1) % images.length)
   }
 
+  useEffect(() => {
+    if (!isImageViewerOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsImageViewerOpen(false)
+      if (event.key === 'ArrowLeft') showPreviousImage()
+      if (event.key === 'ArrowRight') showNextImage()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isImageViewerOpen])
+
   if (loading) {
     return (
       <div className="min-h-screen pb-24 md:pb-8">
@@ -277,6 +289,7 @@ export default function ProductPage() {
                <img
                  src={images[selectedImage] || safeProduct.image}
                  alt={safeProduct.name}
+                 onClick={() => setIsImageViewerOpen(true)}
                  className="h-full w-full object-cover"
                />
             </div>
@@ -334,6 +347,51 @@ export default function ProductPage() {
           </div>
         </div>
       </div>
+
+      {isImageViewerOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${safeProduct.name} image viewer`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setIsImageViewerOpen(false)}
+        >
+          <button
+            type="button"
+            aria-label="Close image viewer"
+            onClick={() => setIsImageViewerOpen(false)}
+            className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-2xl text-warm-900 shadow-sm"
+          >
+            ×
+          </button>
+          {images.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous full-size image"
+                onClick={(event) => { event.stopPropagation(); showPreviousImage() }}
+                className="absolute left-3 sm:left-6 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-sm"
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <button
+                type="button"
+                aria-label="Next full-size image"
+                onClick={(event) => { event.stopPropagation(); showNextImage() }}
+                className="absolute right-3 sm:right-6 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-sm"
+              >
+                <ChevronLeft size={22} className="rotate-180" />
+              </button>
+            </>
+          )}
+          <img
+            src={images[selectedImage] || safeProduct.image}
+            alt={safeProduct.name}
+            onClick={(event) => event.stopPropagation()}
+            className="max-h-[88vh] max-w-[92vw] object-contain"
+          />
+        </div>
+      )}
 
       {/* Product Info */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
