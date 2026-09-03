@@ -1,7 +1,8 @@
 import React from 'react'
-import { Heart, MapPin, Star, Clock, Flame, Sparkles, Tag, CheckCircle2 } from 'lucide-react'
+import { Heart, Share2, MapPin, Star, Clock, Flame, Sparkles, Tag, CheckCircle2 } from 'lucide-react'
 import { Product } from '../../types'
 import { Badge } from '../../components/ui/Badge'
+import { shareLink } from '../../lib/share'
 
 interface ProductCardProps {
   product: Product
@@ -49,6 +50,22 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
             size={16}
             className={product.isFavorite ? 'fill-red-500 text-red-500' : 'text-warm-800'}
           />
+        </button>
+
+        <button
+          type="button"
+          aria-label={`Share ${product.name}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            void shareLink({
+              title: product.name,
+              text: `Check out ${product.name} on PickAmGo`,
+              url: `${window.location.origin}/product/${product.id}`,
+            })
+          }}
+          className="absolute top-12 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+        >
+          <Share2 size={16} className="text-warm-800" />
         </button>
 
         {/* Discount Badge */}

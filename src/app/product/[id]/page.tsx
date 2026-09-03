@@ -9,6 +9,7 @@ import { api } from '../../../lib/api'
 import { Product, CartItemWithRelations } from '../../../types'
 import { mapApiProductToFrontend } from '../../../lib/api-mappers'
 import { getShopUrl } from '../../../lib/shop-url'
+import { shareLink } from '../../../lib/share'
 import { ProductCard } from '../../../components/product/ProductCard'
 import { PaymentSafetyNotice } from '../../../components/ui/PaymentSafetyNotice'
 import { useRole } from '../../../contexts/RoleContext'
@@ -150,6 +151,15 @@ export default function ProductPage() {
     }
   }
 
+  const handleShareProduct = () => {
+    if (!product || typeof window === 'undefined') return
+    void shareLink({
+      title: product.name,
+      text: `Check out ${product.name} on PickAmGo`,
+      url: window.location.href,
+    })
+  }
+
   const images = product
     ? Array.from(new Set([product.image, ...(product.images || []), product.image].filter(Boolean)))
     : []
@@ -269,7 +279,7 @@ export default function ProductPage() {
                     className={isFavorite ? 'fill-red-500 text-red-500' : 'text-warm-800'}
                   />
                 </button>
-                <button className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
+                <button type="button" aria-label="Share product" onClick={handleShareProduct} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
                   <Share2 size={20} className="text-warm-800" />
                 </button>
               </div>

@@ -12,6 +12,7 @@ import { api } from '../../../lib/api'
 import { Shop, Product, BeautyService } from '../../../types'
 import { mapApiShopToFrontend, mapApiProductToFrontend, mapApiServiceToFrontend } from '../../../lib/api-mappers'
 import { defaultShopCustomization, readableTextColor, themeClass, ShopCustomization } from '../../../lib/shop-themes'
+import { shareLink } from '../../../lib/share'
 import dynamic from 'next/dynamic'
 
 const GoogleMap = dynamic(() => import('../../../components/map/GoogleMap'), { ssr: false })
@@ -103,6 +104,15 @@ export default function ShopPage() {
     }
   }
 
+  const handleShareShop = () => {
+    if (!shop || typeof window === 'undefined') return
+    void shareLink({
+      title: shop.name,
+      text: `Check out ${shop.name} on PickAmGo`,
+      url: window.location.href,
+    })
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen pb-24 md:pb-8">
@@ -158,7 +168,7 @@ export default function ShopPage() {
             <ChevronLeft size={20} />
           </button>
           <div className="flex gap-2">
-            <button aria-label="Share shop" className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
+            <button type="button" aria-label="Share shop" onClick={handleShareShop} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
               <Share2 size={20} className="text-warm-800" />
             </button>
           </div>
