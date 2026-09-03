@@ -15,6 +15,12 @@ if (missing.length > 0) {
   process.exit(1)
 }
 
+const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.trim()
+if (!/^AIza[0-9A-Za-z_-]{20,}$/.test(mapsKey)) {
+  console.error('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is present but does not look like a Google browser API key.')
+  process.exit(1)
+}
+
 const missingOptional = optional.filter(name => !process.env[name]?.trim())
 if (missingOptional.length > 0) {
   console.warn(`Missing optional public build variables: ${missingOptional.join(', ')}`)

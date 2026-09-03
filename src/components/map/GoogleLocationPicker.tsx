@@ -109,6 +109,7 @@ export default function GoogleLocationPicker({
 
   useEffect(() => {
     if (mapsLoadError) {
+      console.error('Google Maps JavaScript API failed to load:', mapsLoadError)
       setError('Failed to load Google Maps. Please check your API key or network connection.')
     }
   }, [mapsLoadError])

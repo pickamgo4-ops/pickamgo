@@ -92,6 +92,7 @@ export default function GoogleMap({
 
   useEffect(() => {
     if (loadError) {
+      console.error('Google Maps JavaScript API failed to load:', loadError)
       setError('Failed to load Google Maps. Please check your API key or network connection.')
       setLoading(false)
     }
