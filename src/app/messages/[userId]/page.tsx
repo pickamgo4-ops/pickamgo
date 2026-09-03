@@ -24,7 +24,7 @@ export default function ConversationPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [currentUserId, setCurrentUserId] = useState('')
-  const [conversationUser, setConversationUser] = useState<{ name: string; avatar: string } | null>(null)
+  const [conversationUser, setConversationUser] = useState<{ name: string; avatar: string; shopName?: string } | null>(null)
   const [canSend, setCanSend] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -142,8 +142,9 @@ export default function ConversationPage() {
             : null
         if (participant) {
           setConversationUser({
-            name: shop?.name || participant.name || 'User',
-            avatar: shop?.logo || participant.avatar || '',
+            name: participant.name || 'User',
+            avatar: participant.avatar || '',
+            shopName: shop?.name,
           })
         }
         const nextUserId = getCurrentUserId()
@@ -251,7 +252,9 @@ export default function ConversationPage() {
               <h2 className="font-semibold text-warm-900 text-sm truncate">
                 {conversationUser?.name || 'Conversation'}
               </h2>
-              <p className="text-xs text-green-600">Online</p>
+              <p className="text-xs text-green-600 truncate">
+                {conversationUser?.shopName || 'Online'}
+              </p>
             </div>
             <button className="p-2 rounded-xl hover:bg-warm-100 transition-colors">
               <MoreVertical size={20} className="text-warm-800" />
