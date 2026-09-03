@@ -67,7 +67,7 @@ export default function SellerDashboard() {
       const [onboardingRes, ordersRes, productsRes, verificationRes] = await Promise.all([
         api.get<any>("/seller/onboarding"),
         api.get<{ orders: Order[] }>("/seller/orders?limit=5"),
-        api.get<{ products: any[] }>("/products?limit=5"),
+        api.get<{ products: any[] }>("/seller/products"),
         api.get<SellerVerification>("/seller/verification/status"),
       ]);
 
