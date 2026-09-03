@@ -13,6 +13,7 @@ import { shareLink } from '../../../lib/share'
 import { ProductCard } from '../../../components/product/ProductCard'
 import { PaymentSafetyNotice } from '../../../components/ui/PaymentSafetyNotice'
 import { useRole } from '../../../contexts/RoleContext'
+import { defaultShopCustomization, shopCustomizationStyle, themeClass } from '../../../lib/shop-themes'
 
 export default function ProductPage() {
   const params = useParams()
@@ -260,9 +261,10 @@ export default function ProductPage() {
     variants: product.variants,
     createdAt: product.createdAt,
   } as Product
+  const customization = { ...defaultShopCustomization, ...(safeProduct.shop?.customization || {}) }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8">
+    <div className={`min-h-screen pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...shopCustomizationStyle(customization), color: 'var(--shop-text)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <PaymentSafetyNotice />
       </div>

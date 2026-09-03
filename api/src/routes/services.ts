@@ -135,7 +135,7 @@ router.get('/', validateQuery(listServicesQuerySchema), async (req: Authenticate
               location: true,
             },
           },
-          shop: true,
+          shop: { include: { customization: true } },
           category: { select: { id: true, name: true, emoji: true, color: true } },
           images: {
             orderBy: { sortOrder: 'asc' },
@@ -169,7 +169,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
             location: true,
           },
         },
-        shop: true,
+        shop: { include: { customization: true } },
           category: { select: { id: true, name: true, emoji: true, color: true } },
           images: {
           orderBy: { sortOrder: 'asc' },

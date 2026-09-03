@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+
 export type ShopTheme = 'CLEAN' | 'MIDNIGHT' | 'SOFT' | 'LUXURY' | 'FRESH' | 'QUICK_PICKS' | 'STREET' | 'BEAUTY'
 export type ShopLayout = 'CLASSIC' | 'GRID' | 'FEATURED' | 'BEAUTY' | 'QUICK_PICKS'
 
@@ -33,6 +35,17 @@ export const themePresets: Array<{ id: ShopTheme; name: string; description: str
 export const defaultShopCustomization: ShopCustomization = {
   theme: 'CLEAN', layout: 'CLASSIC', primaryColor: '#FF6B35', secondaryColor: '#FFF5E6', accentColor: '#2C1F15',
   showReviews: true, showCategories: true, showFeatured: true, showServices: true,
+}
+
+export function shopCustomizationStyle(customization: ShopCustomization): CSSProperties {
+  return {
+    '--shop-primary': customization.primaryColor,
+    '--shop-secondary': customization.secondaryColor,
+    '--shop-accent': customization.accentColor,
+    '--shop-text': readableTextColor(customization.secondaryColor),
+    '--shop-primary-text': readableTextColor(customization.primaryColor),
+    '--shop-border': `${customization.accentColor}33`,
+  } as CSSProperties
 }
 
 export function themeClass(theme: ShopTheme) {

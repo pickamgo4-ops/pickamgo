@@ -11,7 +11,7 @@ import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { api } from '../../../lib/api'
 import { Shop, Product, BeautyService } from '../../../types'
 import { mapApiShopToFrontend, mapApiProductToFrontend, mapApiServiceToFrontend } from '../../../lib/api-mappers'
-import { defaultShopCustomization, readableTextColor, themeClass, ShopCustomization } from '../../../lib/shop-themes'
+import { defaultShopCustomization, readableTextColor, shopCustomizationStyle, themeClass, ShopCustomization } from '../../../lib/shop-themes'
 import { shareLink } from '../../../lib/share'
 import dynamic from 'next/dynamic'
 
@@ -154,7 +154,7 @@ export default function ShopPage() {
   const primaryTextColor = theme === 'dark' ? '#171614' : readableTextColor(customization.primaryColor)
 
   return (
-    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ '--shop-primary': customization.primaryColor, '--shop-secondary': customization.secondaryColor, '--shop-accent': customization.accentColor, color: surfaceTextColor } as React.CSSProperties}>
+    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...shopCustomizationStyle(customization), color: surfaceTextColor }}>
       {/* Banner */}
       <div className="relative h-40 sm:h-48 md:h-64 bg-[var(--shop-secondary)]">
         {(customization.coverImage || shop.banner) && (
@@ -222,7 +222,7 @@ export default function ShopPage() {
           {/* Categories */}
           {customization.showCategories && <div className="flex flex-wrap gap-2 mb-4">
             {shop.category.map((cat) => (
-              <span key={cat} className="text-xs bg-warm-100 text-warm-800 px-3 py-1.5 rounded-full font-medium">
+              <span key={cat} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ backgroundColor: 'var(--shop-primary)', color: 'var(--shop-primary-text)' }}>
                 {cat}
               </span>
             ))}
@@ -237,22 +237,22 @@ export default function ShopPage() {
           {/* Delivery Info */}
           <div className="flex flex-wrap gap-2 mb-4">
             {shop.deliveryAvailable && (
-              <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full font-medium">
+                <span className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ backgroundColor: 'var(--shop-primary)', color: 'var(--shop-primary-text)' }}>
                 Platform Delivery
               </span>
             )}
             {shop.sellerDeliveryAvailable && (
-              <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full font-medium">
+              <span className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ backgroundColor: 'var(--shop-accent)', color: 'var(--shop-text)' }}>
                 Seller Delivery
               </span>
             )}
             {shop.pickupAvailable && (
-              <span className="text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-medium">
+              <span className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ backgroundColor: 'var(--shop-primary)', color: 'var(--shop-primary-text)' }}>
                 Pickup Available
               </span>
             )}
             {shop.platformDeliveryFee !== undefined && shop.platformDeliveryFee > 0 && (
-              <span className="text-xs bg-warm-100 text-warm-800 px-3 py-1.5 rounded-full font-medium">
+              <span className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ backgroundColor: 'var(--shop-accent)', color: 'var(--shop-text)' }}>
                 Delivery: GH₵{shop.platformDeliveryFee.toFixed(2)}
               </span>
             )}

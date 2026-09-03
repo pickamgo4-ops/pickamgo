@@ -16,6 +16,7 @@ export interface Product {
     slug: string;
     logo?: string;
     campus?: string;
+    customization?: import('../lib/shop-themes').ShopCustomization | null;
   };
   location: string;
   distance: string;
@@ -48,6 +49,7 @@ export interface BeautyService {
   category: string;
   subcategory: string;
   provider: Seller;
+  shop?: { id: string; name: string; slug: string; logo?: string; customization?: import('../lib/shop-themes').ShopCustomization | null };
   location: string;
   distance: string;
   rating: number;

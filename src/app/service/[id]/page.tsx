@@ -9,6 +9,7 @@ import { api } from '../../../lib/api'
 import { BeautyService } from '../../../types'
 import { mapApiServiceToFrontend } from '../../../lib/api-mappers'
 import { useRole } from '../../../contexts/RoleContext'
+import { defaultShopCustomization, shopCustomizationStyle, themeClass } from '../../../lib/shop-themes'
 
 export default function ServicePage() {
   const params = useParams()
@@ -197,10 +198,12 @@ export default function ServicePage() {
     )
   }
 
+  const customization = { ...defaultShopCustomization, ...(service.shop?.customization || {}) }
+
   const images = [service.image, ...(service.images || [service.image])]
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8">
+    <div className={`min-h-screen pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...shopCustomizationStyle(customization), color: 'var(--shop-text)' }}>
       {/* Image Gallery */}
       <div className="relative aspect-square md:aspect-[4/3] bg-warm-100">
         <img

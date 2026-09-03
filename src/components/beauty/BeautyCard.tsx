@@ -2,6 +2,7 @@ import React from 'react'
 import { Heart, MapPin, Star, Clock, Calendar, Flame, CheckCircle2, Sparkles } from 'lucide-react'
 import { BeautyService } from '../../types'
 import { Badge } from '../../components/ui/Badge'
+import { shopCustomizationStyle } from '../../lib/shop-themes'
 
 interface BeautyCardProps {
   service: BeautyService
@@ -10,10 +11,12 @@ interface BeautyCardProps {
 }
 
 export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
+  const customization = service.shop?.customization
   return (
     <div
       onClick={onClick}
-      className="group cursor-pointer bg-white rounded-2xl overflow-hidden border border-warm-200/50 transition-all duration-300 hover:shadow-lg hover:border-warm-200 hover:-translate-y-1"
+      style={customization ? shopCustomizationStyle(customization) : undefined}
+      className="group cursor-pointer bg-[var(--shop-secondary,#fff)] rounded-2xl overflow-hidden border border-[var(--shop-border,rgba(120,100,80,0.2))] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
     >
       {/* Image Container */}
       <div className="relative aspect-[4/5] overflow-hidden bg-warm-100">
@@ -76,7 +79,7 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div className="p-4" style={customization ? { color: 'var(--shop-accent)' } : undefined}>
         {/* Provider */}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-6 h-6 rounded-full overflow-hidden bg-warm-200">
@@ -101,7 +104,7 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
               GH₵{service.price}
             </p>
           </div>
-          <button className="bg-primary hover:bg-primary-dark text-white text-sm font-semibold py-2 px-4 rounded-xl transition-colors flex items-center gap-1.5">
+          <button className="text-sm font-semibold py-2 px-4 rounded-xl transition-colors flex items-center gap-1.5" style={customization ? { backgroundColor: 'var(--shop-primary)', color: 'var(--shop-primary-text)' } : undefined}>
             <Calendar size={16} />
             Book
           </button>
@@ -112,7 +115,7 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
           {service.availability.slice(0, 2).map((time, i) => (
             <span
               key={i}
-              className="text-xs bg-warm-100 text-warm-800 px-2 py-1 rounded-lg"
+              className="text-xs px-2 py-1 rounded-lg" style={customization ? { backgroundColor: 'var(--shop-primary)', color: 'var(--shop-primary-text)' } : undefined}
             >
               {time}
             </span>

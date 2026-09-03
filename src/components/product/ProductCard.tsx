@@ -3,6 +3,7 @@ import { Heart, Share2, MapPin, Star, Clock, Flame, Sparkles, Tag, CheckCircle2 
 import { Product } from '../../types'
 import { Badge } from '../../components/ui/Badge'
 import { shareLink } from '../../lib/share'
+import { shopCustomizationStyle } from '../../lib/shop-themes'
 
 interface ProductCardProps {
   product: Product
@@ -11,10 +12,12 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) {
+  const customization = product.shop?.customization
   return (
     <div
       onClick={onClick}
-      className="group cursor-pointer bg-white rounded-2xl overflow-hidden border border-warm-200/50 transition-all duration-300 hover:shadow-lg hover:border-warm-200 hover:-translate-y-1"
+      style={customization ? shopCustomizationStyle(customization) : undefined}
+      className="group cursor-pointer bg-[var(--shop-secondary,#fff)] rounded-2xl overflow-hidden border border-[var(--shop-border,rgba(120,100,80,0.2))] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
     >
       {/* Image Container */}
       <div className="relative aspect-[4/5] sm:aspect-square overflow-hidden bg-warm-100">
@@ -77,7 +80,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
       </div>
 
       {/* Content */}
-      <div className="p-2.5 sm:p-3">
+      <div className="p-2.5 sm:p-3" style={customization ? { color: 'var(--shop-accent)' } : undefined}>
         {/* Seller Info */}
         <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
           <div className="w-5 h-5 rounded-full overflow-hidden bg-warm-200 flex-shrink-0">
