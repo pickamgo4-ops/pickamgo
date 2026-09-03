@@ -20,6 +20,11 @@ export function RoleRedirector() {
     const isPublicPath = publicPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
     const isAuthPath = pathname.startsWith('/auth/')
 
+    if (user && isAuthPath) {
+      router.replace(user.role === 'admin' ? '/admin' : user.role === 'rider' ? '/rider' : user.role === 'seller' ? '/seller' : '/')
+      return
+    }
+
     if (!user) {
       if (!isAuthPath && !isCustomerPath && !isPublicPath && !hasToken) {
         router.push('/auth/login')
@@ -30,17 +35,14 @@ export function RoleRedirector() {
     const role = user.role
 
     if (role === 'seller') {
-      if (isAuthPath) return
       if (pathname.startsWith('/seller')) return
       if (isCustomerPath) return
       router.push('/')
     } else if (role === 'rider') {
-      if (isAuthPath) return
       if (pathname.startsWith('/rider')) return
       if (isCustomerPath) return
       router.push('/')
     } else if (role === 'admin') {
-      if (isAuthPath) return
       if (!pathname.startsWith('/admin')) {
         router.push('/admin')
       }

@@ -60,7 +60,8 @@ export function Header() {
             aria-label="Go to PickAmGo home"
             onClick={(event) => {
               event.preventDefault()
-              window.location.assign(window.location.origin + '/')
+              const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+              window.location.assign(isLocalhost ? `${window.location.origin}/` : 'https://pickamgo.com/')
             }}
           >
             <img
