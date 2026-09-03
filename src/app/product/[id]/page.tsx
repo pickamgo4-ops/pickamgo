@@ -170,6 +170,22 @@ export default function ProductPage() {
     }
   }, [images.length, selectedImage])
 
+  useEffect(() => {
+    if (images.length < 2) return
+    const interval = window.setInterval(() => {
+      setSelectedImage(current => (current + 1) % images.length)
+    }, 4000)
+    return () => window.clearInterval(interval)
+  }, [images.length])
+
+  const showPreviousImage = () => {
+    setSelectedImage(current => (current - 1 + images.length) % images.length)
+  }
+
+  const showNextImage = () => {
+    setSelectedImage(current => (current + 1) % images.length)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen pb-24 md:pb-8">
@@ -284,6 +300,26 @@ export default function ProductPage() {
                 </button>
               </div>
             </div>
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous product image"
+                  onClick={showPreviousImage}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next product image"
+                  onClick={showNextImage}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+                >
+                  <ChevronLeft size={20} className="rotate-180" />
+                </button>
+              </>
+            )}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
               {images.map((_, i) => (
                 <button
