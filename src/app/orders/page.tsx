@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, Clock, CheckCircle, Truck, ChevronRight, MapPin, ShoppingBag, MessageCircle } from 'lucide-react'
+import { Package, Clock, CheckCircle, Truck, ChevronRight, MapPin, ShoppingBag, MessageCircle, Calendar } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
 import { Button } from '../../components/ui/Button'
@@ -11,10 +11,20 @@ import { Order } from '../../types'
 import { mapApiOrderToFrontend } from '../../lib/api-mappers'
 import { useRole } from '../../contexts/RoleContext'
 
+interface BookingRecord {
+  id: string
+  date: string
+  timeSlot: string
+  status: string
+  service?: { name?: string; price?: number | string; duration?: string }
+  provider?: { name?: string }
+}
+
 export default function OrdersPage() {
   const router = useRouter()
   const { user, loading, authInitialized } = useRole()
   const [orders, setOrders] = useState<Order[]>([])
+  const [bookings, setBookings] = useState<BookingRecord[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
 
   useEffect(() => {
@@ -32,17 +42,32 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     setOrdersLoading(true)
     try {
-      const response = await api.get<{ orders: any[] }>('/orders')
-      if (response.success && response.data) {
-        const mappedOrders = (response.data.orders || []).map((o: any) => mapApiOrderToFrontend(o))
-        setOrders(mappedOrders)
+      const [ordersResponse, bookingsResponse] = await Promise.all([
+        api.get<{ orders: any[] }>('/orders'),
+        api.get<{ bookings: BookingRecord[] }>('/bookings'),
+      ])
+      if (ordersResponse.success && ordersResponse.data) {
+        setOrders((ordersResponse.data.orders || []).map((o: any) => mapApiOrderToFrontend(o)))
       }
+      if (bookingsResponse.success && bookingsResponse.data) setBookings(bookingsResponse.data.bookings || [])
     } catch (err) {
       console.error('Failed to load orders:', err)
     } finally {
       setOrdersLoading(false)
     }
   }
+
+  const cancelBooking = async (bookingId: string) => {
+    if (!window.confirm('Cancel this booking?')) return
+    const response = await api.patch(`/bookings/${bookingId}/status`, { status: 'CANCELLED' })
+    if (response.success) await loadOrders()
+    else window.alert(response.error || 'This booking could not be cancelled.')
+  }
+
+  const currentDate = new Date()
+  const today = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
+  const upcomingBookings = bookings.filter(booking => booking.date >= today && !['CANCELLED', 'COMPLETED'].includes(booking.status))
+  const pastBookings = bookings.filter(booking => !upcomingBookings.includes(booking))
 
   const getFulfillmentBadge = (method?: string) => {
     switch (method) {
@@ -74,6 +99,54 @@ export default function OrdersPage() {
         <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900 mb-6">
           My Orders
         </h1>
+
+        {bookings.length > 0 && (
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar size={20} className="text-primary" />
+              <h2 className="font-display text-xl font-bold text-warm-900">My Bookings</h2>
+            </div>
+            {upcomingBookings.length > 0 && (
+              <div className="mb-5">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-warm-800/60 mb-2">Upcoming</h3>
+                <div className="space-y-3">
+                  {upcomingBookings.map(booking => (
+                    <div key={booking.id} className="bg-white rounded-2xl p-4 border border-warm-200 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="font-semibold text-warm-900">{booking.service?.name || 'Service'}</h4>
+                          <p className="text-sm text-warm-800/60">{booking.provider?.name || 'Provider'} · #{booking.id.slice(-8).toUpperCase()}</p>
+                        </div>
+                        <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-medium text-yellow-700">{booking.status}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-warm-800/70">
+                        <span><Calendar size={14} className="inline mr-1" />{booking.date}</span>
+                        <span><Clock size={14} className="inline mr-1" />{booking.timeSlot}</span>
+                        <span className="font-semibold text-warm-900">GH₵{Number(booking.service?.price || 0).toFixed(2)}</span>
+                      </div>
+                      {['PENDING', 'CONFIRMED'].includes(booking.status) && (
+                        <Button size="sm" variant="outline" className="mt-3" onClick={() => cancelBooking(booking.id)}>Cancel booking</Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {pastBookings.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-warm-800/60 mb-2">Past</h3>
+                <div className="space-y-2">
+                  {pastBookings.map(booking => (
+                    <div key={booking.id} className="flex items-center justify-between gap-3 rounded-xl border border-warm-200 bg-warm-50 p-3 text-sm">
+                      <span className="text-warm-900">{booking.service?.name || 'Service'} · {booking.date} at {booking.timeSlot}</span>
+                      <span className="text-xs font-medium text-warm-800/60">{booking.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {ordersLoading ? (
           <div className="flex items-center justify-center py-20">

@@ -20,6 +20,9 @@ export default function ServicePage() {
   const [favoriteLoading, setFavoriteLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [availableDates, setAvailableDates] = useState<string[]>([])
+  const [availableTimes, setAvailableTimes] = useState<string[]>([])
+  const [loadingAvailability, setLoadingAvailability] = useState(false)
   const [loading, setLoading] = useState(true)
   const [booking, setBooking] = useState(false)
   const [bookingError, setBookingError] = useState('')
@@ -70,13 +73,62 @@ export default function ServicePage() {
     try {
       const response = await api.get<BeautyService>(`/services/${params.id}`)
       if (response.success && response.data) {
-        setService(mapApiServiceToFrontend(response.data))
+        const mappedService = mapApiServiceToFrontend(response.data)
+        setService(mappedService)
+        await loadAvailableDates(mappedService.id)
       }
     } catch (err) {
       console.error('Failed to load service:', err)
     } finally {
       setLoading(false)
     }
+  }
+
+  const getLocalDateString = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const getDateLabel = (date: string) => {
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(today.getDate() + 1)
+    const prefix = date === getLocalDateString(today)
+      ? 'Today, '
+      : date === getLocalDateString(tomorrow)
+        ? 'Tomorrow, '
+        : ''
+    return `${prefix}${new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`
+  }
+
+  const loadAvailableDates = async (serviceId: string) => {
+    setLoadingAvailability(true)
+    try {
+      const today = new Date()
+      const dates = Array.from({ length: 31 }, (_, index) => {
+        const date = new Date(today)
+        date.setDate(today.getDate() + index)
+        return getLocalDateString(date)
+      })
+      const results = await Promise.all(dates.map(async date => {
+        const response = await api.get<{ slots: string[] }>(`/booking-setup/available-slots?serviceId=${serviceId}&date=${date}`)
+        return response.success && response.data?.slots?.length ? date : null
+      }))
+      setAvailableDates(results.filter((date): date is string => date !== null))
+    } finally {
+      setLoadingAvailability(false)
+    }
+  }
+
+  const loadAvailableTimes = async (date: string) => {
+    if (!service) return
+    setSelectedDate(date)
+    setSelectedTime(null)
+    setAvailableTimes([])
+    const response = await api.get<{ slots: string[] }>(`/booking-setup/available-slots?serviceId=${service.id}&date=${date}`)
+    if (response.success && response.data) setAvailableTimes(response.data.slots || [])
   }
 
   const handleBook = async () => {
@@ -87,6 +139,15 @@ export default function ServicePage() {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
       if (!token) {
         router.push('/auth/login')
+        return
+      }
+
+      const cartResponse = await api.post('/cart/items', {
+        serviceId: service.id,
+        quantity: 1,
+      })
+      if (!cartResponse.success) {
+        setBookingError(cartResponse.error || 'Unable to add this service to checkout.')
         return
       }
 
@@ -162,7 +223,7 @@ export default function ServicePage() {
                 className={isFavorite ? 'fill-red-500 text-red-500' : 'text-warm-800'}
               />
             </button>
-            <button className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
+            <button type="button" aria-label="Share service" className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
               <Share2 size={20} className="text-warm-800" />
             </button>
           </div>
@@ -266,18 +327,18 @@ export default function ServicePage() {
             <div className="rounded-2xl border border-warm-200 bg-white p-3">
               <p className="text-xs uppercase tracking-wide text-warm-800/60 mb-2">Date</p>
               <div className="flex flex-wrap gap-2">
-                {['2026-08-27','2026-08-28','2026-08-29','2026-08-30'].map((date) => (
+                {loadingAvailability ? <p className="text-sm text-warm-800/60">Loading available dates...</p> : availableDates.length === 0 ? <p className="text-sm text-warm-800/60">No available dates. Please check back later.</p> : availableDates.map((date) => (
                   <button
                     key={date}
                     type="button"
-                    onClick={() => setSelectedDate(date)}
+                    onClick={() => loadAvailableTimes(date)}
                     className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${
                       selectedDate === date
                         ? 'bg-primary text-white shadow-lg shadow-primary/20'
                         : 'bg-warm-50 border border-warm-200 text-warm-900 hover:border-primary/30'
                     }`}
                   >
-                    {new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {getDateLabel(date)}
                   </button>
                 ))}
               </div>
@@ -285,7 +346,7 @@ export default function ServicePage() {
             <div className="rounded-2xl border border-warm-200 bg-white p-3">
               <p className="text-xs uppercase tracking-wide text-warm-800/60 mb-2">Time</p>
               <div className="flex flex-wrap gap-2">
-                {['09:00 AM','12:00 PM','02:00 PM','04:00 PM'].map((time) => (
+                {!selectedDate ? <p className="text-sm text-warm-800/60">Choose a date first.</p> : availableTimes.length === 0 ? <p className="text-sm text-warm-800/60">No available times for this date. Please choose another date.</p> : availableTimes.map((time) => (
                   <button
                     key={time}
                     type="button"
@@ -306,6 +367,19 @@ export default function ServicePage() {
             <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-3 text-sm text-green-800 flex items-start gap-2">
               <CheckCircle2 size={18} className="mt-0.5" />
               <span>Booking selected for {bookingSummary.date} at {bookingSummary.time}. Total: GH₵{bookingSummary.total}</span>
+            </div>
+          )}
+          {selectedDate && selectedTime && (
+            <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+              <h3 className="font-semibold text-warm-900 mb-3">Booking Summary</h3>
+              <div className="grid gap-2 text-sm text-warm-800/70 sm:grid-cols-2">
+                <p><span className="font-medium text-warm-900">Service:</span> {service.name}</p>
+                <p><span className="font-medium text-warm-900">Provider:</span> {service.provider.name}</p>
+                <p><span className="font-medium text-warm-900">Date:</span> {getDateLabel(selectedDate)}</p>
+                <p><span className="font-medium text-warm-900">Time:</span> {selectedTime}</p>
+                <p><span className="font-medium text-warm-900">Duration:</span> {service.duration}</p>
+                <p><span className="font-medium text-warm-900">Service price:</span> GH₵{service.price.toFixed(2)}</p>
+              </div>
             </div>
           )}
         </div>

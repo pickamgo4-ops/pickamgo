@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { sendBookingConfirmationEmail, sendBookingStatusEmail } from '../services/email'
+import { addDays, getCurrentMinutesInBookingTimeZone, getDateInBookingTimeZone, getDayOfWeek, isValidDateString, parseTimeSlots, parseTimeToMinutes } from '../utils/booking'
 
 const router = Router()
 
@@ -68,8 +69,8 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
 
 const createBookingSchema = z.object({
   serviceId: z.string(),
-  orderId: z.string().min(1, 'A paid order is required'),
-  date: z.string().min(1),
+  orderId: z.string().min(1).optional(),
+  date: z.string().refine(isValidDateString, 'Date must use YYYY-MM-DD format'),
   timeSlot: z.string().min(1),
   notes: z.string().optional(),
 })
@@ -86,23 +87,67 @@ router.post('/', authMiddleware, validateBody(createBookingSchema), async (req: 
     return errorResponse(res, 'Service not found or not available', 404)
   }
 
-  const paidOrder = await prisma.order.findFirst({
-    where: {
-      id: orderId,
-      customerId: req.user!.id,
-      status: 'PAID',
-      payment: { is: { status: 'PAID' } },
-      items: { some: { serviceId } },
-    },
-  })
-  if (!paidOrder) return errorResponse(res, 'A verified payment for this service is required', 402)
+  if (orderId) {
+    const paidOrder = await prisma.order.findFirst({
+      where: {
+        id: orderId,
+        customerId: req.user!.id,
+        status: 'PAID',
+        payment: { is: { status: 'PAID' } },
+        items: { some: { serviceId } },
+      },
+    })
+    if (!paidOrder) return errorResponse(res, 'A verified payment for this service is required', 402)
+  }
+
+  const today = getDateInBookingTimeZone()
+  const rule = await prisma.bookingRule.findUnique({ where: { shopId: service.shopId } })
+  const maxAdvanceDays = rule?.maxAdvanceBookingDays ?? service.maxAdvanceDays
+  const minNoticeHours = rule?.minBookingNoticeHours ?? service.minNoticeHours
+  if (date < today) return errorResponse(res, 'Cannot book in the past', 400)
+  if (date > addDays(today, maxAdvanceDays)) return errorResponse(res, 'Date is too far in the future', 400)
 
   const availability = await prisma.serviceAvailability.findUnique({
     where: { serviceId_date: { serviceId, date } },
   })
-  const availableSlots = availability?.timeSlots.split(',').map(slot => slot.trim()) || []
-  if (!availability?.isAvailable || !availableSlots.includes(timeSlot)) {
+  const availableSlots = availability?.timeSlots ? parseTimeSlots(availability.timeSlots) : []
+
+  const assignedStaff = await prisma.staff.findMany({
+    where: { shopId: service.shopId, isActive: true, services: { some: { serviceId } } },
+    include: { availabilities: true },
+  })
+  if (assignedStaff.length > 0) {
+    const dayOfWeek = getDayOfWeek(date)
+    const hasStaffAvailability = assignedStaff.some(staff => {
+      const schedule = staff.availabilities.find(item => item.dayOfWeek === dayOfWeek)
+      if (!schedule || !schedule.isAvailable || schedule.isDayOff) return false
+      const start = parseTimeToMinutes(schedule.startTime)
+      const end = parseTimeToMinutes(schedule.endTime)
+      const slot = parseTimeToMinutes(timeSlot)
+      const breakStart = schedule.breakStart ? parseTimeToMinutes(schedule.breakStart) : null
+      const breakEnd = schedule.breakEnd ? parseTimeToMinutes(schedule.breakEnd) : null
+      const duration = parseInt(service.duration) || 60
+      return start !== null && end !== null && slot !== null && slot >= start && slot + duration <= end &&
+        (breakStart === null || breakEnd === null || slot >= breakEnd || slot + duration <= breakStart)
+    })
+    if (!hasStaffAvailability) return errorResponse(res, 'This time slot is not available', 409)
+  } else if (!availability?.isAvailable || !availableSlots.includes(timeSlot)) {
     return errorResponse(res, 'This time slot is not available', 409)
+  }
+
+  if (date === today) {
+    const slotMinutes = parseTimeToMinutes(timeSlot)
+    const earliestMinutes = getCurrentMinutesInBookingTimeZone() + minNoticeHours * 60
+    if (slotMinutes === null || slotMinutes < earliestMinutes) {
+      return errorResponse(res, 'This time slot is no longer available', 409)
+    }
+  }
+
+  if (rule?.maxBookingsPerDay) {
+    const bookingsToday = await prisma.booking.count({
+      where: { providerId: service.providerId, date, status: { not: 'CANCELLED' } },
+    })
+    if (bookingsToday >= rule.maxBookingsPerDay) return errorResponse(res, 'No more bookings are available on this date', 409)
   }
 
   const existingBooking = await prisma.booking.findFirst({
@@ -179,6 +224,20 @@ router.patch('/:id/status', authMiddleware, validateBody(bookingStatusSchema), a
 
   if (!isProvider && !isCustomer && !req.user!.isAdmin) {
     return errorResponse(res, 'Not authorized to update this booking', 403)
+  }
+
+  if (isCustomer && status === 'CANCELLED') {
+    const rule = await prisma.bookingRule.findUnique({ where: { shopId: booking.shopId } })
+    const cancellationHours = rule?.cancellationHours ?? 24
+    const today = getDateInBookingTimeZone()
+    if (booking.date < today) return errorResponse(res, 'This booking can no longer be cancelled', 400)
+    if (booking.date === today) {
+      const bookingMinutes = parseTimeToMinutes(booking.timeSlot)
+      const currentMinutes = getCurrentMinutesInBookingTimeZone()
+      if (bookingMinutes !== null && currentMinutes >= bookingMinutes - cancellationHours * 60) {
+        return errorResponse(res, `Bookings must be cancelled at least ${cancellationHours} hours in advance`, 400)
+      }
+    }
   }
 
   const validTransitions: Record<string, string[]> = {

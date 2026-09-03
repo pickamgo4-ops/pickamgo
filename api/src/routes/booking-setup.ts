@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma'
 import { authMiddleware } from '../middleware/auth'
-import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
+import { AuthenticatedRequest, successResponse, errorResponse, validateBody, validateQuery } from '../types/express'
 import { z } from 'zod'
+import { addDays, getBookingTimeZone, getCurrentMinutesInBookingTimeZone, getDateInBookingTimeZone, getDayOfWeek, isValidDateString, parseTimeSlots, parseTimeToMinutes } from '../utils/booking'
 
 const router = Router()
 
@@ -55,7 +56,19 @@ const serviceBookingConfigSchema = z.object({
   staffRequired: z.boolean().default(false),
 })
 
-router.use(authMiddleware)
+const availableSlotsQuerySchema = z.object({
+  serviceId: z.string().min(1, 'Service ID is required'),
+  date: z.string().refine(isValidDateString, 'Date must use YYYY-MM-DD format'),
+  staffId: z.string().optional(),
+})
+
+router.use((req, res, next) => {
+  if (req.path === '/available-slots' && req.method === 'GET') {
+    next()
+    return
+  }
+  authMiddleware(req, res, next)
+})
 
 router.get('/summary', async (req: AuthenticatedRequest, res) => {
   const shop = await prisma.shop.findFirst({
@@ -248,8 +261,8 @@ router.patch('/services/:id', validateBody(serviceBookingConfigSchema), async (r
   return successResponse(res, updated, undefined, 'Service booking config updated')
 })
 
-router.get('/available-slots', async (req: AuthenticatedRequest, res) => {
-  const { serviceId, date, staffId } = req.query as { serviceId: string; date: string; staffId?: string }
+router.get('/available-slots', validateQuery(availableSlotsQuerySchema), async (req: AuthenticatedRequest, res) => {
+  const { serviceId, date, staffId } = req.query as z.infer<typeof availableSlotsQuerySchema>
 
   const service = await prisma.service.findFirst({
     where: { id: serviceId, status: 'ACTIVE' },
@@ -263,21 +276,10 @@ router.get('/available-slots', async (req: AuthenticatedRequest, res) => {
   const maxAdvanceDays = rule?.maxAdvanceBookingDays ?? service.maxAdvanceDays ?? 30
   const bufferMinutes = rule?.bufferTimeMinutes ?? service.bufferMinutes ?? 0
 
-  const selectedDate = new Date(date)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  if (selectedDate < today) return errorResponse(res, 'Cannot book in the past', 400)
-
-  const maxDate = new Date()
-  maxDate.setDate(maxDate.getDate() + maxAdvanceDays)
-  if (selectedDate > maxDate) return errorResponse(res, 'Date is too far in the future', 400)
-
-  const minBookingTime = new Date()
-  minBookingTime.setHours(minBookingTime.getHours() + minNoticeHours)
-  if (selectedDate.toDateString() === today.toDateString() && selectedDate < minBookingTime) {
-    return errorResponse(res, 'Minimum booking notice not met', 400)
-  }
+  const today = getDateInBookingTimeZone()
+  if (date < today) return errorResponse(res, 'Cannot book in the past', 400)
+  if (date > addDays(today, maxAdvanceDays)) return errorResponse(res, 'Date is too far in the future', 400)
+  const earliestMinutes = date === today ? getCurrentMinutesInBookingTimeZone() + minNoticeHours * 60 : 0
 
   let slots: string[] = []
   let staffMembers: any[] = []
@@ -289,13 +291,14 @@ router.get('/available-slots', async (req: AuthenticatedRequest, res) => {
     })
     if (!staff) return errorResponse(res, 'Staff not found', 404)
 
-    const dayOfWeek = selectedDate.getDay()
+    const dayOfWeek = getDayOfWeek(date)
     const avail = staff.availabilities.find(a => a.dayOfWeek === dayOfWeek)
     if (!avail || !avail.isAvailable || avail.isDayOff) {
       return successResponse(res, { slots: [], staff: [] })
     }
 
     slots = generateTimeSlots(avail.startTime, avail.endTime, avail.breakStart ?? undefined, avail.breakEnd ?? undefined, service.duration, bufferMinutes)
+    slots = filterSlotsByDate(slots, date, today, earliestMinutes)
 
     const existingBookings = await prisma.booking.findMany({
       where: { serviceId, staffId: staff.id, date, status: { not: 'CANCELLED' } },
@@ -310,26 +313,36 @@ router.get('/available-slots', async (req: AuthenticatedRequest, res) => {
       where: { serviceId_date: { serviceId, date } },
     })
     if (availability?.isAvailable && availability.timeSlots) {
-      slots = availability.timeSlots.split(',').map(s => s.trim()).filter(Boolean)
+      slots = parseTimeSlots(availability.timeSlots)
+      slots = filterSlotsByDate(slots, date, today, earliestMinutes)
     }
 
+    const existingBookings = await prisma.booking.findMany({
+      where: { serviceId, date, status: { not: 'CANCELLED' } },
+      select: { timeSlot: true, staffId: true },
+    })
+    const globallyBookedSlots = new Set(existingBookings.filter(booking => !booking.staffId).map(booking => booking.timeSlot))
+    slots = slots.filter(slot => !globallyBookedSlots.has(slot))
+
     const allStaff = await prisma.staff.findMany({
-      where: { shopId: shop.id, isActive: true },
+      where: { shopId: shop.id, isActive: true, services: { some: { serviceId } } },
       include: { availabilities: true },
     })
 
-    const dayOfWeek = selectedDate.getDay()
+    const dayOfWeek = getDayOfWeek(date)
     const availableStaff = allStaff.filter(staff => {
       const avail = staff.availabilities.find(a => a.dayOfWeek === dayOfWeek)
       return avail && avail.isAvailable && !avail.isDayOff
     })
 
     if (availableStaff.length > 0) {
-      const existingBookings = await prisma.booking.findMany({
-        where: { serviceId, date, status: { not: 'CANCELLED' } },
-        select: { timeSlot: true, staffId: true },
+      const staffSlots = availableStaff.flatMap(staff => {
+        const avail = staff.availabilities.find(a => a.dayOfWeek === dayOfWeek)
+        return avail ? generateTimeSlots(avail.startTime, avail.endTime, avail.breakStart ?? undefined, avail.breakEnd ?? undefined, service.duration, bufferMinutes) : []
       })
-
+      const configuredSlots = new Set(slots)
+      const scheduleSlots = Array.from(new Set(staffSlots)).filter(slot => configuredSlots.size === 0 || configuredSlots.has(slot))
+      slots = filterSlotsByDate(scheduleSlots, date, today, earliestMinutes)
       const bookedByStaff = new Map<string, Set<string>>()
       for (const booking of existingBookings) {
         if (booking.staffId) {
@@ -343,8 +356,11 @@ router.get('/available-slots', async (req: AuthenticatedRequest, res) => {
         name: staff.name,
         role: staff.role,
         avatar: staff.avatar,
-        availableSlots: slots.filter(slot => !(bookedByStaff.get(staff.id)?.has(slot))),
+        availableSlots: slots.filter(slot => !globallyBookedSlots.has(slot) && !(bookedByStaff.get(staff.id)?.has(slot))),
       }))
+      slots = slots.filter(slot => staffMembers.some(staff => staff.availableSlots.includes(slot)))
+    } else if (allStaff.length > 0) {
+      slots = []
     }
   }
 
@@ -391,6 +407,14 @@ function generateTimeSlots(startTime: string, endTime: string, breakStart?: stri
   }
 
   return slots
+}
+
+function filterSlotsByDate(slots: string[], date: string, today: string, earliestMinutes: number): string[] {
+  if (date !== today) return slots
+  return slots.filter(slot => {
+    const minutes = parseTimeToMinutes(slot)
+    return minutes !== null && minutes >= earliestMinutes
+  })
 }
 
 export default router
