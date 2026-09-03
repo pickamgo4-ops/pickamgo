@@ -446,6 +446,7 @@ export interface DeliverySettings {
   deliveryAvailable: boolean;
   pickupAvailable: boolean;
   sellerDeliveryAvailable: boolean;
+  allowGuestCheckout: boolean;
   platformDeliveryFee: number;
   sellerDeliveryFee: number;
   pickupInstructions?: string;

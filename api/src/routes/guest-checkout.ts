@@ -40,7 +40,8 @@ const guestPaymentSchema = z.object({ orderId: z.string().min(1), email: z.strin
 
 router.post('/guest/paystack/initialize', validateBody(guestPaymentSchema), async (req, res) => {
   try {
-    const order = await prisma.order.findFirst({ where: { id: req.body.orderId, guestEmail: req.body.email }, include: { payment: true } })
+    const order = await prisma.order.findFirst({ where: { id: req.body.orderId, guestEmail: req.body.email }, include: { payment: true, shop: { select: { allowGuestCheckout: true } } } })
+    if (order && !order.shop.allowGuestCheckout) return errorResponse(res, 'This seller requires you to sign in before placing an order.', 403)
     if (!order?.payment) return errorResponse(res, 'Order payment not found', 404)
     const result = await initializeTransaction(req.body.email, Number(order.payment.amount), order.payment.transactionRef, `${getAppUrl()}/checkout?orderId=${order.id}&guest=1&email=${encodeURIComponent(req.body.email)}`)
     return successResponse(res, { authorizationUrl: result.authorization_url, reference: result.reference })
@@ -51,7 +52,8 @@ router.post('/guest/paystack/initialize', validateBody(guestPaymentSchema), asyn
 
 router.post('/guest/verify-payment', validateBody(z.object({ orderId: z.string().min(1), email: z.string().email(), reference: z.string().min(1).max(100) })), async (req, res) => {
   try {
-    const order = await prisma.order.findFirst({ where: { id: req.body.orderId, guestEmail: req.body.email }, include: { payment: true } })
+    const order = await prisma.order.findFirst({ where: { id: req.body.orderId, guestEmail: req.body.email }, include: { payment: true, shop: { select: { allowGuestCheckout: true } } } })
+    if (order && !order.shop.allowGuestCheckout) return errorResponse(res, 'This seller requires you to sign in before placing an order.', 403)
     if (!order?.payment) return errorResponse(res, 'Order payment not found', 404)
     if (order.payment.status === 'PAID' && order.status === 'PAID') return successResponse(res, order, 200, 'Payment already verified')
     if (order.payment.transactionRef !== req.body.reference) return errorResponse(res, 'Invalid payment reference', 400)
@@ -248,6 +250,14 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
     if (productId) group.productIds.push(productId)
     if (productCategoryId && !group.categoryIds.includes(productCategoryId)) group.categoryIds.push(productCategoryId)
     if (productCampus && !group.campus) group.campus = productCampus
+  }
+
+  const guestCheckoutShops = await prisma.shop.findMany({
+    where: { id: { in: Array.from(shopGroups.keys()) } },
+    select: { id: true, allowGuestCheckout: true },
+  })
+  if (guestCheckoutShops.some(shop => !shop.allowGuestCheckout)) {
+    return errorResponse(res, 'This seller requires you to sign in before placing an order.', 403)
   }
 
   let promoValidation: PromoValidationResult | null = null

@@ -280,6 +280,7 @@ model Shop {
   deliveryFee             Decimal            @default(0) @db.Decimal(12, 2)
   platformDeliveryFee     Decimal            @default(10) @db.Decimal(12, 2)
   sellerDeliveryFee       Decimal            @default(0) @db.Decimal(12, 2)
+  allowGuestCheckout      Boolean            @default(false)
   pickupInstructions      String?
   deliveryZones           String?
   followersCount          Int                @default(0)

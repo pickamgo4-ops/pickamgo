@@ -86,7 +86,7 @@ async function request<T>(
     requestHeaders.Authorization = `Bearer ${token}`
   }
 
-  if (!token && (endpoint.startsWith('/cart') || endpoint.startsWith('/checkout/guest'))) {
+  if (!token && (endpoint.startsWith('/cart') || endpoint.startsWith('/checkout/guest') || endpoint.startsWith('/public-notices'))) {
     const guestSessionId = getGuestSessionId()
     requestHeaders['x-session-id'] = guestSessionId
   }

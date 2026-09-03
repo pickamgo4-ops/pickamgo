@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma'
-import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
+import { authMiddleware, optionalAuthMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { getAppUrl } from '../utils/url'
@@ -187,6 +187,19 @@ router.get('/public', async (_req, res) => {
   }
 })
 
+router.get('/dismissals', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  try {
+    const dismissals = await prisma.publicNoticeDismissal.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { dismissedAt: 'desc' },
+    })
+    return successResponse(res, { dismissals })
+  } catch (error) {
+    console.error('Failed to fetch public notice dismissals:', error)
+    return errorResponse(res, 'Failed to fetch public notice dismissals', 500)
+  }
+})
+
 router.get('/:id', authMiddleware, requireRole(['ADMIN']), async (req: AuthenticatedRequest, res) => {
   try {
     const notice = await prisma.publicNotice.findUnique({
@@ -365,7 +378,7 @@ router.delete('/:id', authMiddleware, requireRole(['ADMIN']), async (req: Authen
   }
 })
 
-router.post('/:id/dismiss', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.post('/:id/dismiss', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const notice = await prisma.publicNotice.findUnique({
       where: { id: req.params.id },
@@ -416,20 +429,6 @@ router.post('/:id/dismiss', authMiddleware, async (req: AuthenticatedRequest, re
   } catch (error) {
     console.error('Failed to dismiss public notice:', error)
     return errorResponse(res, 'Failed to dismiss public notice', 500)
-  }
-})
-
-router.get('/dismissals', authMiddleware, async (req: AuthenticatedRequest, res) => {
-  try {
-    const dismissals = await prisma.publicNoticeDismissal.findMany({
-      where: { userId: req.user!.id },
-      orderBy: { dismissedAt: 'desc' },
-    })
-
-    return successResponse(res, { dismissals })
-  } catch (error) {
-    console.error('Failed to fetch public notice dismissals:', error)
-    return errorResponse(res, 'Failed to fetch public notice dismissals', 500)
   }
 })
 

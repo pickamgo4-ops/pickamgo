@@ -1,0 +1,1 @@
+ALTER TABLE "Shop" ADD COLUMN "allowGuestCheckout" BOOLEAN NOT NULL DEFAULT false;

@@ -295,7 +295,7 @@ router.get('/available-slots', async (req: AuthenticatedRequest, res) => {
       return successResponse(res, { slots: [], staff: [] })
     }
 
-    slots = generateTimeSlots(avail.startTime, avail.endTime, avail.breakStart, avail.breakEnd, service.duration, bufferMinutes)
+    slots = generateTimeSlots(avail.startTime, avail.endTime, avail.breakStart ?? undefined, avail.breakEnd ?? undefined, service.duration, bufferMinutes)
 
     const existingBookings = await prisma.booking.findMany({
       where: { serviceId, staffId: staff.id, date, status: { not: 'CANCELLED' } },

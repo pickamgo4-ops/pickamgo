@@ -392,6 +392,7 @@ const updateShopSchema = z.object({
   campus: z.string().optional(),
   openingHours: z.string().min(3).optional(),
   isOpen: z.boolean().optional(),
+  allowGuestCheckout: z.boolean().optional(),
 })
 
 router.patch('/:id', authMiddleware, validateBody(updateShopSchema), async (req: AuthenticatedRequest, res) => {
@@ -484,6 +485,7 @@ router.get('/:id/delivery-settings', async (req, res) => {
         deliveryAvailable: true,
         pickupAvailable: true,
         sellerDeliveryAvailable: true,
+        allowGuestCheckout: true,
         platformDeliveryFee: true,
         sellerDeliveryFee: true,
         pickupInstructions: true,

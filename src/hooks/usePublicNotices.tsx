@@ -163,17 +163,21 @@ function isDismissed(notice: PublicNotice, dismissals: DismissalRecord[]): boole
 export function usePublicNotices(userRole?: string) {
   const [notices, setNotices] = useState<PublicNotice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [dismissals, setDismissals] = useState<DismissalRecord[]>([]);
 
   const loadNotices = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const response = await api.get<{ notices: PublicNotice[] }>("/public-notices/public");
       if (response.success && response.data) {
         setNotices(response.data.notices);
+      } else {
+        setError(response.error || "Unable to load public notices");
       }
     } catch {
-      // ignore
+      setError("Unable to load public notices");
     } finally {
       setLoading(false);
     }
@@ -228,6 +232,7 @@ export function usePublicNotices(userRole?: string) {
   return {
     notices,
     loading,
+    error,
     dismissals,
     dismissNotice,
     getVisibleNotices,

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Store, Upload, MapPin, Truck, Settings, Copy, ExternalLink } from 'lucide-react'
+import { Store, Upload, MapPin, Truck, Settings, Copy, ExternalLink, UserRoundCheck } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -33,6 +33,7 @@ export default function ShopSettingsPage() {
     deliveryAvailable: true,
     pickupAvailable: true,
     deliveryFee: '0',
+    allowGuestCheckout: false,
   })
 
   useEffect(() => {
@@ -56,6 +57,7 @@ export default function ShopSettingsPage() {
           deliveryAvailable: shopData.deliveryAvailable ?? true,
           pickupAvailable: shopData.pickupAvailable ?? true,
           deliveryFee: shopData.deliveryFee?.toString() || '0',
+          allowGuestCheckout: shopData.allowGuestCheckout ?? false,
         })
       } else {
         router.push('/seller/shop/create')
@@ -338,6 +340,33 @@ export default function ShopSettingsPage() {
                 value={form.openingHours}
                 onChange={(e) => updateField('openingHours', e.target.value)}
               />
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <UserRoundCheck size={18} className="text-primary" />
+              <h3 className="font-semibold text-warm-900">Guest Checkout</h3>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-warm-900">Allow Guest Checkout</p>
+                <p className="text-xs text-warm-800/60 mt-1">
+                  {form.allowGuestCheckout
+                    ? 'Customers can place orders without signing in.'
+                    : 'Customers must sign in before placing an order.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.allowGuestCheckout}
+                aria-label="Allow Guest Checkout"
+                onClick={() => updateField('allowGuestCheckout', !form.allowGuestCheckout)}
+                className={`relative inline-flex h-7 w-12 flex-shrink-0 rounded-full transition-colors ${form.allowGuestCheckout ? 'bg-primary' : 'bg-warm-300'}`}
+              >
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow mt-1 transition-transform ${form.allowGuestCheckout ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
             </div>
           </Card>
 

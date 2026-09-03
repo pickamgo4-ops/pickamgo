@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Megaphone, AlertTriangle, Menu } from "lucide-react";
+import { Plus, Search, Megaphone, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
-import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { useRole } from "@/contexts/RoleContext";
 import { api } from "@/lib/api";
 
@@ -60,7 +59,6 @@ const statusColors: Record<NoticeStatus, string> = {
 export default function PublicNoticesPage() {
   const router = useRouter();
   const { user, loading: authLoading, authInitialized } = useRole();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notices, setNotices] = useState<PublicNotice[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -169,20 +167,7 @@ export default function PublicNoticesPage() {
   if (!user?.isAdmin) return null;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 min-w-0 md:ml-64 overflow-y-auto">
-        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-warm-200 px-4 py-3 md:hidden">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>
-              <Menu size={20} />
-            </Button>
-            <h1 className="font-semibold text-warm-900">Public Notices</h1>
-          </div>
-        </header>
-
-        <main className="p-4 md:p-6 lg:p-8">
+    <main className="p-4 md:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
@@ -380,8 +365,6 @@ export default function PublicNoticesPage() {
               )}
             </Card>
           </div>
-        </main>
-      </div>
-    </div>
+    </main>
   );
 }

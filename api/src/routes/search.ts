@@ -143,4 +143,66 @@ router.get('/', async (req, res) => {
   }
 })
 
+router.get('/suggestions', async (req, res) => {
+  try {
+    const q = ((req.query.q as string) || '').trim()
+    if (!q) {
+      return successResponse(res, { suggestions: [] })
+    }
+
+    const searchTerm = q.toLowerCase()
+    const limit = Math.min(parseInt(req.query.limit as string) || 8, 20)
+
+    const [products, shops, categories] = await Promise.all([
+      prisma.product.findMany({
+        where: {
+          status: 'ACTIVE',
+          stock: { gt: 0 },
+          shop: { status: 'ACTIVE' },
+          OR: [
+            { name: { contains: searchTerm, mode: 'insensitive' } },
+            { shop: { name: { contains: searchTerm, mode: 'insensitive' } } },
+          ],
+        },
+        select: { id: true, name: true },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      }),
+      prisma.shop.findMany({
+        where: {
+          status: 'ACTIVE',
+          OR: [
+            { name: { contains: searchTerm, mode: 'insensitive' } },
+            { description: { contains: searchTerm, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true, name: true, slug: true },
+        orderBy: { rating: 'desc' },
+        take: limit,
+      }),
+      prisma.category.findMany({
+        where: {
+          OR: [
+            { name: { contains: searchTerm, mode: 'insensitive' } },
+            { slug: { contains: searchTerm, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true, name: true, emoji: true },
+        take: Math.floor(limit / 2),
+      }),
+    ])
+
+    const suggestions = [
+      ...products.map(p => ({ type: 'product' as const, id: p.id, name: p.name })),
+      ...shops.map(s => ({ type: 'shop' as const, id: s.id, name: s.name, slug: s.slug })),
+      ...categories.map(c => ({ type: 'category' as const, id: c.id, name: c.name, emoji: c.emoji })),
+    ]
+
+    return successResponse(res, { suggestions })
+  } catch (error) {
+    console.error('Search suggestions error:', error)
+    return errorResponse(res, 'Failed to fetch suggestions', 500)
+  }
+})
+
 export default router

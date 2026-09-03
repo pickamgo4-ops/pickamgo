@@ -42,6 +42,9 @@ const listProductsQuerySchema = z.object({
   latitude: z.coerce.number().min(-90).max(90).optional(),
   longitude: z.coerce.number().min(-180).max(180).optional(),
   radius: z.coerce.number().positive().max(100).default(25),
+  isTrending: z.coerce.boolean().optional(),
+  isNew: z.coerce.boolean().optional(),
+  isDeal: z.coerce.boolean().optional(),
 })
 
 const createProductSchema = z.object({
@@ -111,6 +114,9 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
       latitude,
       longitude,
       radius,
+      isTrending,
+      isNew,
+      isDeal,
     } = req.query as z.infer<typeof listProductsQuerySchema>
 
     const where: any = { ...publicProductVisibility, draft: false }
@@ -151,6 +157,16 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
     }
     if (campus) {
       where.campus = { contains: campus }
+    }
+
+    if (isTrending !== undefined) {
+      where.isTrending = isTrending
+    }
+    if (isNew !== undefined) {
+      where.isNew = isNew
+    }
+    if (isDeal !== undefined) {
+      where.isDeal = isDeal
     }
 
     let orderBy: any = { createdAt: 'desc' }

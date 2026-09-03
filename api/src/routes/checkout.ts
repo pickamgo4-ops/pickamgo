@@ -292,12 +292,14 @@ router.post('/verify-payment', authMiddleware, requireRole(['USER']), validateBo
   }
 })
 
-router.post('/paystack/initialize', authMiddleware, requireRole(['USER']), validateBody(z.object({ orderId: z.string().min(1) })), async (req: AuthenticatedRequest, res) => {
+router.post('/paystack/initialize', authMiddleware, requireRole(['USER']), validateBody(z.object({ orderId: z.string().min(1), callbackUrl: z.string().url().optional() })), async (req: AuthenticatedRequest, res) => {
   try {
-    const order = await prisma.order.findFirst({ where: { id: req.body.orderId, customerId: req.user!.id }, include: { payment: true } })
+    const { orderId, callbackUrl } = req.body
+    const order = await prisma.order.findFirst({ where: { id: orderId, customerId: req.user!.id }, include: { payment: true } })
     if (!order?.payment) return errorResponse(res, 'Order payment not found', 404)
     if (order.payment.status === 'PAID') return errorResponse(res, 'Order is already paid', 400)
-    const result = await initializeTransaction(req.user!.email, Number(order.payment.amount), order.payment.transactionRef, `${getAppUrl()}/checkout?orderId=${order.id}`)
+    const finalCallbackUrl = callbackUrl || `${getAppUrl()}/checkout?orderId=${order.id}`
+    const result = await initializeTransaction(req.user!.email, Number(order.payment.amount), order.payment.transactionRef, finalCallbackUrl)
     return successResponse(res, { authorizationUrl: result.authorization_url, reference: result.reference })
   } catch (error) {
     return errorResponse(res, 'Unable to initialize Paystack payment', 400)

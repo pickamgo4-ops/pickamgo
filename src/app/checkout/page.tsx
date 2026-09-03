@@ -455,6 +455,9 @@ function CheckoutContent() {
       (cart?.items || []).map((item) => item.shopId || item.product?.shop?.id).filter(Boolean),
     ),
   );
+  const restrictedGuestShops = mode === "guest"
+    ? getCartShopGroups().filter((group) => shopSettings[group.shopId]?.allowGuestCheckout === false)
+    : [];
   const canPickup =
     cartShopIds.length > 0 &&
     cartShopIds.every((shopId) => shopSettings[shopId!]?.pickupAvailable === true);
@@ -701,6 +704,19 @@ function CheckoutContent() {
             </div>
           )}
 
+          {restrictedGuestShops.length > 0 ? (
+            <div className="bg-amber-50 rounded-2xl p-6 border border-amber-200">
+              <h2 className="font-semibold text-warm-900 mb-2">Sign in required</h2>
+              <p className="text-sm text-warm-800/70 mb-5">
+                This seller requires you to sign in before placing an order.
+                {restrictedGuestShops.length > 1 ? " Some items in your cart are from sellers with this requirement." : ""}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button fullWidth onClick={() => router.push("/auth/login")}>Sign In</Button>
+                <Button fullWidth variant="outline" onClick={() => router.push("/auth/signup")}>Create Account</Button>
+              </div>
+            </div>
+          ) : (
           <form onSubmit={handleGuestSubmit} className="space-y-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-warm-200">
               <h3 className="font-semibold text-warm-900 mb-4 flex items-center gap-2">
@@ -1002,6 +1018,7 @@ function CheckoutContent() {
               </Button>
             </div>
           </form>
+          )}
         </main>
         <BottomNav />
       </div>
