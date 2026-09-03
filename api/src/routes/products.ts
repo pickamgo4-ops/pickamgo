@@ -426,10 +426,11 @@ router.patch(
         return errorResponse(res, 'You do not own this product', 403)
       }
 
-      const { images, ...updateData } = req.body
+      const hasShopCategoryId = Object.prototype.hasOwnProperty.call(req.body, 'shopCategoryId')
+      const { images, shopCategoryId, ...updateData } = req.body
 
-      if (updateData.shopCategoryId) {
-        const shopCategory = await prisma.shopCategory.findFirst({ where: { id: updateData.shopCategoryId, shopId: existingProduct.shopId } })
+      if (shopCategoryId) {
+        const shopCategory = await prisma.shopCategory.findFirst({ where: { id: shopCategoryId, shopId: existingProduct.shopId } })
         if (!shopCategory) return errorResponse(res, 'Shop category does not belong to your shop', 400)
       }
 
@@ -464,6 +465,7 @@ router.patch(
         where: { id },
         data: {
           ...updateData,
+          ...(hasShopCategoryId ? { shopCategoryId: shopCategoryId || null } : {}),
           ...(updateData.publishedAt ? { publishedAt: new Date(updateData.publishedAt) } : {}),
           ...(images ? { images: { create: images.map((url: string, index: number) => ({ url, sortOrder: index })) } } : {}),
         },
