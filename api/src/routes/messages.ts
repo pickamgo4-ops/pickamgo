@@ -157,7 +157,7 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
         participant1: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
         participant2: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
         order: { select: { orderNumber: true, status: true } },
-        shop: { select: { id: true, name: true, logo: true } },
+        shop: { select: { id: true, name: true, logo: true, ownerId: true } },
       },
     })
 

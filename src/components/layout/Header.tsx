@@ -60,7 +60,7 @@ export function Header() {
             aria-label="Go to PickAmGo home"
             onClick={(event) => {
               event.preventDefault()
-              window.location.assign('/')
+              window.location.assign(window.location.origin + '/')
             }}
           >
             <img
