@@ -197,15 +197,15 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
       }
     }
 
+    await prisma.message.updateMany({
+      where: { conversationId: conversation.id, senderId: { not: currentUserId }, isRead: false },
+      data: { isRead: true },
+    })
+
     const messages = await prisma.message.findMany({
       where: { conversationId: conversation.id },
       include: { sender: { select: { id: true, name: true, avatar: true } } },
       orderBy: { createdAt: 'asc' },
-    })
-
-    await prisma.message.updateMany({
-      where: { conversationId: conversation.id, senderId: { not: currentUserId }, isRead: false },
-      data: { isRead: true },
     })
 
     return successResponse(res, {

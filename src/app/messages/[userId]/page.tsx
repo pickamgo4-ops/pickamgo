@@ -311,7 +311,12 @@ export default function ConversationPage() {
                               {formatTime(message.createdAt)}
                             </span>
                             {isMe && (
-                              <CheckCheck size={12} className={message.read ? 'text-white/70' : 'text-white/50'} />
+                              <span className="inline-flex items-center gap-0.5" aria-label={message.read ? 'Seen' : 'Sent'}>
+                                <CheckCheck size={12} className={message.read ? 'text-sky-200' : 'text-white/50'} />
+                                <span className={`text-[10px] ${message.read ? 'text-sky-200' : 'text-white/50'}`}>
+                                  {message.read ? 'Seen' : 'Sent'}
+                                </span>
+                              </span>
                             )}
                           </div>
                           {message.status === 'failed' && (
