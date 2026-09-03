@@ -33,7 +33,6 @@ export default function ShopPage() {
 
   useEffect(() => {
     loadShop()
-    checkFollowStatus()
   }, [params.slug])
 
   const loadShop = async () => {
@@ -43,6 +42,7 @@ export default function ShopPage() {
       if (response.success && response.data) {
         const mappedShop = mapApiShopToFrontend(response.data)
         setShop(mappedShop)
+        checkFollowStatus(mappedShop.id)
 
         const reviewsResponse = await api.get<{ reviews: any[]; averageRating: number; totalReviews: number }>(`/reviews/shop/${response.data.id}`)
         if (reviewsResponse.success && reviewsResponse.data) {
@@ -62,13 +62,13 @@ export default function ShopPage() {
     }
   }
 
-  const checkFollowStatus = async () => {
+  const checkFollowStatus = async (shopId?: string) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    if (!token || !params.slug) return
+    if (!token || !shopId) return
     try {
-      const response = await api.get<{ isFollowing: boolean }>(`/follows/shops/${params.slug}/follow-status`)
+      const response = await api.get<{ following: boolean }>(`/follows/shops/${shopId}/follow-status`)
       if (response.success && response.data) {
-        setIsFollowing(response.data.isFollowing)
+        setIsFollowing(response.data.following)
       }
     } catch (err) {
       console.error('Failed to check follow status:', err)
@@ -82,16 +82,17 @@ export default function ShopPage() {
       return
     }
 
-    if (!params.slug || typeof params.slug !== 'string') return
+    if (!shop?.id) return
 
     setFollowLoading(true)
     setFollowMessage('')
 
     try {
-      const response = await api.post(`/follows/shops/${params.slug}/follow`, {})
+      const response = await api.post<{ following: boolean }>(`/follows/shops/${shop.id}/follow`, {})
       if (response.success) {
-        setIsFollowing(!isFollowing)
-        setFollowMessage(isFollowing ? 'Unfollowed shop' : "You're now following this shop")
+        const following = response.data?.following ?? !isFollowing
+        setIsFollowing(following)
+        setFollowMessage(following ? "You're now following this shop" : 'Unfollowed shop')
         setTimeout(() => setFollowMessage(''), 3000)
         loadShop()
       } else {
@@ -278,8 +279,14 @@ export default function ShopPage() {
             }}>
               Message
             </Button>
-            <Button className="!px-2 !py-2.5 text-sm" variant="ghost" fullWidth icon={<Heart size={17} />}>
-              Save
+            <Button className="!px-2 !py-2.5 text-sm" variant="ghost" fullWidth icon={<Heart size={17} />} onClick={() => {
+              if (!localStorage.getItem('token')) {
+                router.push('/auth/login')
+                return
+              }
+              router.push(`/reviews/new?shopId=${shop.id}`)
+            }}>
+              Write review
             </Button>
           </div>
 
