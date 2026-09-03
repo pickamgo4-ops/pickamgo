@@ -54,7 +54,15 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center h-16 md:h-20 gap-4">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2" aria-label="Go to PickAmGo home">
+          <Link
+            href="/"
+            className="flex items-center gap-2"
+            aria-label="Go to PickAmGo home"
+            onClick={(event) => {
+              event.preventDefault()
+              window.location.assign('/')
+            }}
+          >
             <img
               src="/logo.png"
               alt="PickAmGo logo"

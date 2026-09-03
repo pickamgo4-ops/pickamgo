@@ -112,8 +112,8 @@ router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, r
         ],
       },
       include: {
-        participant1: { select: { id: true, name: true, avatar: true } },
-        participant2: { select: { id: true, name: true, avatar: true } },
+        participant1: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
+        participant2: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
         messages: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -145,6 +145,8 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
     const currentUserId = req.user!.id
     const otherUserId = req.params.userId
 
+    await prisma.user.update({ where: { id: currentUserId }, data: { lastActiveAt: new Date() } })
+
     const orderId = typeof req.query.orderId === 'string' ? req.query.orderId : undefined
     let conversation = await prisma.conversation.findFirst({
       where: {
@@ -152,8 +154,8 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
         OR: [{ participant1Id: currentUserId, participant2Id: otherUserId }, { participant1Id: otherUserId, participant2Id: currentUserId }],
       },
       include: {
-        participant1: { select: { id: true, name: true, avatar: true } },
-        participant2: { select: { id: true, name: true, avatar: true } },
+        participant1: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
+        participant2: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
         order: { select: { orderNumber: true, status: true } },
         shop: { select: { id: true, name: true, logo: true } },
       },
@@ -180,8 +182,8 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
           closedAt: access?.closedAt,
         },
         include: {
-          participant1: { select: { id: true, name: true, avatar: true } },
-          participant2: { select: { id: true, name: true, avatar: true } },
+          participant1: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
+          participant2: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
           order: { select: { orderNumber: true, status: true } },
           shop: { select: { id: true, name: true, logo: true, ownerId: true } },
         },
@@ -223,6 +225,8 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
     const currentUserId = req.user!.id
     const otherUserId = req.params.userId
     const { content, orderId } = req.body
+
+    await prisma.user.update({ where: { id: currentUserId }, data: { lastActiveAt: new Date() } })
 
     let conversation: any = await prisma.conversation.findFirst({
       where: {

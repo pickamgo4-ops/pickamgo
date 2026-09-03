@@ -22,6 +22,7 @@ model User {
   banned                 Boolean?                @default(false)
   emailVerified          Boolean                 @default(false)
   phoneVerified          Boolean                 @default(false)
+  lastActiveAt            DateTime?
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   addresses              Address[]

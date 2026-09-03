@@ -24,7 +24,7 @@ export default function ConversationPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [currentUserId, setCurrentUserId] = useState('')
-  const [conversationUser, setConversationUser] = useState<{ name: string; avatar: string; shopName?: string } | null>(null)
+  const [conversationUser, setConversationUser] = useState<{ name: string; avatar: string; shopName?: string; lastActiveAt?: string | null } | null>(null)
   const [canSend, setCanSend] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -39,6 +39,24 @@ export default function ConversationPage() {
     } catch {
       return currentUserId
     }
+  }
+
+  const updateConversationUser = (conversation: any, viewerId: string) => {
+    const shop = conversation?.shop
+    const participant = conversation?.participant1?.id === userId
+      ? conversation.participant1
+      : conversation?.participant2?.id === userId
+        ? conversation.participant2
+        : null
+    if (!participant) return
+
+    const viewingAsShop = shop?.ownerId === viewerId
+    setConversationUser({
+      name: viewingAsShop ? participant.name || 'Customer' : shop?.name || participant.name || 'User',
+      avatar: viewingAsShop ? participant.avatar || '' : shop?.logo || participant.avatar || '',
+      shopName: viewingAsShop ? 'Customer' : 'Shop',
+      lastActiveAt: participant.lastActiveAt,
+    })
   }
 
   const mapMessages = (items: any[]): Message[] => items.map((msg: any) => ({
@@ -65,6 +83,7 @@ export default function ConversationPage() {
       if (response.success && response.data) {
         const msgs = response.data.messages || response.data || []
         mergeServerMessages(mapMessages(msgs))
+        updateConversationUser(response.data.conversation, getCurrentUserId())
       }
     } catch (err) {
       console.error('Failed to refresh conversation:', err)
@@ -133,22 +152,8 @@ export default function ConversationPage() {
         setMessages(mapMessages(msgs))
         setCanSend(response.data.canSend !== false)
 
-        const conversation = response.data.conversation
-        const shop = conversation?.shop
         const nextUserId = getCurrentUserId()
-        const participant = conversation?.participant1?.id === userId
-          ? conversation.participant1
-          : conversation?.participant2?.id === userId
-            ? conversation.participant2
-            : null
-        if (participant) {
-          const viewingAsShop = shop?.ownerId === nextUserId
-          setConversationUser({
-            name: viewingAsShop ? participant.name || 'Customer' : shop?.name || participant.name || 'User',
-            avatar: viewingAsShop ? participant.avatar || '' : shop?.logo || participant.avatar || '',
-            shopName: viewingAsShop ? 'Customer' : 'Shop',
-          })
-        }
+        updateConversationUser(response.data.conversation, nextUserId)
         if (nextUserId) setCurrentUserId(nextUserId)
       }
     } catch (err) {
@@ -226,6 +231,18 @@ export default function ConversationPage() {
     return date.toLocaleDateString()
   }
 
+  const formatPresence = (lastActiveAt?: string | null) => {
+    if (!lastActiveAt) return 'Offline'
+    const minutes = Math.max(0, Math.floor((Date.now() - new Date(lastActiveAt).getTime()) / 60000))
+    if (minutes < 5) return 'Online'
+    if (minutes === 1) return 'Active 1 min ago'
+    if (minutes < 60) return `Active ${minutes} mins ago`
+    const hours = Math.floor(minutes / 60)
+    if (hours === 1) return 'Active 1 hour ago'
+    if (hours < 24) return `Active ${hours} hours ago`
+    return 'Offline'
+  }
+
   const groupedMessages = messages.reduce((groups, message) => {
     const date = formatDate(message.createdAt)
     if (!groups[date]) groups[date] = []
@@ -253,8 +270,8 @@ export default function ConversationPage() {
               <h2 className="font-semibold text-warm-900 text-sm truncate">
                 {conversationUser?.name || 'Conversation'}
               </h2>
-              <p className="text-xs text-green-600 truncate">
-                {conversationUser?.shopName || 'Online'}
+              <p className={`text-xs truncate ${conversationUser?.lastActiveAt && Date.now() - new Date(conversationUser.lastActiveAt).getTime() < 300000 ? 'text-green-600' : 'text-warm-800/50'}`}>
+                {formatPresence(conversationUser?.lastActiveAt)}
               </p>
             </div>
             <button className="p-2 rounded-xl hover:bg-warm-100 transition-colors">
