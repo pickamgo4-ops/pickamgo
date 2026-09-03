@@ -50,7 +50,6 @@ export default function SignupPage() {
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
-    script.crossOrigin = "anonymous";
     document.head.appendChild(script);
 
     script.onload = () => {
