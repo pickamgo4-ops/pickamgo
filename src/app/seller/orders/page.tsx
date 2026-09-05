@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingBag, Clock, CheckCircle, XCircle, Truck, Package } from 'lucide-react'
+import { ShoppingBag, Package } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -36,36 +36,16 @@ export default function SellerOrdersPage() {
     }
   }
 
-  const handleUpdateStatus = async (orderId: string, status: string) => {
-    try {
-      const response = await api.patch(`/orders/${orderId}/status`, { status })
-      if (response.success) {
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o))
-      }
-    } catch {
-      setError('Failed to update order status')
-    }
-  }
-
-  const statusConfig: Record<string, { label: string; color: string; nextActions: string[] }> = {
-    PENDING_PAYMENT: { label: 'Pending Payment', color: 'bg-yellow-100 text-yellow-700', nextActions: ['PAID', 'CANCELLED'] },
-    PAID: { label: 'Paid', color: 'bg-blue-100 text-blue-700', nextActions: ['CONFIRMED', 'CANCELLED'] },
-    CONFIRMED: { label: 'Confirmed', color: 'bg-purple-100 text-purple-700', nextActions: ['PREPARING', 'CANCELLED'] },
-    PREPARING: { label: 'Preparing', color: 'bg-orange-100 text-orange-700', nextActions: ['READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'] },
-    READY_FOR_PICKUP: { label: 'Ready for Pickup', color: 'bg-teal-100 text-teal-700', nextActions: ['OUT_FOR_DELIVERY'] },
-    OUT_FOR_DELIVERY: { label: 'Out for Delivery', color: 'bg-indigo-100 text-indigo-700', nextActions: ['DELIVERED'] },
-    DELIVERED: { label: 'Delivered', color: 'bg-green-100 text-green-700', nextActions: [] },
-    CANCELLED: { label: 'Cancelled', color: 'bg-red-100 text-red-700', nextActions: [] },
-    FAILED: { label: 'Failed', color: 'bg-red-100 text-red-700', nextActions: [] },
-  }
-
-  const actionLabels: Record<string, string> = {
-    PAID: 'Accept',
-    CONFIRMED: 'Start Preparing',
-    PREPARING: 'Mark Ready',
-    READY_FOR_PICKUP: 'Send for Delivery',
-    OUT_FOR_DELIVERY: 'Mark Delivered',
-    CANCELLED: 'Cancel',
+  const statusConfig: Record<string, { label: string; color: string }> = {
+    PENDING_PAYMENT: { label: 'Pending Payment', color: 'bg-yellow-100 text-yellow-700' },
+    PAID: { label: 'Paid', color: 'bg-blue-100 text-blue-700' },
+    CONFIRMED: { label: 'Confirmed', color: 'bg-purple-100 text-purple-700' },
+    PREPARING: { label: 'Preparing', color: 'bg-orange-100 text-orange-700' },
+    READY_FOR_PICKUP: { label: 'Ready for Pickup', color: 'bg-teal-100 text-teal-700' },
+    OUT_FOR_DELIVERY: { label: 'Out for Delivery', color: 'bg-indigo-100 text-indigo-700' },
+    DELIVERED: { label: 'Delivered', color: 'bg-green-100 text-green-700' },
+    CANCELLED: { label: 'Cancelled', color: 'bg-red-100 text-red-700' },
+    FAILED: { label: 'Failed', color: 'bg-red-100 text-red-700' },
   }
 
   if (loading) {
@@ -166,45 +146,9 @@ export default function SellerOrdersPage() {
                     ))}
                   </div>
 
-                  {status.nextActions.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-3 border-t border-warm-200">
-                      {status.nextActions.includes('CONFIRMED') && (
-                        <Button size="sm" onClick={() => handleUpdateStatus(order.id, 'CONFIRMED')}>
-                          Accept
-                        </Button>
-                      )}
-                      {status.nextActions.includes('PREPARING') && (
-                        <Button size="sm" onClick={() => handleUpdateStatus(order.id, 'PREPARING')}>
-                          Start Preparing
-                        </Button>
-                      )}
-                      {status.nextActions.includes('READY_FOR_PICKUP') && (
-                        <Button size="sm" onClick={() => handleUpdateStatus(order.id, 'READY_FOR_PICKUP')}>
-                          Mark Ready
-                        </Button>
-                      )}
-                      {status.nextActions.includes('OUT_FOR_DELIVERY') && order.fulfillmentMethod === 'SELLER_OWN_DELIVERY' && (
-                        <Button size="sm" onClick={() => handleUpdateStatus(order.id, 'OUT_FOR_DELIVERY')}>
-                          Send for Delivery
-                        </Button>
-                      )}
-                      {status.nextActions.includes('DELIVERED') && order.fulfillmentMethod === 'SELLER_OWN_DELIVERY' && (
-                        <Button size="sm" onClick={() => handleUpdateStatus(order.id, 'DELIVERED')}>
-                          Mark Delivered
-                        </Button>
-                      )}
-                      {status.nextActions.includes('DELIVERED') && order.fulfillmentMethod === 'CUSTOMER_PICKUP' && (
-                        <Button size="sm" onClick={() => handleUpdateStatus(order.id, 'DELIVERED')}>
-                          Confirm Customer Pickup
-                        </Button>
-                      )}
-                      {status.nextActions.includes('CANCELLED') && (
-                        <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(order.id, 'CANCELLED')}>
-                          Cancel
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  <div className="border-t border-warm-200 pt-3 text-xs text-warm-800/60">
+                    View-only order information. Status changes are handled in Manage Orders.
+                  </div>
                 </Card>
               )
             })}

@@ -3,9 +3,9 @@ import dotenv from 'dotenv'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
-import rateLimit from 'express-rate-limit'
 import { errorHandler } from './middleware/errorHandler'
 import { verifyToken } from './middleware/auth'
+import { rateLimitMiddleware } from './middleware/rate-limit'
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 dotenv.config({ path: path.resolve(process.cwd(), 'api/.env') })
@@ -142,8 +142,7 @@ app.use(async (req, res, next) => {
   }
 
   try {
-    const token = authHeader.split(' ')[1]
-    const payload = verifyToken(token)
+    const payload = verifyToken(authHeader.split(' ')[1])
     if (payload.isAdmin) {
       next()
       return
@@ -155,50 +154,14 @@ app.use(async (req, res, next) => {
   return res.status(503).json({ success: false, error: 'PickAmGo is currently undergoing maintenance. Please check back soon.' })
 })
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  message: { success: false, error: 'Too many requests, please try again later.' },
-})
-app.use('/api/', limiter)
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 15,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, error: 'Too many authentication attempts, please try again later.' },
-})
-const writeLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, error: 'Too many write requests, please slow down.' },
-})
-const reportLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, error: 'Too many report submissions, please try again later.' },
-})
-const messageLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, error: 'Too many messages sent, please try again later.' },
-})
-
-app.use('/api/auth/login', authLimiter)
-app.use('/api/auth/register', authLimiter)
-app.use('/api/auth/forgot-password', authLimiter)
-app.use('/api/reviews', writeLimiter)
-app.use('/api/reports', reportLimiter)
-app.use('/api/messages', messageLimiter)
-app.use('/api/checkout', writeLimiter)
-app.use('/api/payouts', writeLimiter)
+app.use('/api/search', rateLimitMiddleware('search', { skipAuthenticated: true }))
+app.use('/api/tracking', rateLimitMiddleware('read', { skipAuthenticated: true }))
+app.use('/api/public-notices', rateLimitMiddleware('read', { skipAuthenticated: true }))
+app.use('/api/reviews', rateLimitMiddleware('write', { skipAuthenticated: true }))
+app.use('/api/messages', rateLimitMiddleware('message', { skipAuthenticated: true }))
+app.use('/api/checkout', rateLimitMiddleware('payment', { skipAuthenticated: true }))
+app.use('/api/payouts', rateLimitMiddleware('payment', { skipAuthenticated: true }))
+app.use('/api/', rateLimitMiddleware('api', { skipAuthenticated: true }))
 
 app.use('/api/auth', authRoutes)
 app.use('/api/categories', categoryRoutes)

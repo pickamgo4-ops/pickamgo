@@ -21,6 +21,8 @@ import {
 import { validatePasswordOrThrow } from "../utils/password-validation";
 import { generateVerificationCode, hashCode } from "../utils/email-verification";
 import { getAppUrl } from "../utils/url";
+import { consumeRateLimit, getRequestIp, getRateLimitConfig, hashIdentity, isRateLimited } from "../middleware/rate-limit";
+import { createAndSendOtp, normalizeGhanaPhone, OTP_PURPOSES, verifyOtp } from '../services/otpService';
 
 const router = Router();
 
@@ -109,6 +111,23 @@ const googleCompleteSchema = z.object({
   phone: z.string().optional(),
   avatar: z.string().optional(),
   role: z.enum(["buyer", "seller", "rider"]).default("buyer"),
+});
+
+const phoneOtpSchema = z.object({
+  phoneNumber: z.string().min(10),
+  purpose: z.enum(OTP_PURPOSES),
+});
+
+const phoneOtpVerifySchema = phoneOtpSchema.extend({
+  otp: z.string().regex(/^\d{4,8}$/),
+});
+
+const phoneLoginSchema = z.object({
+  phoneNumber: z.string().min(10),
+});
+
+const phoneLoginVerifySchema = phoneLoginSchema.extend({
+  otp: z.string().regex(/^\d{4,8}$/),
 });
 
 async function verifyGoogleToken(idToken: string) {
@@ -404,12 +423,28 @@ Verify your email: ${verifyUrl}
       console.error("Failed to send verification email:", emailResult.error)
     }
 
+    let phoneVerificationRequired = false
+    if (phone) {
+      try {
+        await createAndSendOtp({
+          phoneNumber: phone,
+          purpose: 'PHONE_VERIFICATION',
+          userId: user.id,
+          request: req,
+        })
+        phoneVerificationRequired = true
+      } catch (phoneError) {
+        console.error('Failed to send registration phone verification code:', phoneError instanceof Error ? phoneError.message : 'unknown error')
+      }
+    }
+
     return successResponse(
       res,
       {
         user: userWithoutPassword,
         token,
         verificationSent: true,
+        phoneVerificationRequired,
         verifyUrl,
       },
       201,
@@ -424,6 +459,16 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
   try {
     const email = req.body.email.trim().toLowerCase();
     const { password } = req.body;
+    const ip = getRequestIp(req);
+    const loginAccount = getRateLimitConfig('login')
+    const loginIp = getRateLimitConfig('login-ip', { limit: 20, windowMs: 15 * 60_000 })
+    const loginBlocked = await isRateLimited('login-email', email, loginAccount.limit, loginAccount.windowMs) || await isRateLimited('login-ip', ip, loginIp.limit, loginIp.windowMs)
+    if (loginBlocked) return errorResponse(res, 'Too many login attempts. Please try again later.', 429)
+
+    const recordFailedLogin = async () => {
+      await consumeRateLimit('login-email', email, loginAccount.limit, loginAccount.windowMs)
+      await consumeRateLimit('login-ip', ip, loginIp.limit, loginIp.windowMs)
+    }
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -435,20 +480,19 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
     });
 
     if (!user) {
+      await recordFailedLogin()
       return errorResponse(res, "Invalid email or password", 401);
     }
 
     if (user.suspended || user.banned) {
+      await recordFailedLogin()
       await createLoginHistory(user.id, req, false, "account_suspended")
-      return errorResponse(
-        res,
-        "Your account has been suspended or banned. Contact support for assistance.",
-        403,
-      );
+      return errorResponse(res, "Invalid email or password", 401);
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
+      await recordFailedLogin()
       await createLoginHistory(user.id, req, false, "invalid_password")
       return errorResponse(res, "Invalid email or password", 401);
     }
@@ -532,6 +576,79 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
   }
 });
 
+router.post('/login/otp/send', validateBody(phoneLoginSchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const phoneNumber = normalizeGhanaPhone(req.body.phoneNumber)
+    const user = await prisma.user.findFirst({ where: { phone: phoneNumber, phoneVerified: true } })
+
+    if (user && !user.suspended && !user.banned) {
+      const result = await createAndSendOtp({ phoneNumber, purpose: 'LOGIN', userId: user.id, request: req })
+      return successResponse(res, { phoneNumber: result.phoneNumber, cooldownSeconds: result.cooldownSeconds }, 200, 'If an eligible account exists, a verification code has been sent.')
+    }
+
+    return successResponse(res, null, 200, 'If an eligible account exists, a verification code has been sent.')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to send verification code'
+    if (message.startsWith('Too many') || message.startsWith('Please wait')) return errorResponse(res, message, 429)
+    return successResponse(res, null, 200, 'If an eligible account exists, a verification code has been sent.')
+  }
+})
+
+router.post('/login/otp/verify', validateBody(phoneLoginVerifySchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const phoneNumber = normalizeGhanaPhone(req.body.phoneNumber)
+    const user = await prisma.user.findFirst({ where: { phone: phoneNumber, phoneVerified: true } })
+    if (!user || user.suspended || user.banned) return errorResponse(res, 'Invalid verification code', 401)
+
+    await verifyOtp({ phoneNumber, otp: req.body.otp, purpose: 'LOGIN', userId: user.id })
+    await createLoginHistory(user.id, req, true)
+    const token = generateToken(user)
+    const { passwordHash: _, ...userWithoutPassword } = user
+    return successResponse(res, { user: userWithoutPassword, token }, 200, 'Signed in successfully')
+  } catch (error) {
+    return errorResponse(res, error instanceof Error ? error.message : 'Invalid verification code', 401)
+  }
+})
+
+router.post('/otp/send', authMiddleware, validateBody(phoneOtpSchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { phoneNumber, purpose } = req.body
+    if (!['PHONE_VERIFICATION', 'PHONE_CHANGE', 'SELLER_VERIFICATION', 'RIDER_VERIFICATION', 'LOGIN'].includes(purpose)) {
+      return errorResponse(res, 'Invalid OTP purpose', 400)
+    }
+    const result = await createAndSendOtp({ phoneNumber, purpose, userId: req.user!.id, request: req })
+    return successResponse(res, { phoneNumber: result.phoneNumber, expiresAt: result.expiresAt, cooldownSeconds: result.cooldownSeconds }, 200, 'Verification code sent.')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to send verification code'
+    return errorResponse(res, message, message.startsWith('Too many') || message.startsWith('Please wait') ? 429 : 400)
+  }
+})
+
+router.post('/otp/resend', authMiddleware, validateBody(phoneOtpSchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { phoneNumber, purpose } = req.body
+    const result = await createAndSendOtp({ phoneNumber, purpose, userId: req.user!.id, request: req })
+    return successResponse(res, { phoneNumber: result.phoneNumber, expiresAt: result.expiresAt, cooldownSeconds: result.cooldownSeconds }, 200, 'Verification code sent.')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to send verification code'
+    return errorResponse(res, message, message.startsWith('Too many') || message.startsWith('Please wait') ? 429 : 400)
+  }
+})
+
+router.post('/otp/verify', authMiddleware, validateBody(phoneOtpVerifySchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { phoneNumber, otp, purpose } = req.body
+    const result = await verifyOtp({ phoneNumber, otp, purpose, userId: req.user!.id })
+    const updatePhone = ['PHONE_VERIFICATION', 'PHONE_CHANGE', 'SELLER_VERIFICATION', 'RIDER_VERIFICATION'].includes(purpose)
+    if (updatePhone) {
+      await prisma.user.update({ where: { id: req.user!.id }, data: { phone: result.phoneNumber, phoneVerified: true } })
+    }
+    return successResponse(res, { phoneNumber: result.phoneNumber, verified: true }, 200, 'Verification successful.')
+  } catch (error) {
+    return errorResponse(res, error instanceof Error ? error.message : 'Invalid verification code', 400)
+  }
+})
+
 router.get("/me", authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id;
@@ -557,15 +674,30 @@ router.get("/me", authMiddleware, async (req: AuthenticatedRequest, res) => {
   }
 });
 
+router.post("/logout", authMiddleware, async (req: AuthenticatedRequest, res) => {
+  return successResponse(res, null, 200, "Logged out successfully");
+});
+
 router.post(
   "/forgot-password",
   validateBody(forgotPasswordSchema),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const { email } = req.body;
+      const email = req.body.email.trim().toLowerCase();
+      const ip = getRequestIp(req)
+      const resetAccount = getRateLimitConfig('password-reset')
+      const resetIp = getRateLimitConfig('password-reset-ip', { limit: 10, windowMs: 60 * 60_000 })
+      const blocked = await isRateLimited('password-reset-email', email, resetAccount.limit, resetAccount.windowMs) || await isRateLimited('password-reset-ip', ip, resetIp.limit, resetIp.windowMs)
+      if (blocked) return errorResponse(res, 'Too many requests. Please try again later.', 429)
+      await consumeRateLimit('password-reset-email', email, resetAccount.limit, resetAccount.windowMs)
+      await consumeRateLimit('password-reset-ip', ip, resetIp.limit, resetIp.windowMs)
 
       const user = await prisma.user.findUnique({ where: { email } });
       if (user) {
+        await prisma.passwordResetToken.updateMany({
+          where: { userId: user.id, used: false },
+          data: { used: true },
+        });
         const rawToken = crypto.randomBytes(32).toString("hex");
         const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
@@ -608,6 +740,12 @@ router.post(
   async (req: AuthenticatedRequest, res) => {
     try {
       const { token, newPassword } = req.body;
+      const ip = getRequestIp(req)
+      const tokenIdentity = hashIdentity(crypto.createHash('sha256').update(token).digest('hex'))
+      const blocked = await isRateLimited('password-reset-token', tokenIdentity, 5, 15 * 60_000) || await isRateLimited('password-reset-ip', ip, 10, 60 * 60_000)
+      if (blocked) return errorResponse(res, 'Too many requests. Please try again later.', 429)
+      await consumeRateLimit('password-reset-token', tokenIdentity, 5, 15 * 60_000)
+      await consumeRateLimit('password-reset-ip', ip, 10, 60 * 60_000)
 
       const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -625,10 +763,14 @@ router.post(
       await prisma.$transaction([
         prisma.user.update({
           where: { id: resetToken.userId },
-          data: { passwordHash: hashedPassword },
+          data: { passwordHash: hashedPassword, authVersion: { increment: 1 } },
         }),
         prisma.passwordResetToken.update({
           where: { id: resetToken.id },
+          data: { used: true },
+        }),
+        prisma.passwordResetToken.updateMany({
+          where: { userId: resetToken.userId, id: { not: resetToken.id }, used: false },
           data: { used: true },
         }),
       ]);

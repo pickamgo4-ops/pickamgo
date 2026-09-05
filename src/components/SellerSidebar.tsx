@@ -43,6 +43,12 @@ const shopSections = [
     ],
   },
   {
+    title: 'ORDER MANAGEMENT',
+    items: [
+      { href: '/seller/manage-orders', label: 'Manage Orders', icon: CheckCircle },
+    ],
+  },
+  {
     title: 'EARNINGS',
     items: [
       { href: '/seller/payouts', label: 'Payouts', icon: DollarSign },

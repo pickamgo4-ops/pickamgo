@@ -160,9 +160,17 @@ router.get('/orders', authMiddleware, requireRole(['SELLER']), async (req: Authe
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 20
     const status = req.query.status as string | undefined
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
 
     const where: any = { sellerId: req.user!.id }
     if (status) where.status = status
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { customer: { phone: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
 
     const [orders, total] = await Promise.all([
       prisma.order.findMany({

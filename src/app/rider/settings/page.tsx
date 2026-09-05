@@ -2,17 +2,24 @@
 
 import React from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings, User, Shield, Bell, HelpCircle } from 'lucide-react'
+import {
+  User, Shield, Bell, Lock, Wallet, Globe, FileText,
+  LogOut, Moon, Smartphone
+} from 'lucide-react'
 import { RiderSidebar } from '@/components/RiderSidebar'
-import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { SETTINGS_SECTIONS } from '@/lib/rider-constants'
 
-const settingsOptions = [
-  { icon: User, title: 'Account Settings', description: 'Update your profile information', href: '/rider/profile' },
-  { icon: Shield, title: 'Privacy & Security', description: 'Manage your privacy settings', href: '#' },
-  { icon: Bell, title: 'Notification Preferences', description: 'Choose what notifications you receive', href: '#' },
-  { icon: HelpCircle, title: 'Help & Support', description: 'Get help with your account', href: '/rider/help' },
-]
+const settingsRouteMap: Record<string, string> = {
+  account: '/rider/profile',
+  security: '/rider/settings#security',
+  notifications: '/rider/notifications',
+  privacy: '/rider/settings#privacy',
+  payout: '/rider/payouts',
+  language: '/rider/settings#language',
+  terms: '/rider/terms',
+}
 
 export default function RiderSettingsPage() {
   const router = useRouter()
@@ -26,28 +33,63 @@ export default function RiderSettingsPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {settingsOptions.map((option) => {
-            const Icon = option.icon
+          {SETTINGS_SECTIONS.map((section) => {
+            const Icon = section.icon
+            const route = settingsRouteMap[section.id]
             return (
               <Button
-                key={option.title}
+                key={section.id}
                 variant="outline"
                 className="h-auto p-5 justify-start text-left"
-                onClick={() => option.href !== '#' && router.push(option.href)}
+                onClick={() => router.push(route)}
               >
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Icon size={20} className="text-primary" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-warm-900 mb-1">{option.title}</h3>
-                    <p className="text-sm text-warm-800/60">{option.description}</p>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-warm-900 mb-1">{section.title}</h3>
+                    <p className="text-sm text-warm-800/60">{section.description}</p>
                   </div>
                 </div>
               </Button>
             )
           })}
         </div>
+
+        <Card className="p-6">
+          <h3 className="font-display text-lg font-semibold text-warm-900 mb-4">Account</h3>
+          <div className="space-y-3">
+            <button className="w-full flex items-center justify-between p-3 text-left rounded-xl hover:bg-warm-50 transition-colors">
+              <div className="flex items-center gap-3">
+                <Moon size={18} className="text-warm-800/60" />
+                <span className="text-sm text-warm-900">Dark Mode</span>
+              </div>
+              <span className="text-xs text-warm-800/50">Off</span>
+            </button>
+            <button className="w-full flex items-center justify-between p-3 text-left rounded-xl hover:bg-warm-50 transition-colors">
+              <div className="flex items-center gap-3">
+                <Smartphone size={18} className="text-warm-800/60" />
+                <span className="text-sm text-warm-900">Push Notifications</span>
+              </div>
+              <span className="text-xs text-warm-800/50">On</span>
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('token')
+                localStorage.removeItem('user')
+                window.dispatchEvent(new Event('auth-changed'))
+                router.replace('/auth/login')
+              }}
+              className="w-full flex items-center justify-between p-3 text-left rounded-xl hover:bg-red-50 transition-colors text-red-600"
+            >
+              <div className="flex items-center gap-3">
+                <LogOut size={18} />
+                <span className="text-sm font-medium">Log out</span>
+              </div>
+            </button>
+          </div>
+        </Card>
       </div>
     </RiderSidebar>
   )

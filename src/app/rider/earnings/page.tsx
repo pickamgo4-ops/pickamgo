@@ -1,45 +1,39 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { useRouter } from 'next/navigation'
-import { DollarSign, TrendingUp, Wallet, Clock, CheckCircle } from 'lucide-react'
+import { DollarSign, TrendingUp, Wallet, Clock, CheckCircle, Download } from 'lucide-react'
 import { RiderSidebar } from '@/components/RiderSidebar'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { api } from '@/lib/api'
+import { Badge } from '@/components/ui/Badge'
+import { useRiderEarnings } from '@/hooks/useRider'
+import { RiderLoadingState, RiderEmptyState } from '@/components/RiderAuthGuard'
+import { formatCurrency } from '@/lib/rider-constants'
 
 export default function RiderEarningsPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [earnings, setEarnings] = useState<any>(null)
-
-  useEffect(() => {
-    loadEarnings()
-  }, [])
-
-  const loadEarnings = async () => {
-    setLoading(true)
-    try {
-      const response = await api.get<any>('/riders/earnings')
-      if (response.success && response.data) {
-        setEarnings(response.data)
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { earnings, loading, error } = useRiderEarnings()
 
   if (loading) {
     return (
       <RiderSidebar>
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-warm-800/60">Loading earnings...</p>
-          </div>
-        </div>
+        <RiderLoadingState message="Loading earnings..." />
+      </RiderSidebar>
+    )
+  }
+
+  if (!earnings || earnings.totalEarnings === 0) {
+    return (
+      <RiderSidebar>
+        <Card className="p-12">
+          <RiderEmptyState
+            title="No earnings yet"
+            description="Start accepting deliveries to earn money"
+            actionLabel="Find Deliveries"
+            onAction={() => router.push('/rider/deliveries/available')}
+          />
+        </Card>
       </RiderSidebar>
     )
   }
@@ -52,71 +46,110 @@ export default function RiderEarningsPage() {
           <p className="text-warm-800/60 mt-1">Track your delivery earnings</p>
         </div>
 
-        {!earnings || earnings.totalDeliveries === 0 ? (
-          <Card className="p-12 text-center">
-            <DollarSign size={48} className="mx-auto text-warm-800/30 mb-4" />
-            <h3 className="font-semibold text-warm-900 mb-2">No earnings yet</h3>
-            <p className="text-sm text-warm-800/60">Start accepting deliveries to earn money</p>
-            <Button className="mt-4" onClick={() => router.push('/rider/deliveries/available')}>
-              Find Deliveries
-            </Button>
-          </Card>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <Card className="p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign size={18} className="text-green-500" />
-                  <span className="text-xs text-warm-800/60">Today's Earnings</span>
-                </div>
-                <p className="text-2xl font-bold text-warm-900">GH₵{earnings.todayEarnings?.toFixed(2) || '0.00'}</p>
-                <p className="text-xs text-warm-800/50 mt-1">{earnings.todayDeliveries || 0} deliveries</p>
-              </Card>
-              <Card className="p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp size={18} className="text-blue-500" />
-                  <span className="text-xs text-warm-800/60">Weekly Earnings</span>
-                </div>
-                <p className="text-2xl font-bold text-warm-900">GH₵{earnings.weekEarnings?.toFixed(2) || '0.00'}</p>
-                <p className="text-xs text-warm-800/50 mt-1">{earnings.weekDeliveries || 0} deliveries</p>
-              </Card>
-              <Card className="p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <Wallet size={18} className="text-primary" />
-                  <span className="text-xs text-warm-800/60">Total Earnings</span>
-                </div>
-                <p className="text-2xl font-bold text-warm-900">GH₵{earnings.totalEarnings?.toFixed(2) || '0.00'}</p>
-                <p className="text-xs text-warm-800/50 mt-1">{earnings.totalDeliveries || 0} total deliveries</p>
-              </Card>
-            </div>
-
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-warm-900">Pending Earnings</h3>
-                <span className="text-sm text-warm-800/60">
-                  {earnings.pendingEarnings > 0 ? (
-                    <span className="text-yellow-600 font-medium">GH₵{earnings.pendingEarnings?.toFixed(2)} pending</span>
-                  ) : (
-                    'No pending earnings'
-                  )}
-                </span>
-              </div>
-              <div className="w-full bg-warm-200 rounded-full h-2">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all duration-500"
-                  style={{
-                    width: earnings.totalEarnings > 0
-                      ? `${((earnings.totalEarnings - earnings.pendingEarnings) / earnings.totalEarnings) * 100}%`
-                      : '0%'
-                  }}
-                />
-              </div>
-              <p className="text-xs text-warm-800/50 mt-2">
-                {earnings.totalDeliveries || 0} completed deliveries
-              </p>
-            </Card>
-          </>
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+            {error}
+          </div>
         )}
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign size={18} className="text-green-500" />
+              <span className="text-xs text-warm-800/60">Today's Earnings</span>
+            </div>
+            <p className="text-2xl font-bold text-warm-900">{formatCurrency(earnings.todayEarnings)}</p>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp size={18} className="text-blue-500" />
+              <span className="text-xs text-warm-800/60">Weekly Earnings</span>
+            </div>
+            <p className="text-2xl font-bold text-warm-900">{formatCurrency(earnings.weekEarnings)}</p>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Wallet size={18} className="text-primary" />
+              <span className="text-xs text-warm-800/60">Available Balance</span>
+            </div>
+            <p className="text-2xl font-bold text-warm-900">{formatCurrency(earnings.availableBalance)}</p>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp size={18} className="text-yellow-500" />
+              <span className="text-xs text-warm-800/60">Total Earnings</span>
+            </div>
+            <p className="text-2xl font-bold text-warm-900">{formatCurrency(earnings.totalEarnings)}</p>
+          </Card>
+        </div>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display text-lg font-semibold text-warm-900">Earnings Breakdown</h3>
+            <div className="flex gap-4 text-sm">
+              <span className="text-warm-800/60">
+                Pending: {formatCurrency(earnings.pendingEarnings)}
+              </span>
+              <span className="text-warm-800/60">
+                Withdrawn: {formatCurrency(earnings.totalWithdrawn)}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {earnings.records.map((record) => {
+              const isAvailable = record.status === 'AVAILABLE'
+              const isPending = record.status === 'PENDING'
+              return (
+                <div
+                  key={record.id}
+                  className="flex items-center justify-between p-3 bg-warm-50 rounded-xl"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      isAvailable ? 'bg-green-100 text-green-600' : isPending ? 'bg-yellow-100 text-yellow-600' : 'bg-warm-100 text-warm-800/60'
+                    }`}>
+                      {isAvailable ? <CheckCircle size={18} /> : <Clock size={18} />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-warm-900">#{record.orderNumber}</p>
+                      <p className="text-xs text-warm-800/60">
+                        {new Date(record.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-warm-900">{formatCurrency(record.netAmount)}</p>
+                    <Badge variant={isAvailable ? 'verified' : 'deal'} size="sm">
+                      {record.status}
+                    </Badge>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {earnings.pagination.totalPages > 1 && (
+            <div className="mt-4 text-center text-sm text-warm-800/60">
+              Page {earnings.pagination.page} of {earnings.pagination.totalPages}
+            </div>
+          )}
+
+          {earnings.availableBalance > 20 && (
+            <div className="mt-6 pt-4 border-t border-warm-200">
+              <Button
+                onClick={() => router.push('/rider/payouts')}
+                icon={<Download size={18} />}
+                variant="outline"
+              >
+                Withdraw Funds
+              </Button>
+            </div>
+          )}
+        </Card>
       </div>
     </RiderSidebar>
   )

@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, MapPin, Package, Phone, Truck } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
-import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import dynamic from 'next/dynamic'
@@ -19,9 +18,6 @@ export default function SellerOrderDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refund, setRefund] = useState<any>(null)
-  const [refundLoading, setRefundLoading] = useState(false)
-  const [refundRequest, setRefundRequest] = useState({ amount: '', reason: '' })
-  const [refundError, setRefundError] = useState('')
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -41,31 +37,6 @@ export default function SellerOrderDetailsPage() {
       }
     })
   }, [order])
-
-  const handleRequestRefund = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setRefundError('')
-    setRefundLoading(true)
-    const amount = Number(refundRequest.amount)
-    if (!amount || amount <= 0) {
-      setRefundError('Please enter a valid amount')
-      setRefundLoading(false)
-      return
-    }
-    if (order && amount > Number(order.total)) {
-      setRefundError('Refund amount cannot exceed the order total')
-      setRefundLoading(false)
-      return
-    }
-    const response = await api.requestRefund({ orderId: order.id, amount, reason: refundRequest.reason || undefined })
-    if (response.success) {
-      setRefund(response.data)
-      setRefundRequest({ amount: '', reason: '' })
-    } else {
-      setRefundError(response.error || 'Failed to request refund')
-    }
-    setRefundLoading(false)
-  }
 
   if (loading) return <SellerSidebar><p className="py-20 text-center text-warm-800/60">Loading order...</p></SellerSidebar>
   if (!order) return <SellerSidebar><p className="py-20 text-center text-red-600">{error}</p></SellerSidebar>
@@ -108,21 +79,8 @@ export default function SellerOrderDetailsPage() {
               {refund.reason && <p className="text-sm text-warm-800/70">{refund.reason}</p>}
               {refund.adminNotes && <p className="text-sm text-warm-800/70">Note: {refund.adminNotes}</p>}
             </div>
-          ) : order.status !== 'PAID' && order.status !== 'DELIVERED' ? (
-            <p className="text-sm text-warm-800/60">Refunds are only available for paid or delivered orders.</p>
           ) : (
-            <form onSubmit={handleRequestRefund} className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-warm-900">Amount (GH₵)</label>
-                <input type="number" step="0.01" max={Number(order.total)} required value={refundRequest.amount} onChange={(e) => setRefundRequest({ ...refundRequest, amount: e.target.value })} className="mt-1 block w-full rounded-lg border border-warm-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-warm-900">Reason (optional)</label>
-                <textarea value={refundRequest.reason} onChange={(e) => setRefundRequest({ ...refundRequest, reason: e.target.value })} className="mt-1 block w-full rounded-lg border border-warm-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" rows={3} />
-              </div>
-              {refundError && <p className="text-sm text-red-600">{refundError}</p>}
-              <Button type="submit" disabled={refundLoading} variant="outline">{refundLoading ? 'Requesting…' : 'Request Refund'}</Button>
-            </form>
+            <p className="text-sm text-warm-800/60">No refund request has been recorded for this order.</p>
           )}
         </Card>
       </div>

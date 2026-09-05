@@ -10,6 +10,7 @@ export interface AuthenticatedRequest extends Express.Request {
     isSeller: boolean
     isRider: boolean
     isAdmin: boolean
+    authVersion: number
   }
 }
 
@@ -82,6 +83,7 @@ declare global {
         isSeller: boolean
         isRider: boolean
         isAdmin: boolean
+        authVersion: number
       }
     }
   }

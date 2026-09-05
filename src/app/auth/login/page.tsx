@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Mail, Lock, Eye, EyeOff, User, Store, Bike } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, User, Store, Bike, Phone } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { api } from '../../../lib/api'
@@ -18,6 +18,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loginMethod, setLoginMethod] = useState<'password' | 'otp'>('password')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [otp, setOtp] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCooldown, setOtpCooldown] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -28,6 +33,12 @@ export default function LoginPage() {
   const [verificationEmail, setVerificationEmail] = useState('')
   const submittingRef = useRef(false)
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID
+
+  useEffect(() => {
+    if (otpCooldown <= 0) return
+    const timer = window.setInterval(() => setOtpCooldown(value => Math.max(0, value - 1)), 1000)
+    return () => window.clearInterval(timer)
+  }, [otpCooldown])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -204,6 +215,44 @@ export default function LoginPage() {
     }
   }
 
+  const handleSendLoginOtp = async () => {
+    if (!phoneNumber || otpCooldown > 0) return
+    setLoading(true)
+    setError('')
+    const response = await api.post<{ cooldownSeconds?: number }>('/auth/login/otp/send', { phoneNumber })
+    if (response.success) {
+      setOtpSent(true)
+      setOtpCooldown(response.data?.cooldownSeconds || 60)
+    } else {
+      setError(response.error || 'Unable to send verification code')
+    }
+    setLoading(false)
+  }
+
+  const handleVerifyLoginOtp = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (otp.length !== 6) {
+      setError('Enter the 6-digit verification code')
+      return
+    }
+    setLoading(true)
+    setError('')
+    const response = await api.post<{ token?: string; user?: any }>('/auth/login/otp/verify', { phoneNumber, otp })
+    if (response.success && response.data?.token && response.data.user) {
+      const u = response.data.user
+      const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
+      const normalizedUser = { id: u.id, name: u.name, email: u.email, avatar: u.avatar, location: u.location, role, isSeller: !!u.isSeller, isRider: !!u.isRider, isAdmin: !!u.isAdmin }
+      localStorage.setItem('token', response.data.token)
+      localStorage.setItem('user', JSON.stringify(normalizedUser))
+      setUser(normalizedUser as any)
+      window.dispatchEvent(new Event('auth-changed'))
+      router.replace(u.isAdmin ? '/admin' : u.isRider ? '/rider' : u.isSeller ? '/seller' : '/')
+    } else {
+      setError(response.error || 'Invalid verification code')
+    }
+    setLoading(false)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (loading || submittingRef.current) return
@@ -281,33 +330,14 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onValueChange={setEmail}
-              icon={<Mail size={20} />}
-              required
-            />
+          <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-warm-100 p-1">
+            <button type="button" onClick={() => { setLoginMethod('password'); setError('') }} className={`rounded-lg px-3 py-2 text-sm font-medium ${loginMethod === 'password' ? 'bg-white text-primary shadow-sm' : 'text-warm-800/60'}`}>Email & password</button>
+            <button type="button" onClick={() => { setLoginMethod('otp'); setError('') }} className={`rounded-lg px-3 py-2 text-sm font-medium ${loginMethod === 'otp' ? 'bg-white text-primary shadow-sm' : 'text-warm-800/60'}`}>Phone OTP</button>
+          </div>
 
-            <Input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Password"
-              value={password}
-              onValueChange={setPassword}
-              icon={<Lock size={20} />}
-              rightIcon={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-warm-800/40 hover:text-warm-800"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              }
-              required
-            />
+          {loginMethod === 'password' ? <form onSubmit={handleSubmit} className="space-y-4">
+            <Input type="email" placeholder="Email address" value={email} onValueChange={setEmail} icon={<Mail size={20} />} required />
+            <Input type={showPassword ? 'text' : 'password'} placeholder="Password" value={password} onValueChange={setPassword} icon={<Lock size={20} />} rightIcon={<button type="button" onClick={() => setShowPassword(!showPassword)} className="text-warm-800/40 hover:text-warm-800">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>} required />
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -322,7 +352,14 @@ export default function LoginPage() {
             <Button fullWidth type="submit" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
-          </form>
+          </form> : <form onSubmit={handleVerifyLoginOtp} className="space-y-4">
+            <Input type="tel" placeholder="Phone number e.g. 0241234567" value={phoneNumber} onValueChange={setPhoneNumber} icon={<Phone size={20} />} required />
+            {otpSent && <Input type="text" inputMode="numeric" placeholder="6-digit verification code" value={otp} onValueChange={value => setOtp(value.replace(/\D/g, '').slice(0, 6))} icon={<Lock size={20} />} required />}
+            {!otpSent ? <Button fullWidth type="button" onClick={handleSendLoginOtp} disabled={loading || !phoneNumber}>{loading ? 'Sending code...' : 'Send verification code'}</Button> : <>
+              <Button fullWidth type="submit" disabled={loading || otp.length !== 6}>{loading ? 'Verifying...' : 'Sign in with OTP'}</Button>
+              <button type="button" onClick={handleSendLoginOtp} disabled={loading || otpCooldown > 0} className="w-full text-sm font-medium text-primary disabled:text-warm-800/40">{otpCooldown > 0 ? `Resend code in ${otpCooldown}s` : 'Resend code'}</button>
+            </>}
+          </form>}
 
           <div className="mt-6">
             <div className="relative">

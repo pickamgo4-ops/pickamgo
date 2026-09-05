@@ -22,6 +22,7 @@ model User {
   banned                 Boolean?                @default(false)
   emailVerified          Boolean                 @default(false)
   phoneVerified          Boolean                 @default(false)
+  authVersion            Int                     @default(0)
   lastActiveAt            DateTime?
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
@@ -66,6 +67,7 @@ model User {
   followedShops          ShopFollow[]
   roles                  UserRole[]
   loginHistory           LoginHistory[]
+  phoneOtps              PhoneOtp[]
 }
 
 model Role {
@@ -114,6 +116,24 @@ model EmailVerification {
   @@index([userId])
   @@index([email])
   @@index([hashedCode])
+}
+
+model PhoneOtp {
+  id           String    @id @default(cuid())
+  userId       String?
+  phoneNumber  String
+  otpHash      String
+  purpose      String
+  expiresAt    DateTime
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(5)
+  verifiedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+  @@index([phoneNumber, purpose, createdAt])
+  @@index([expiresAt])
 }
 
 model LoginHistory {
@@ -805,6 +825,7 @@ model Delivery {
   dropoffLatitude     Float?
   dropoffLongitude    Float?
   status              String         @default("PENDING")
+  verificationCode    String?
   distance            String?
   fee                 Decimal        @default(0) @db.Decimal(12, 2)
   riderEarnings       Decimal        @default(0) @db.Decimal(12, 2)
@@ -848,6 +869,17 @@ model NotificationPreference {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model RateLimitBucket {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  windowStart  DateTime
+  count        Int      @default(0)
+  blockedCount Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@index([windowStart])
 }
 
 model Conversation {

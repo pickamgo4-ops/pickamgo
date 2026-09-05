@@ -273,15 +273,44 @@ export const api = {
   },
   getCategories: () => api.get<any[]>('/categories'),
   getAdminDashboard: () => api.get<any>('/admin/dashboard'),
-  getRiderDeliveries: () => api.get<any>('/riders/deliveries'),
+   getRiderDeliveries: () => api.get<any>('/riders/deliveries'),
   getRiderProfile: () => api.get<RiderProfile>('/riders/me'),
+  getRiderDashboard: () => api.get<any>('/riders/dashboard'),
   getRiderEarnings: () => api.get<any>('/riders/earnings'),
-  getRiderHistory: () => api.get<any>('/riders/deliveries/history'),
+  getRiderEarningsHistory: (params?: { page?: number; limit?: number; period?: string; status?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<any>(`/riders/earnings/history${query}`)
+  },
+  getRiderHistory: (params?: { page?: number; limit?: number; status?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<any>(`/riders/deliveries/history${query}`)
+  },
+  getRiderDeliveryDetail: (id: string) => api.get<any>(`/riders/deliveries/${id}`),
   acceptDelivery: (orderId: string) => api.post(`/riders/deliveries/${orderId}/accept`, {}),
   updateDeliveryStatus: (deliveryId: string, status: string) =>
     api.patch(`/riders/deliveries/${deliveryId}/status`, { status }),
+  verifyDelivery: (deliveryId: string, verificationCode: string) =>
+    api.post(`/riders/deliveries/${deliveryId}/verify`, { verificationCode }),
+  reportDeliveryProblem: (deliveryId: string, data: { reason: string; description?: string }) =>
+    api.post(`/riders/deliveries/${deliveryId}/report`, data),
   updateRiderStatus: (isOnline: boolean, isAvailable: boolean) =>
     api.patch('/riders/me/status', { isOnline, isAvailable }),
+  updateRiderLocation: (latitude: number, longitude: number) =>
+    api.patch('/riders/me/location', { latitude, longitude }),
+  updateRiderVehicle: (data: { vehicleType?: string; vehicleNumber?: string; licenseNumber?: string }) =>
+    api.patch('/riders/me/vehicle', data),
   guestCheckout: (data: any) => api.post<CheckoutOrder>('/checkout/guest', data),
   uploadImage: (file: File) => {
     const formData = new FormData()

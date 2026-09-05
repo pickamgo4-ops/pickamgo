@@ -4,6 +4,7 @@ import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { sendEmailDirect, sendSellerAccountEmail, sendRiderAccountEmail } from '../services/email'
+import { normalizeGhanaPhone } from '../services/otpService'
 
 const router = Router()
 
@@ -18,8 +19,14 @@ const verificationSchema = z.object({
 router.post('/verify', authMiddleware, requireRole(['SELLER']), validateBody(verificationSchema), async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id
-    const data = { ...req.body, idNumber: null, idType: null, idFrontUrl: null, idBackUrl: null, selfieUrl: null }
+    const normalizedPhone = normalizeGhanaPhone(req.body.phoneNumber)
+    const data = { ...req.body, phoneNumber: normalizedPhone, idNumber: null, idType: null, idFrontUrl: null, idBackUrl: null, selfieUrl: null }
     if (!req.user!.email || !data.phoneNumber) return errorResponse(res, 'Email and phone verification are required', 400)
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { phone: true, phoneVerified: true } })
+    if (!user?.phoneVerified || user.phone !== normalizedPhone) {
+      return errorResponse(res, 'Verify this phone number before submitting seller verification', 400)
+    }
 
     const existing = await prisma.sellerVerification.findFirst({ where: { userId, type: 'SELLER' } })
     if (existing && existing.status === 'PENDING') {

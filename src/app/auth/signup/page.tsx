@@ -244,7 +244,7 @@ export default function SignupPage() {
     setError("");
 
     try {
-      const response = await api.post<{ token: string; user: any; verificationSent?: boolean }>("/auth/register", {
+      const response = await api.post<{ token: string; user: any; verificationSent?: boolean; phoneVerificationRequired?: boolean }>("/auth/register", {
         name,
         email,
         phone,
@@ -253,6 +253,14 @@ export default function SignupPage() {
       });
 
       if (response.success && response.data) {
+        if (response.data.phoneVerificationRequired && response.data.token) {
+          localStorage.setItem('token', response.data.token)
+          localStorage.setItem('user', JSON.stringify(response.data.user))
+          window.dispatchEvent(new Event('auth-changed'))
+          router.push(`/auth/verify-phone?phone=${encodeURIComponent(phone)}&purpose=PHONE_VERIFICATION`)
+          setLoading(false)
+          return
+        }
         if (response.data.verificationSent) {
           setVerificationEmail(email);
           setShowVerificationPrompt(true);

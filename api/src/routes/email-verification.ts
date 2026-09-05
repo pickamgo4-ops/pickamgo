@@ -6,6 +6,7 @@ import { AuthenticatedRequest, successResponse, errorResponse, validateBody } fr
 import { sendEmail, buildBaseHtml } from '../services/email'
 import { generateVerificationCode, hashCode, compareCode } from '../utils/email-verification'
 import { getAppUrl } from '../utils/url'
+import { consumeRateLimit, getRequestIp, isRateLimited } from '../middleware/rate-limit'
 
 const router = Router()
 
@@ -26,6 +27,10 @@ router.post('/send-verification', async (req: AuthenticatedRequest, res) => {
   try {
     const { email } = sendVerificationCodeSchema.parse(req.body)
     const normalizedEmail = email.trim().toLowerCase()
+    const ip = getRequestIp(req)
+    if (await isRateLimited('otp-email', normalizedEmail, 3, 10 * 60_000) || await isRateLimited('otp-ip', ip, 10, 60 * 60_000)) return errorResponse(res, 'Too many requests. Please try again later.', 429)
+    await consumeRateLimit('otp-email', normalizedEmail, 3, 10 * 60_000)
+    await consumeRateLimit('otp-ip', ip, 10, 60 * 60_000)
 
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -108,6 +113,10 @@ router.post('/verify', async (req: AuthenticatedRequest, res) => {
   try {
     const { email, code } = verifyCodeSchema.parse(req.body)
     const normalizedEmail = email.trim().toLowerCase()
+    const ip = getRequestIp(req)
+    if (await isRateLimited('otp-verify-email', normalizedEmail, 20, 10 * 60_000) || await isRateLimited('otp-verify-ip', ip, 20, 10 * 60_000)) return errorResponse(res, 'Too many requests. Please try again later.', 429)
+    await consumeRateLimit('otp-verify-email', normalizedEmail, 20, 10 * 60_000)
+    await consumeRateLimit('otp-verify-ip', ip, 20, 10 * 60_000)
 
     const verification = await prisma.emailVerification.findFirst({
       where: {
@@ -118,7 +127,7 @@ router.post('/verify', async (req: AuthenticatedRequest, res) => {
     })
 
     if (!verification) {
-      return errorResponse(res, 'No verification code found. Please request a new one.', 404)
+      return errorResponse(res, 'Too many verification attempts. Please request a new code.', 429)
     }
 
     if (verification.attempts >= verification.maxAttempts) {
@@ -132,13 +141,17 @@ router.post('/verify', async (req: AuthenticatedRequest, res) => {
     const isValid = await compareCode(code, verification.hashedCode)
 
     if (!isValid) {
-      await prisma.emailVerification.update({
+      const updatedVerification = await prisma.emailVerification.update({
         where: { id: verification.id },
         data: { attempts: { increment: 1 } },
       })
 
-      const remainingAttempts = verification.maxAttempts - verification.attempts - 1
+      const remainingAttempts = updatedVerification.maxAttempts - updatedVerification.attempts
       if (remainingAttempts <= 0) {
+        await prisma.emailVerification.update({
+          where: { id: verification.id },
+          data: { used: true },
+        })
         return errorResponse(res, 'Too many failed attempts. Please request a new verification code.', 429)
       }
 
@@ -181,6 +194,10 @@ router.post('/resend', async (req: AuthenticatedRequest, res) => {
   try {
     const { email } = resendCodeSchema.parse(req.body)
     const normalizedEmail = email.trim().toLowerCase()
+    const ip = getRequestIp(req)
+    if (await isRateLimited('otp-resend-email', normalizedEmail, 3, 10 * 60_000) || await isRateLimited('otp-resend-ip', ip, 10, 60 * 60_000)) return errorResponse(res, 'Too many requests. Please try again later.', 429)
+    await consumeRateLimit('otp-resend-email', normalizedEmail, 3, 10 * 60_000)
+    await consumeRateLimit('otp-resend-ip', ip, 10, 60 * 60_000)
 
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },

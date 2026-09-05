@@ -14,7 +14,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:integration": "node --test --test-concurrency=1 --import tsx tests/rate-limiting.integration.test.ts",
+    "test:otp": "node --test --import tsx tests/otp.unit.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

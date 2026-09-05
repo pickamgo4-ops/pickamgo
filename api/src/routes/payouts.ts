@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import crypto from 'crypto'
 import prisma from '../utils/prisma'
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
@@ -227,7 +228,7 @@ router.post('/withdraw', authMiddleware, validateBody(z.object({
       return errorResponse(res, 'Insufficient available balance', 400)
     }
 
-    const reference = `PAYOUT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const reference = `PAYOUT-${Date.now()}-${crypto.randomUUID()}`
 
     const payout = await prisma.payout.create({
       data: {

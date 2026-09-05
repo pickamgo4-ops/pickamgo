@@ -2,6 +2,7 @@ import { Response } from 'express'
 import jwt from 'jsonwebtoken'
 import { User, UserRole } from '@prisma/client'
 import prisma from '../utils/prisma'
+import { categoryForRequest, enforceAuthenticatedRateLimit } from './rate-limit'
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET?.trim()
@@ -36,6 +37,7 @@ export interface TokenPayload {
   isRider: boolean
   isAdmin: boolean
   emailVerified?: boolean
+  authVersion: number
 }
 
 export interface AuthenticatedRequest extends Express.Request {
@@ -51,6 +53,7 @@ export function generateToken(user: User & { roles?: UserRole[] }): string {
     isRider: user.isRider,
     isAdmin: user.isAdmin,
     emailVerified: user.emailVerified,
+    authVersion: user.authVersion,
   }
   return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' })
 }
@@ -71,9 +74,14 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     const payload = verifyToken(token)
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true, emailVerified: true },
+      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true, emailVerified: true, authVersion: true },
     })
     if (!user) {
+      res.status(401).json({ success: false, error: 'Invalid or expired token' })
+      return
+    }
+
+    if (payload.authVersion !== user.authVersion) {
       res.status(401).json({ success: false, error: 'Invalid or expired token' })
       return
     }
@@ -84,6 +92,7 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     }
 
     req.user = user
+    if (!(await enforceAuthenticatedRateLimit(req, res, categoryForRequest(req)))) return
     next()
   } catch {
     res.status(401).json({ success: false, error: 'Invalid or expired token' })
@@ -102,10 +111,11 @@ export async function optionalAuthMiddleware(req: AuthenticatedRequest, res: Res
     const payload = verifyToken(token)
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true, emailVerified: true },
+      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, suspended: true, banned: true, emailVerified: true, authVersion: true },
     })
-    if (user && !user.suspended && !user.banned) {
+    if (user && !user.suspended && !user.banned && payload.authVersion === user.authVersion) {
       req.user = user
+      if (!(await enforceAuthenticatedRateLimit(req, res, categoryForRequest(req)))) return
     }
   } catch {
     // ignore invalid token for optional auth

@@ -2,68 +2,68 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, Clock, CheckCircle, XCircle, DollarSign } from 'lucide-react'
+import { Package, Clock, CheckCircle, XCircle, DollarSign, Filter, RefreshCw } from 'lucide-react'
 import { RiderSidebar } from '@/components/RiderSidebar'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
-import { Avatar } from '@/components/ui/Avatar'
+import { Badge } from '@/components/ui/Badge'
+import { RiderDeliveryItem, RiderEarningsRecord } from '@/types/rider'
 import { api } from '@/lib/api'
-
-interface Delivery {
-  id: string
-  orderId: string
-  orderNumber?: string
-  status: string
-  pickupAddress: string
-  dropoffAddress: string
-  riderEarnings: number
-  createdAt: string
-  deliveredAt?: string
-}
+import { RiderLoadingState, RiderEmptyState } from '@/components/RiderAuthGuard'
+import { formatCurrency } from '@/lib/rider-constants'
 
 export default function RiderDeliveryHistoryPage() {
   const router = useRouter()
+  const [deliveries, setDeliveries] = useState<RiderDeliveryItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [deliveries, setDeliveries] = useState<Delivery[]>([])
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('')
+  const [pagination, setPagination] = useState<{ page: number; total: number; totalPages: number } | null>(null)
 
-  useEffect(() => {
-    loadHistory()
-  }, [])
-
-  const loadHistory = async () => {
-    setLoading(true)
+  const loadHistory = async (page = 1, status?: string) => {
+    if (loading) {
+      setLoading(true)
+    } else {
+      setRefreshing(true)
+    }
+    setError(null)
     try {
-      const response = await api.get<any>('/riders/deliveries/history')
-      if (response.success && response.data) {
-        setDeliveries(response.data.deliveries || [])
+      const params: any = { page, limit: 20 }
+      if (status) params.status = status
+      const res = await api.getRiderHistory(params)
+      if (res.success && res.data) {
+        setDeliveries(res.data.deliveries || [])
+        setPagination({
+          page: res.data.pagination?.page || 1,
+          total: res.data.pagination?.total || 0,
+          totalPages: res.data.pagination?.totalPages || 1,
+        })
+      } else {
+        setError(res.error || 'Failed to load history')
       }
     } catch {
-      // ignore
+      setError('Failed to load history')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
-  const filteredDeliveries = filter ? deliveries.filter(d => d.status === filter) : deliveries
+  useEffect(() => {
+    loadHistory(1, filter || undefined)
+  }, [filter])
 
-  const statusConfig: Record<string, { label: string; color: string }> = {
-    ACCEPTED: { label: 'Accepted', color: 'bg-blue-100 text-blue-700' },
-    PICKED_UP: { label: 'Picked Up', color: 'bg-purple-100 text-purple-700' },
-    DELIVERED: { label: 'Delivered', color: 'bg-green-100 text-green-700' },
-    CANCELLED: { label: 'Cancelled', color: 'bg-red-100 text-red-700' },
+  const handleViewDetails = (delivery: RiderDeliveryItem) => {
+    router.push(`/rider/deliveries/${delivery.id}/details`)
   }
+
+  const statusFilterOptions = ['', 'DELIVERED', 'CANCELLED', 'FAILED']
 
   if (loading) {
     return (
       <RiderSidebar>
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-warm-800/60">Loading delivery history...</p>
-          </div>
-        </div>
+        <RiderLoadingState message="Loading delivery history..." />
       </RiderSidebar>
     )
   }
@@ -71,65 +71,113 @@ export default function RiderDeliveryHistoryPage() {
   return (
     <RiderSidebar>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Delivery History</h1>
-          <p className="text-warm-800/60 mt-1">{deliveries.length} deliveries</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button variant={filter === '' ? 'primary' : 'outline'} size="sm" onClick={() => setFilter('')}>
-            All
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Delivery History</h1>
+            <p className="text-warm-800/60 mt-1">{deliveries.length} deliveries</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+            onClick={() => loadHistory(1, filter || undefined)}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
-          {Object.entries(statusConfig).map(([key, config]) => (
-            <Button key={key} variant={filter === key ? 'primary' : 'outline'} size="sm" onClick={() => setFilter(key)}>
-              {config.label}
-            </Button>
-          ))}
         </div>
 
-        {filteredDeliveries.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Package size={48} className="mx-auto text-warm-800/30 mb-4" />
-            <h3 className="font-semibold text-warm-900 mb-2">No deliveries yet</h3>
-            <p className="text-sm text-warm-800/60">Your delivery history will appear here</p>
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2">
+          {statusFilterOptions.map((status) => {
+            const labels: Record<string, string> = { '': 'All', 'DELIVERED': 'Delivered', 'CANCELLED': 'Cancelled', 'FAILED': 'Failed' }
+            return (
+              <Button
+                key={status}
+                variant={filter === status ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setFilter(status)}
+              >
+                {labels[status] || status}
+              </Button>
+            )
+          })}
+        </div>
+
+        {deliveries.length === 0 ? (
+          <Card className="p-12">
+            <RiderEmptyState
+              title="No deliveries yet"
+              description="Your delivery history will appear here when you complete deliveries"
+              actionLabel="Find Deliveries"
+              onAction={() => router.push('/rider/deliveries/available')}
+            />
           </Card>
         ) : (
           <div className="space-y-3">
-            {filteredDeliveries.map((delivery) => {
-              const status = statusConfig[delivery.status] || { label: delivery.status, color: 'bg-gray-100 text-gray-700' }
+            {deliveries.map((delivery) => {
+              const isDelivered = delivery.status === 'DELIVERED'
+              const isCancelled = delivery.status === 'CANCELLED' || delivery.status === 'FAILED'
+              const amount = delivery.riderEarnings || (delivery.riderEarningsRecord as RiderEarningsRecord | undefined)?.netAmount || 0
+
               return (
-                <Card key={delivery.id} className="p-4">
+                <Card
+                  key={delivery.id}
+                  className="p-4 hover:border-primary/30 transition-colors cursor-pointer"
+                  onClick={() => handleViewDetails(delivery)}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="font-medium text-warm-900">#{delivery.orderNumber || delivery.orderId?.slice(-6)}</h3>
-                      <p className="text-xs text-warm-800/60">
+                      <h3 className="font-medium text-warm-900">
+                        #{delivery.orderNumber || delivery.order?.orderNumber || delivery.orderId.slice(-6)}
+                      </h3>
+                      <p className="text-xs text-warm-800/60 mt-0.5">
                         {new Date(delivery.createdAt).toLocaleDateString()}
                       </p>
                     </div>
-                    <Badge variant={status.color.includes('green') ? 'verified' : status.color.includes('red') ? 'deal' : 'default'}>
-                      {status.label}
+                    <Badge variant={isDelivered ? 'verified' : isCancelled ? 'deal' : 'default'}>
+                      {delivery.status}
                     </Badge>
                   </div>
 
                   <div className="space-y-2 mb-3">
-                    <div className="flex items-center gap-2 text-sm text-warm-800/70">
-                      <span className="text-xs font-medium text-warm-800/50 w-16">From:</span>
-                      {delivery.pickupAddress}
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-warm-800/50 uppercase tracking-wider">Pickup</p>
+                        <p className="text-sm font-medium text-warm-900 truncate">{delivery.pickupAddress}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-warm-800/70">
-                      <span className="text-xs font-medium text-warm-800/50 w-16">To:</span>
-                      {delivery.dropoffAddress}
+
+                    <div className="ml-3 border-l-2 border-dashed border-warm-200 h-5" />
+
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="w-2 h-2 bg-red-500 rounded-full" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-warm-800/50 uppercase tracking-wider">Dropoff</p>
+                        <p className="text-sm font-medium text-warm-900 truncate">{delivery.dropoffAddress}</p>
+                      </div>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-3 border-t border-warm-200">
-                    <div className="flex items-center gap-1 text-sm">
+                    <div className="flex items-center gap-1">
                       <DollarSign size={16} className="text-green-500" />
-                      <span className="font-bold text-green-600">GH₵{delivery.riderEarnings?.toFixed(2) || '0.00'}</span>
+                      <span className="font-bold text-green-600">{formatCurrency(amount)}</span>
                     </div>
                     {delivery.deliveredAt && (
                       <span className="text-xs text-warm-800/50">
-                        Delivered {new Date(delivery.deliveredAt).toLocaleTimeString()}
+                        Delivered {new Date(delivery.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
