@@ -75,7 +75,6 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
   })
   if (!rider) return errorResponse(res, 'Rider profile not found', 404)
   if (!rider.isOnline) return errorResponse(res, 'You must be online to accept deliveries', 400)
-  if (!rider.isVerified) return errorResponse(res, 'Complete Ghana Card verification before accepting deliveries', 403)
 
   const existingDelivery = await prisma.delivery.findFirst({
     where: { riderId: req.user!.id, status: { not: 'DELIVERED' } },
@@ -95,6 +94,7 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
   })
 
   if (!order) return errorResponse(res, 'Order not found', 404)
+  if (!rider.isVerified && !order.isTestOrder) return errorResponse(res, 'Complete Ghana Card verification before accepting deliveries', 403)
   if (order.fulfillmentMethod !== 'FIND_IT_NEAR_ME_RIDER') return errorResponse(res, 'This order is not assigned to platform rider delivery', 403)
   if (order.deliveryStatus !== 'PENDING') {
     return errorResponse(res, 'Delivery already assigned', 400)
@@ -137,9 +137,11 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
       },
     })
 
-    await tx.riderEarnings.create({
-      data: { deliveryId: newDelivery.id, orderId: order.id, riderId: req.user!.id, grossAmount: 15, platformFee: 3, netAmount: 12, status: 'PENDING' },
-    })
+    if (!order.isTestOrder) {
+      await tx.riderEarnings.create({
+        data: { deliveryId: newDelivery.id, orderId: order.id, riderId: req.user!.id, grossAmount: 15, platformFee: 3, netAmount: 12, status: 'PENDING' },
+      })
+    }
 
     if (order.customerId) {
       await tx.notification.create({
@@ -157,7 +159,7 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
   })
 
   const riderEmail = rider.user?.email
-  if (riderEmail) {
+  if (riderEmail && !order.isTestOrder) {
     sendRiderNotification(riderEmail, {
       orderNumber: order.orderNumber,
       pickupAddress: order.shop.location,
@@ -205,14 +207,20 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
 
   const updateData: any = { status }
   if (status === 'PICKED_UP') updateData.pickedUpAt = new Date()
-  if (status === 'DELIVERED') {
+  if (status === 'DELIVERED' && !delivery.order.isTestOrder) {
     updateData.deliveredAt = new Date()
   }
 
   const updated = await prisma.$transaction(async tx => {
     const nextDelivery = await tx.delivery.update({ where: { id: req.params.id }, data: updateData })
+    if (status === 'PICKED_UP') {
+      await tx.order.update({ where: { id: delivery.orderId }, data: { deliveryStatus: 'PICKED_UP' } })
+    }
+    if (status === 'OUT_FOR_DELIVERY') {
+      await tx.order.update({ where: { id: delivery.orderId }, data: { status: 'OUT_FOR_DELIVERY', deliveryStatus: 'OUT_FOR_DELIVERY' } })
+    }
     if (status === 'DELIVERED') {
-      await tx.order.update({ where: { id: delivery.orderId }, data: { status: 'DELIVERED', deliveryStatus: 'DELIVERED', payoutEligible: true } })
+      await tx.order.update({ where: { id: delivery.orderId }, data: { status: 'DELIVERED', deliveryStatus: 'DELIVERED', payoutEligible: !delivery.order.isTestOrder } })
       if (delivery.order.customerId) await tx.notification.create({ data: { userId: delivery.order.customerId, type: 'ORDER_DELIVERED', title: 'Order Delivered', message: 'Your order has been delivered.', data: JSON.stringify({ orderId: delivery.orderId }) } })
       if (delivery.order.sellerId) await tx.notification.create({ data: { userId: delivery.order.sellerId, type: 'ORDER_DELIVERED', title: 'Order Delivered', message: `Order ${delivery.order.orderNumber} has been delivered.`, data: JSON.stringify({ orderId: delivery.orderId }) } })
     }
@@ -224,14 +232,14 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
 
   if (status === 'ACCEPTED' || status === 'ARRIVED_AT_PICKUP' || status === 'PICKED_UP' || status === 'OUT_FOR_DELIVERY' || status === 'DELIVERED' || status === 'CANCELLED') {
     const riderName = req.user?.name || 'Your rider'
-    if (customer?.email) {
+    if (customer?.email && !delivery.order.isTestOrder) {
       sendDeliveryStatusEmail(customer.email, {
         orderNumber: delivery.order.orderNumber,
         status,
         riderName,
       }).catch(err => console.error('Failed to send delivery status email to customer:', err))
     }
-    if (seller?.email && status !== 'CANCELLED') {
+    if (seller?.email && status !== 'CANCELLED' && !delivery.order.isTestOrder) {
       sendDeliveryStatusEmail(seller.email, {
         orderNumber: delivery.order.orderNumber,
         status,
@@ -240,7 +248,7 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
     }
   }
 
-  if (status === 'DELIVERED') {
+  if (status === 'DELIVERED' && !delivery.order.isTestOrder) {
     await prisma.rider.update({
       where: { userId: req.user!.id },
       data: {

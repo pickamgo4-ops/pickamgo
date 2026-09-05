@@ -85,27 +85,28 @@ router.get(
         prisma.shop.count(),
         prisma.product.count({ where: { status: "ACTIVE" } }),
         prisma.service.count({ where: { status: "ACTIVE" } }),
-        prisma.order.count(),
+        prisma.order.count({ where: { isTestOrder: false } }),
         prisma.order.aggregate({
           _sum: { total: true },
-          where: { payment: { status: "PAID" } },
+          where: { isTestOrder: false, payment: { status: "PAID" } },
         }),
-        prisma.order.count({ where: { status: "PENDING_PAYMENT" } }),
-        prisma.order.count({ where: { status: "DELIVERED" } }),
-        prisma.order.count({ where: { status: "CANCELLED" } }),
+        prisma.order.count({ where: { isTestOrder: false, status: "PENDING_PAYMENT" } }),
+        prisma.order.count({ where: { isTestOrder: false, status: "DELIVERED" } }),
+        prisma.order.count({ where: { isTestOrder: false, status: "CANCELLED" } }),
         prisma.sellerVerification.count({ where: { status: "PENDING", type: "SELLER" } }),
         prisma.shop.count({ where: { verificationStatus: "PENDING" } }),
         prisma.sellerVerification.count({ where: { status: "PENDING", type: "RIDER" } }),
         prisma.rider.count({ where: { isOnline: true } }),
         prisma.payout.count({ where: { status: "PENDING" } }),
-        prisma.delivery.count({ where: { status: "DELIVERED" } }),
-        prisma.delivery.count({ where: { status: { notIn: ["DELIVERED", "CANCELLED"] } } }),
+        prisma.delivery.count({ where: { status: "DELIVERED", order: { isTestOrder: false } } }),
+        prisma.delivery.count({ where: { status: { notIn: ["DELIVERED", "CANCELLED"] }, order: { isTestOrder: false } } }),
         prisma.order.count({
-          where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+          where: { isTestOrder: false, createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
         }),
         prisma.order.aggregate({
           _sum: { total: true },
           where: {
+            isTestOrder: false,
             createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
             payment: { status: "PAID" },
           },
@@ -113,6 +114,7 @@ router.get(
         prisma.order.findMany({
           take: 10,
           orderBy: { createdAt: "desc" },
+          where: { isTestOrder: false },
           include: {
             customer: { select: { id: true, name: true, avatar: true } },
             seller: { select: { id: true, name: true, avatar: true } },
@@ -138,6 +140,7 @@ router.get(
           by: ["status"],
           _count: { id: true },
           _sum: { total: true },
+          where: { isTestOrder: false },
         }),
         prisma.financialLedger.groupBy({
           by: ["type"],

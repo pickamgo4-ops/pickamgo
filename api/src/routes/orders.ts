@@ -359,7 +359,7 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
   const updateData: any = { status, updatedAt: new Date() }
 
   if (status === 'DELIVERED') {
-    updateData.payoutEligible = true
+    updateData.payoutEligible = !order.isTestOrder
   }
 
   const updated = await prisma.order.update({
@@ -374,7 +374,7 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
 
   const previousStatus = order.status
 
-  if (status === 'DELIVERED') {
+  if (status === 'DELIVERED' && !order.isTestOrder) {
     await prisma.sellerEarnings.updateMany({
       where: { orderId: order.id, status: 'PENDING' },
       data: { status: 'AVAILABLE', availableAt: new Date() },
@@ -406,7 +406,7 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
       })
 
       const customerEmail = updated.customer?.email
-      if (customerEmail) {
+      if (customerEmail && !order.isTestOrder) {
         sendOrderStatusEmail(customerEmail, {
           orderNumber: updated.orderNumber,
           status: status.replace(/_/g, ' ').toLowerCase(),

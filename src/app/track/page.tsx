@@ -12,11 +12,12 @@ import { Card } from '../../components/ui/Card'
 export default function TrackPage() {
   const router = useRouter()
   const [orderNumber, setOrderNumber] = useState('')
+  const [email, setEmail] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (orderNumber.trim()) {
-      router.push(`/track/${encodeURIComponent(orderNumber.trim())}`)
+    if (orderNumber.trim() && email.trim()) {
+      router.push(`/track/${encodeURIComponent(orderNumber.trim())}?email=${encodeURIComponent(email.trim())}`)
     }
   }
 
@@ -33,7 +34,7 @@ export default function TrackPage() {
             <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
               Track Order
             </h1>
-            <p className="text-warm-800/60">Enter your order number</p>
+            <p className="text-warm-800/60">Enter your email and order number</p>
           </div>
         </div>
 
@@ -43,10 +44,18 @@ export default function TrackPage() {
           </div>
           <h3 className="font-semibold text-warm-900 text-center mb-2">Track Your Order</h3>
           <p className="text-sm text-warm-800/60 text-center mb-6">
-            Enter your order number to see real-time delivery updates.
+            Enter the email used for the order and your order number to see real-time delivery updates.
           </p>
 
           <form onSubmit={handleSubmit}>
+            <Input
+              type="email"
+              placeholder="Email used for the order"
+              value={email}
+              onValueChange={setEmail}
+              className="mb-4"
+              required
+            />
             <Input
               placeholder="Enter order number (e.g., PICK A1B2C3)"
               value={orderNumber}
@@ -57,7 +66,7 @@ export default function TrackPage() {
             <Button
               fullWidth
               type="submit"
-              disabled={!orderNumber.trim()}
+              disabled={!orderNumber.trim() || !email.trim()}
             >
               Track Order
             </Button>

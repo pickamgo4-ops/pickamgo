@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { 
   Home, LayoutDashboard, Store, Package, Tag, Archive, ShoppingBag, 
   TrendingUp, Star, MessageSquare, Bell, Settings, HelpCircle,
-  FileText, MapPin, CheckCircle, ChevronLeft, LogOut, Calendar,
+   Palette, CheckCircle, ChevronLeft, LogOut, Calendar,
   DollarSign, Truck, Ticket, Users, Sparkles
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
@@ -23,7 +23,7 @@ const shopSections = [
     items: [
       { href: '/seller', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/seller/shop', label: 'My Shop', icon: Store },
-      { href: '/seller/shop/customize', label: 'Customize Shop', icon: FileText },
+      { href: '/seller/shop/customize', label: 'Customize Shop', icon: Palette },
     ],
   },
   {

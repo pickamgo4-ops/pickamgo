@@ -126,3 +126,17 @@ function getProviderCode(provider: string): string {
 }
 
 export { paystack }
+
+export async function refundTransaction(amount: number, transactionRef: string, currency: string = 'GHS') {
+  if (!PAYSTACK_SECRET_KEY) {
+    throw new Error('Paystack secret key not configured')
+  }
+
+  const response = await paystack.post('/refund', {
+    amount: Math.round(amount * 100),
+    transaction: transactionRef,
+    currency,
+  })
+
+  return response.data.data
+}

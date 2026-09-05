@@ -392,6 +392,9 @@ const updateShopSchema = z.object({
   campus: z.string().optional(),
   openingHours: z.string().min(3).optional(),
   isOpen: z.boolean().optional(),
+  deliveryAvailable: z.boolean().optional(),
+  pickupAvailable: z.boolean().optional(),
+  deliveryFee: z.number().min(0).optional(),
   allowGuestCheckout: z.boolean().optional(),
 })
 

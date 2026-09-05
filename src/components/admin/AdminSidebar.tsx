@@ -29,6 +29,7 @@ import {
   Mail,
   Ticket,
   Megaphone,
+  FlaskConical,
 } from "lucide-react";
 import { useRole } from "@/contexts/RoleContext";
 import { api } from "@/lib/api";
@@ -53,6 +54,7 @@ const navItems = [
   { href: "/admin/emails", label: "Emails", icon: Mail },
   { href: "/admin/promo-codes", label: "Promo Codes", icon: Ticket },
   { href: "/admin/public-notices", label: "Public Notices", icon: Megaphone },
+  ...(process.env.NODE_ENV !== "production" ? [{ href: "/admin/test-orders", label: "Test Orders", icon: FlaskConical }] : []),
 ];
 
 export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {

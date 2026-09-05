@@ -35,6 +35,7 @@ import followRoutes from './routes/follows'
 import messageRoutes from './routes/messages'
 import reportRoutes from './routes/reports'
 import disputeRoutes from './routes/disputes'
+import refundRoutes from './routes/refunds'
 import recommendationRoutes from './routes/recommendations'
 import payoutRoutes from './routes/payouts'
 import deliverySettingsRoutes from './routes/delivery-settings'
@@ -45,6 +46,7 @@ import emailTestRoutes from './routes/email-test'
 import emailVerificationRoutes from './routes/email-verification'
 import publicNoticeRoutes from './routes/public-notices'
 import bookingSetupRoutes from './routes/booking-setup'
+import testOrderRoutes from './routes/test-orders'
 import prisma from './utils/prisma'
 
 const app = express()
@@ -225,6 +227,7 @@ app.use('/api/follows', followRoutes)
 app.use('/api/messages', messageRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/disputes', disputeRoutes)
+app.use('/api/refunds', refundRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/promos', promoRoutes)
 app.use('/api/seller/promos', sellerPromoRoutes)
@@ -233,6 +236,10 @@ app.use('/api/seller/delivery-settings', deliverySettingsRoutes)
 app.use('/api/public-notices', publicNoticeRoutes)
 app.use('/api/email-verification', emailVerificationRoutes)
 app.use('/api/booking-setup', bookingSetupRoutes)
+
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/dev/test-orders', testOrderRoutes)
+}
 
 if (process.env.NODE_ENV !== 'production') {
   app.use('/api/dev', emailTestRoutes)

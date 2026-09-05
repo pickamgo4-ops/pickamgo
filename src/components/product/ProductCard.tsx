@@ -13,11 +13,19 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) {
   const customization = product.shop?.customization
+  const cardStyle = customization
+    ? shopCustomizationStyle(customization)
+    : {
+        '--shop-secondary': 'var(--card)',
+        '--shop-accent': 'var(--foreground)',
+        '--shop-text': 'var(--foreground)',
+        '--shop-border': 'var(--border)',
+      } as React.CSSProperties
   return (
     <div
       onClick={onClick}
-      style={customization ? shopCustomizationStyle(customization) : undefined}
-      className="group cursor-pointer bg-[var(--shop-secondary,#fff)] rounded-2xl overflow-hidden border border-[var(--shop-border,rgba(120,100,80,0.2))] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+      style={cardStyle}
+      className="group cursor-pointer bg-[var(--shop-secondary)] rounded-2xl overflow-hidden border border-[var(--shop-border)] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
     >
       {/* Image Container */}
       <div className="relative aspect-[4/5] sm:aspect-square overflow-hidden bg-warm-100">
@@ -80,7 +88,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
       </div>
 
       {/* Content */}
-      <div className="p-2.5 sm:p-3" style={customization ? { color: 'var(--shop-accent)' } : undefined}>
+      <div className="p-2.5 sm:p-3" style={{ color: 'var(--shop-accent)' }}>
         {/* Seller Info */}
         <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
           <div className="w-5 h-5 rounded-full overflow-hidden bg-warm-200 flex-shrink-0">
@@ -93,7 +101,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
               />
             )}
           </div>
-          <span className="text-xs text-warm-800/70 truncate flex-1">
+          <span className="text-xs truncate flex-1 opacity-75">
             {product.seller.name}
           </span>
           {product.isVerified && (
@@ -102,24 +110,24 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
         </div>
 
         {/* Product Name */}
-        <h3 className="font-semibold text-sm text-warm-900 line-clamp-2 mb-1.5 sm:mb-2 leading-tight">
+        <h3 className="font-semibold text-sm line-clamp-2 mb-1.5 sm:mb-2 leading-tight">
           {product.name}
         </h3>
 
         {/* Price */}
         <div className="flex items-baseline gap-2 mb-1.5 sm:mb-2">
-          <span className="font-bold text-base sm:text-lg text-warm-900">
+          <span className="font-bold text-base sm:text-lg">
             GH₵{product.price}
           </span>
           {product.originalPrice && (
-            <span className="text-xs sm:text-sm text-warm-800/40 line-through">
+            <span className="text-xs sm:text-sm opacity-50 line-through">
               GH₵{product.originalPrice}
             </span>
           )}
         </div>
 
         {/* Meta */}
-        <div className="flex items-center justify-between text-xs text-warm-800/60">
+        <div className="flex items-center justify-between text-xs opacity-70">
           <div className="flex items-center gap-1">
             <MapPin size={12} />
             <span className="truncate">{product.distance}</span>
@@ -131,7 +139,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
         </div>
 
         {/* Delivery */}
-        <div className="flex items-center gap-1 mt-1.5 sm:mt-2 text-xs text-warm-800/60">
+        <div className="flex items-center gap-1 mt-1.5 sm:mt-2 text-xs opacity-70">
           <Clock size={12} />
           <span>{product.deliveryTime}</span>
         </div>

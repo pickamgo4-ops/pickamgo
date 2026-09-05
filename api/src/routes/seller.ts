@@ -238,12 +238,12 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
     }
 
     const [totalOrders, totalRevenue, pendingOrders, totalProducts, followersCount, totalReviews] = await Promise.all([
-      prisma.order.count({ where: { shopId: shop.id } }),
+      prisma.order.count({ where: { shopId: shop.id, isTestOrder: false } }),
       prisma.order.aggregate({
-        where: { shopId: shop.id, status: { not: 'CANCELLED' } },
+        where: { shopId: shop.id, isTestOrder: false, status: { not: 'CANCELLED' } },
         _sum: { total: true },
       }),
-      prisma.order.count({ where: { shopId: shop.id, status: { in: ['PENDING_PAYMENT', 'PAID', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'] } } }),
+      prisma.order.count({ where: { shopId: shop.id, isTestOrder: false, status: { in: ['PENDING_PAYMENT', 'PAID', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'] } } }),
       prisma.product.count({ where: { shopId: shop.id, status: 'ACTIVE' } }),
       prisma.shopFollow.count({ where: { shopId: shop.id } }),
       prisma.review.count({ where: { targetType: 'SHOP', targetId: shop.id } }),

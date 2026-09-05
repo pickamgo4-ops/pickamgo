@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Store, Save, MapPin, Phone, Mail, Clock, Truck } from 'lucide-react'
+import { Store, Save, MapPin, Phone, Mail, Clock, Truck, LogIn } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -28,11 +28,12 @@ export default function SellerSettingsPage() {
     openingHours: '',
     phone: '',
     email: '',
-    deliveryFee: 0,
-    deliveryAvailable: true,
-    pickupAvailable: true,
-    isOpen: true,
-  })
+     deliveryFee: 0,
+     deliveryAvailable: true,
+     pickupAvailable: true,
+     isOpen: true,
+     allowGuestCheckout: false,
+   })
 
   useEffect(() => {
     loadShop()
@@ -56,10 +57,11 @@ export default function SellerSettingsPage() {
           phone: s.phone || '',
           email: s.email || '',
           deliveryFee: s.deliveryFee || 0,
-          deliveryAvailable: s.deliveryAvailable ?? true,
-          pickupAvailable: s.pickupAvailable ?? true,
-          isOpen: s.isOpen ?? true,
-        })
+           deliveryAvailable: s.deliveryAvailable ?? true,
+           pickupAvailable: s.pickupAvailable ?? true,
+           isOpen: s.isOpen ?? true,
+           allowGuestCheckout: s.allowGuestCheckout ?? false,
+         })
       }
     } catch {
       setError('Failed to load shop settings')
@@ -255,6 +257,25 @@ export default function SellerSettingsPage() {
                 <span className="text-sm text-warm-900">Shop Open</span>
               </label>
             </div>
+          </Card>
+
+          <Card className="p-6 space-y-4">
+            <h3 className="font-semibold text-warm-900 flex items-center gap-2">
+              <LogIn size={18} className="text-primary" />
+              Guest Checkout
+            </h3>
+            <div className="flex items-start gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.allowGuestCheckout}
+                  onChange={(e) => updateField('allowGuestCheckout', e.target.checked)}
+                  className="w-4 h-4 text-primary rounded border-warm-200"
+                />
+                <span className="text-sm font-medium text-warm-900">Allow guest checkout</span>
+              </label>
+            </div>
+            <p className="text-sm text-warm-800/60">When enabled, customers can place orders without signing in. Disabling this requires customers to sign in before placing an order on your shop.</p>
           </Card>
 
           <div className="flex items-center justify-between">
