@@ -25,6 +25,7 @@ interface Service {
   name: string
   duration: string
   price: number
+  status: string
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -53,13 +54,13 @@ export default function StaffDetailPage() {
       const [staffRes, availRes, servicesData, currentServices] = await Promise.all([
         api.get<any[]>(`/booking-setup/staff`),
         api.get<Availability[]>(`/booking-setup/staff/${staffId}/availability`),
-        api.get<{ services: Service[] }>(`/services?limit=100`),
+        api.get<{ services: Service[] }>('/booking-setup/services'),
         api.get<Service[]>(`/booking-setup/staff/${staffId}/services`),
       ])
       const list = (staffRes.data as any) || []
       const found = list.find((s: any) => s.id === staffId)
       setStaff(found)
-      if (servicesData.success && servicesData.data) setServices(servicesData.data.services || [])
+      if (servicesData.success && servicesData.data) setServices((servicesData.data.services || []).filter(service => service.status === 'ACTIVE'))
       if (currentServices.success && currentServices.data) {
         setSelectedServiceIds((currentServices.data as Service[]).map(s => s.id))
       }
