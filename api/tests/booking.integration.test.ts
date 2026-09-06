@@ -202,6 +202,11 @@ describe('booking lifecycle integration', { concurrency: false }, () => {
     body = await json<any>(response)
     assert.ok(body.data.services.some((item: any) => item.id === service.id))
 
+    response = await request('/api/booking-setup/services', { headers: sellerHeaders })
+    body = await json<any>(response)
+    assert.equal(response.status, 200)
+    assert.deepEqual(body.data.services.map((item: any) => item.id), [service.id])
+
     response = await request(`/api/booking-setup/available-slots?serviceId=${service.id}&date=${monday}`)
     body = await json<any>(response)
     assert.equal(response.status, 200)
@@ -319,12 +324,34 @@ describe('booking lifecycle integration', { concurrency: false }, () => {
     })
     createdShopIds.push(shopB.id)
     const staffB = await prisma.staff.create({ data: { shopId: shopB.id, name: 'Other Staff', role: 'Barber' } })
+    const categoryB = await prisma.category.create({ data: { name: `Other Category ${testRun}`, slug: `other-category-${testRun}`, emoji: 'O', color: '#111111' } })
+    createdCategoryIds.push(categoryB.id)
+    const serviceB = await prisma.service.create({
+      data: {
+        shopId: shopB.id,
+        providerId: sellerB.id,
+        categoryId: categoryB.id,
+        name: 'Other seller service',
+        description: 'Must stay private to seller B',
+        price: 25,
+        duration: '60',
+        location: 'Accra',
+      },
+    })
     const tokenA = authHeaders(sellerA)
 
     let response = await request('/api/booking-setup/staff', { headers: tokenA })
     let body = await json<any>(response)
     assert.equal(response.status, 404)
     assert.match(body.error, /shop not found/i)
+
+    response = await request('/api/booking-setup/services', { headers: tokenA })
+    assert.equal(response.status, 404)
+
+    response = await request('/api/booking-setup/services', { headers: authHeaders(sellerB) })
+    body = await json<any>(response)
+    assert.equal(response.status, 200)
+    assert.deepEqual(body.data.services.map((item: any) => item.id), [serviceB.id])
 
     response = await request(`/api/booking-setup/staff/${staffB.id}/availability`, { headers: tokenA })
     assert.equal(response.status, 404)

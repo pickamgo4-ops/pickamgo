@@ -31,7 +31,7 @@ export default function ServicesPage() {
 
   const load = async () => {
     try {
-      const res = await api.get<{ services: Service[] }>('/services?limit=100')
+      const res = await api.get<{ services: Service[] }>('/booking-setup/services')
       if (res.success && res.data) setServices(res.data.services || [])
     } catch (err) {
       console.error(err)

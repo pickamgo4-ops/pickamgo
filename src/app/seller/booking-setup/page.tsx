@@ -31,7 +31,7 @@ export default function BookingSetupDashboardPage() {
     const load = async () => {
       setError('')
       const [servicesRes, staffRes, rulesRes] = await Promise.all([
-        api.get<{ services: Service[] }>('/services?limit=100'),
+        api.get<{ services: Service[] }>('/booking-setup/services'),
         api.get<Staff[]>('/booking-setup/staff'),
         api.get<Rules>('/booking-setup/rules'),
       ])

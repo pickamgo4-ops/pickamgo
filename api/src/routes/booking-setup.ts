@@ -185,6 +185,21 @@ router.get('/staff', async (req: AuthenticatedRequest, res) => {
   return successResponse(res, staff)
 })
 
+router.get('/services', async (req: AuthenticatedRequest, res) => {
+  const shop = await prisma.shop.findFirst({ where: { ownerId: req.user!.id } })
+  if (!shop) return errorResponse(res, 'Shop not found', 404)
+
+  const services = await prisma.service.findMany({
+    where: { shopId: shop.id },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      staffServices: { select: { staffId: true } },
+    },
+  })
+
+  return successResponse(res, { services })
+})
+
 router.post('/staff', validateBody(staffSchema), async (req: AuthenticatedRequest, res) => {
   const shop = await prisma.shop.findFirst({ where: { ownerId: req.user!.id } })
   if (!shop) return errorResponse(res, 'Shop not found', 404)
