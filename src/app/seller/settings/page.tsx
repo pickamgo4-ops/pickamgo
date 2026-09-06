@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Store, Save, MapPin, Phone, Mail, Clock, Truck, LogIn } from 'lucide-react'
+import { Store, Save, MapPin, Phone, Mail, Clock, Truck, LogIn, Upload, Image as ImageIcon } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -18,6 +18,7 @@ export default function SellerSettingsPage() {
   const [shop, setShop] = useState<any>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [uploadingImage, setUploadingImage] = useState<'logo' | 'banner' | null>(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -94,6 +95,26 @@ export default function SellerSettingsPage() {
     }
   }
 
+  const handleImageUpload = async (field: 'logo' | 'banner', file?: File) => {
+    if (!file) return
+    setUploadingImage(field)
+    setError('')
+    try {
+      const body = new FormData()
+      body.append('image', file)
+      const response = await api.uploadFile<{ url: string }>('/upload/image', body)
+      if (response.success && response.data?.url) {
+        updateField(field, response.data.url)
+      } else {
+        setError(response.error || `Failed to upload ${field}`)
+      }
+    } catch {
+      setError(`Failed to upload ${field}. Please try again.`)
+    } finally {
+      setUploadingImage(null)
+    }
+  }
+
   const updateField = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }
@@ -165,16 +186,34 @@ export default function SellerSettingsPage() {
                 required
               />
             </div>
-            <Input
-              label="Logo URL"
-              value={form.logo}
-              onChange={(e) => updateField('logo', e.target.value)}
-            />
-            <Input
-              label="Banner URL (optional)"
-              value={form.banner}
-              onChange={(e) => updateField('banner', e.target.value)}
-            />
+            <div>
+              <label className="block text-sm font-medium text-warm-900 mb-1.5">Shop Logo</label>
+              <div className="flex items-center gap-4">
+                <div className="h-20 w-20 overflow-hidden rounded-xl border border-warm-200 bg-warm-100">
+                  {form.logo ? <img src={form.logo} alt="Shop logo preview" className="h-full w-full object-cover" /> : <ImageIcon className="m-auto mt-6 text-warm-800/30" size={28} />}
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-warm-200 px-4 py-3 text-sm font-medium text-warm-900 hover:bg-warm-100">
+                  <Upload size={17} />
+                  {uploadingImage === 'logo' ? 'Uploading...' : 'Choose logo'}
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={uploadingImage !== null} onChange={(event) => { void handleImageUpload('logo', event.target.files?.[0]); event.currentTarget.value = '' }} />
+                </label>
+              </div>
+              <p className="mt-1.5 text-xs text-warm-800/60">JPEG, PNG, WEBP, or GIF up to 5 MB.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-warm-900 mb-1.5">Shop Banner</label>
+              <div className="space-y-3">
+                <div className="aspect-[3/1] w-full overflow-hidden rounded-xl border border-warm-200 bg-warm-100">
+                  {form.banner ? <img src={form.banner} alt="Shop banner preview" className="h-full w-full object-cover" /> : <ImageIcon className="m-auto mt-8 text-warm-800/30" size={28} />}
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-warm-200 px-4 py-3 text-sm font-medium text-warm-900 hover:bg-warm-100">
+                  <Upload size={17} />
+                  {uploadingImage === 'banner' ? 'Uploading...' : 'Choose banner'}
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={uploadingImage !== null} onChange={(event) => { void handleImageUpload('banner', event.target.files?.[0]); event.currentTarget.value = '' }} />
+                </label>
+              </div>
+              <p className="mt-1.5 text-xs text-warm-800/60">JPEG, PNG, WEBP, or GIF up to 5 MB.</p>
+            </div>
           </Card>
 
           <Card className="p-6 space-y-4">
