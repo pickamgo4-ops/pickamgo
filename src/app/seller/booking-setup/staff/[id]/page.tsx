@@ -43,6 +43,7 @@ export default function StaffDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     load()
@@ -86,10 +87,12 @@ export default function StaffDetailPage() {
   const handleSaveAvailability = async () => {
     setSaving(true)
     setError('')
+    setSuccess('')
     try {
       const res = await api.patch(`/booking-setup/staff/${staffId}/availability`, { availabilities: availability })
       if (res.success) {
-        setError('')
+        setSuccess('Weekly schedule saved successfully.')
+        await load()
       } else {
         setError(res.error || 'Failed to save')
       }
@@ -103,9 +106,13 @@ export default function StaffDetailPage() {
   const handleSaveServices = async () => {
     setSaving(true)
     setError('')
+    setSuccess('')
     try {
       const res = await api.patch(`/booking-setup/staff/${staffId}/services`, { serviceIds: selectedServiceIds })
-      if (!res.success) setError(res.error || 'Failed to save services')
+      if (res.success) {
+        setSuccess('Service assignments saved successfully.')
+        await load()
+      } else setError(res.error || 'Failed to save services')
     } catch (err: any) {
       setError(err?.message || 'Failed to save services')
     } finally {
@@ -130,7 +137,8 @@ export default function StaffDetailPage() {
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+        {success && <p className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{success}</p>}
 
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-4">
