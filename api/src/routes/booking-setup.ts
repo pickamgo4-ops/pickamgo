@@ -62,6 +62,58 @@ const availableSlotsQuerySchema = z.object({
   staffId: z.string().optional(),
 })
 
+async function getBookingConfiguration(ownerId: string) {
+  const shop = await prisma.shop.findFirst({
+    where: { ownerId },
+    include: {
+      bookingRule: true,
+      services: {
+        where: { status: 'ACTIVE' },
+        include: { staffServices: { select: { staffId: true } } },
+      },
+      staff: {
+        where: { isActive: true },
+        include: { availabilities: true, services: { select: { serviceId: true } } },
+      },
+    },
+  })
+  if (!shop) return null
+
+  const activeServices = shop.services
+  const activeStaff = shop.staff
+  const allowStaffSelection = shop.bookingRule?.allowStaffSelection ?? true
+  const requiresStaff = allowStaffSelection || activeServices.some(service => service.staffRequired)
+  const assignedServiceIds = new Set(activeStaff.flatMap(staff => staff.services?.map(service => service.serviceId) || []))
+  const staffServicesComplete = activeServices.every(service => !requiresStaff || assignedServiceIds.has(service.id))
+  const staffComplete = !requiresStaff || (activeStaff.length > 0 && staffServicesComplete)
+  const staffAvailabilityComplete = activeStaff.some(staff => staff.availabilities.some(item => item.isAvailable && !item.isDayOff && parseTimeToMinutes(item.startTime) !== null && parseTimeToMinutes(item.endTime) !== null))
+  const serviceAvailability = await prisma.serviceAvailability.findFirst({
+    where: { service: { shopId: shop.id, status: 'ACTIVE' }, isAvailable: true },
+    select: { timeSlots: true },
+  })
+  const soloAvailabilityComplete = !!serviceAvailability?.timeSlots && parseTimeSlots(serviceAvailability.timeSlots).length > 0
+  const availabilityComplete = requiresStaff ? staffAvailabilityComplete : staffAvailabilityComplete || soloAvailabilityComplete
+  const checks = {
+    services: activeServices.length > 0,
+    staff: staffComplete,
+    availability: availabilityComplete,
+    rules: !!shop.bookingRule,
+    preview: activeServices.length > 0 && availabilityComplete,
+  }
+
+  return {
+    shop,
+    checks,
+    missing: [
+      !checks.services ? 'Add at least one active service' : null,
+      !checks.staff ? 'Complete staff configuration' : null,
+      !checks.availability ? 'Set at least one valid working day' : null,
+      !checks.rules ? 'Save your booking rules' : null,
+    ].filter((item): item is string => !!item),
+    configured: Object.values(checks).every(Boolean),
+  }
+}
+
 router.use((req, res, next) => {
   if (req.path === '/available-slots' && req.method === 'GET') {
     next()
@@ -88,8 +140,36 @@ router.get('/summary', async (req: AuthenticatedRequest, res) => {
     activeServices: shop._count.services,
     activeStaff: shop._count.staff,
     availableSlots: availableSlotsCount,
-    bookingEnabled: !!shop.bookingRule,
+    bookingEnabled: shop.isBookingEnabled,
   })
+})
+
+router.get('/status', async (req: AuthenticatedRequest, res) => {
+  const configuration = await getBookingConfiguration(req.user!.id)
+  if (!configuration) return errorResponse(res, 'Shop not found', 404)
+  const status = configuration.shop.isBookingEnabled && configuration.configured ? 'LIVE' : configuration.configured ? 'READY' : configuration.missing.length === 4 ? 'NOT_CONFIGURED' : 'ALMOST_READY'
+  return successResponse(res, {
+    status,
+    enabled: configuration.shop.isBookingEnabled,
+    configured: configuration.configured,
+    checks: configuration.checks,
+    missing: configuration.missing,
+  })
+})
+
+router.post('/enable', async (req: AuthenticatedRequest, res) => {
+  const configuration = await getBookingConfiguration(req.user!.id)
+  if (!configuration) return errorResponse(res, 'Shop not found', 404)
+  if (!configuration.configured) return errorResponse(res, `Complete your setup: ${configuration.missing.join(', ')}`, 409)
+  const shop = await prisma.shop.update({ where: { id: configuration.shop.id }, data: { isBookingEnabled: true } })
+  return successResponse(res, { enabled: shop.isBookingEnabled, status: 'LIVE' }, undefined, 'Bookings enabled')
+})
+
+router.post('/disable', async (req: AuthenticatedRequest, res) => {
+  const shop = await prisma.shop.findFirst({ where: { ownerId: req.user!.id } })
+  if (!shop) return errorResponse(res, 'Shop not found', 404)
+  await prisma.shop.update({ where: { id: shop.id }, data: { isBookingEnabled: false } })
+  return successResponse(res, { enabled: false, status: 'READY' }, undefined, 'Bookings disabled')
 })
 
 router.get('/staff', async (req: AuthenticatedRequest, res) => {
@@ -269,9 +349,15 @@ router.get('/available-slots', validateQuery(availableSlotsQuerySchema), async (
     include: { shop: true },
   })
   if (!service) return errorResponse(res, 'Service not found', 404)
+  if (!service.shop.isBookingEnabled) return errorResponse(res, 'Bookings are not currently available', 409)
 
   const shop = service.shop
   const rule = await prisma.bookingRule.findUnique({ where: { shopId: shop.id } })
+  const shopHasValidStaff = await prisma.staff.count({
+    where: { shopId: shop.id, isActive: true, services: { some: { serviceId } }, availabilities: { some: { isAvailable: true, isDayOff: false } } },
+  })
+  const requiresStaff = service.staffRequired || (rule?.allowStaffSelection ?? true)
+  if (requiresStaff && (!rule || shopHasValidStaff === 0)) return successResponse(res, { slots: [], staff: [] })
   const minNoticeHours = rule?.minBookingNoticeHours ?? service.minNoticeHours ?? 2
   const maxAdvanceDays = rule?.maxAdvanceBookingDays ?? service.maxAdvanceDays ?? 30
   const bufferMinutes = rule?.bufferTimeMinutes ?? service.bufferMinutes ?? 0
@@ -286,7 +372,7 @@ router.get('/available-slots', validateQuery(availableSlotsQuerySchema), async (
 
   if (staffId) {
     const staff = await prisma.staff.findFirst({
-      where: { id: staffId as string, shopId: shop.id, isActive: true },
+      where: { id: staffId as string, shopId: shop.id, isActive: true, services: { some: { serviceId } } },
       include: { availabilities: true },
     })
     if (!staff) return errorResponse(res, 'Staff not found', 404)
@@ -328,6 +414,8 @@ router.get('/available-slots', validateQuery(availableSlotsQuerySchema), async (
       where: { shopId: shop.id, isActive: true, services: { some: { serviceId } } },
       include: { availabilities: true },
     })
+
+    if (requiresStaff && allStaff.length === 0) return successResponse(res, { slots: [], staff: [] })
 
     const dayOfWeek = getDayOfWeek(date)
     const availableStaff = allStaff.filter(staff => {

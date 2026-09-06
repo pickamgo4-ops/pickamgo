@@ -16,6 +16,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "test:integration": "node --test --test-concurrency=1 --import tsx tests/rate-limiting.integration.test.ts",
+    "test:booking": "node --test --test-concurrency=1 --import tsx tests/booking.integration.test.ts",
     "test:otp": "node --test --import tsx tests/otp.unit.test.ts"
   },
   "prisma": {

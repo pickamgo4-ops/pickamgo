@@ -315,6 +315,7 @@ model Shop {
   verificationStatus      String             @default("PENDING")
   isVerified              Boolean            @default(false)
   isOpen                  Boolean            @default(true)
+  isBookingEnabled        Boolean            @default(false)
   openingHours            String
   deliveryAvailable       Boolean            @default(true)
   pickupAvailable         Boolean            @default(true)

@@ -86,6 +86,9 @@ router.post('/', authMiddleware, validateBody(createBookingSchema), async (req: 
   if (!service || service.status !== 'ACTIVE') {
     return errorResponse(res, 'Service not found or not available', 404)
   }
+  if (!service.shop.isBookingEnabled) {
+    return errorResponse(res, 'Bookings are not currently available', 409)
+  }
 
   if (orderId) {
     const paidOrder = await prisma.order.findFirst({
@@ -116,9 +119,14 @@ router.post('/', authMiddleware, validateBody(createBookingSchema), async (req: 
     where: { shopId: service.shopId, isActive: true, services: { some: { serviceId } } },
     include: { availabilities: true },
   })
+  const requiresStaff = service.staffRequired || (rule?.allowStaffSelection ?? true)
+  if (requiresStaff && assignedStaff.length === 0) {
+    return errorResponse(res, 'No qualified staff are available for this service', 409)
+  }
+  let selectedStaff: { id: string; name: string } | null = null
   if (assignedStaff.length > 0) {
     const dayOfWeek = getDayOfWeek(date)
-    const hasStaffAvailability = assignedStaff.some(staff => {
+    const availableStaff = assignedStaff.filter(staff => {
       const schedule = staff.availabilities.find(item => item.dayOfWeek === dayOfWeek)
       if (!schedule || !schedule.isAvailable || schedule.isDayOff) return false
       const start = parseTimeToMinutes(schedule.startTime)
@@ -127,13 +135,34 @@ router.post('/', authMiddleware, validateBody(createBookingSchema), async (req: 
       const breakStart = schedule.breakStart ? parseTimeToMinutes(schedule.breakStart) : null
       const breakEnd = schedule.breakEnd ? parseTimeToMinutes(schedule.breakEnd) : null
       const duration = parseInt(service.duration) || 60
+      const buffer = rule?.bufferTimeMinutes ?? service.bufferMinutes ?? 0
       return start !== null && end !== null && slot !== null && slot >= start && slot + duration <= end &&
         (breakStart === null || breakEnd === null || slot >= breakEnd || slot + duration <= breakStart)
+        && slot + duration + buffer <= end
     })
-    if (!hasStaffAvailability) return errorResponse(res, 'This time slot is not available', 409)
+    if (availableStaff.length === 0) return errorResponse(res, 'This time slot is not available', 409)
+    selectedStaff = availableStaff[0]
   } else if (!availability?.isAvailable || !availableSlots.includes(timeSlot)) {
     return errorResponse(res, 'This time slot is not available', 409)
   }
+
+  const duration = parseInt(service.duration) || 60
+  const bufferMinutes = rule?.bufferTimeMinutes ?? service.bufferMinutes ?? 0
+  const requestedStart = parseTimeToMinutes(timeSlot)
+  const requestedEnd = requestedStart === null ? null : requestedStart + duration + bufferMinutes
+  if (requestedStart === null || requestedEnd === null) return errorResponse(res, 'This time slot is not available', 409)
+
+  const conflictingBookings = await prisma.booking.findMany({
+    where: { serviceId, date, status: { not: 'CANCELLED' } },
+    select: { timeSlot: true },
+  })
+  const hasConflict = conflictingBookings.some(booking => {
+    const existingStart = parseTimeToMinutes(booking.timeSlot)
+    if (existingStart === null) return false
+    const existingEnd = existingStart + duration + bufferMinutes
+    return requestedStart < existingEnd && existingStart < requestedEnd
+  })
+  if (hasConflict) return errorResponse(res, 'This time slot is no longer available. Please choose another time.', 409)
 
   if (date === today) {
     const slotMinutes = parseTimeToMinutes(timeSlot)
@@ -150,20 +179,6 @@ router.post('/', authMiddleware, validateBody(createBookingSchema), async (req: 
     if (bookingsToday >= rule.maxBookingsPerDay) return errorResponse(res, 'No more bookings are available on this date', 409)
   }
 
-  const existingBooking = await prisma.booking.findFirst({
-    where: {
-      serviceId,
-      providerId: service.providerId,
-      date,
-      timeSlot,
-      status: { not: 'CANCELLED' },
-    },
-  })
-
-  if (existingBooking) {
-    return errorResponse(res, 'This time slot is no longer available', 409)
-  }
-
   let booking
   try {
     booking = await prisma.booking.create({
@@ -174,6 +189,8 @@ router.post('/', authMiddleware, validateBody(createBookingSchema), async (req: 
         shopId: service.shopId,
         date,
         timeSlot,
+        staffId: selectedStaff?.id,
+        staffName: selectedStaff?.name,
         notes,
         status: 'PENDING',
       },
