@@ -2,6 +2,33 @@ ALTER TABLE "Booking" ALTER COLUMN "customerId" DROP NOT NULL;
 ALTER TABLE "Booking" ALTER COLUMN "providerId" DROP NOT NULL;
 ALTER TABLE "Order" ALTER COLUMN "shopId" DROP NOT NULL;
 ALTER TABLE "Order" ALTER COLUMN "sellerId" DROP NOT NULL;
+
+CREATE TABLE IF NOT EXISTS "Refund" (
+	"id" TEXT NOT NULL,
+	"orderId" TEXT NOT NULL,
+	"sellerId" TEXT,
+	"customerId" TEXT,
+	"amount" DECIMAL(12,2) NOT NULL,
+	"currency" TEXT NOT NULL DEFAULT 'GHS',
+	"reason" TEXT,
+	"status" TEXT NOT NULL DEFAULT 'PENDING',
+	"adminNotes" TEXT,
+	"processedBy" TEXT,
+	"processedAt" TIMESTAMP(3),
+	"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	"updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	CONSTRAINT "Refund_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "Refund_orderId_key" ON "Refund"("orderId");
+CREATE INDEX IF NOT EXISTS "Refund_orderId_idx" ON "Refund"("orderId");
+CREATE INDEX IF NOT EXISTS "Refund_sellerId_idx" ON "Refund"("sellerId");
+CREATE INDEX IF NOT EXISTS "Refund_status_idx" ON "Refund"("status");
+ALTER TABLE "Refund" DROP CONSTRAINT IF EXISTS "Refund_orderId_fkey";
+ALTER TABLE "Refund" DROP CONSTRAINT IF EXISTS "Refund_customerId_fkey";
+ALTER TABLE "Refund" DROP CONSTRAINT IF EXISTS "Refund_sellerId_fkey";
+ALTER TABLE "Refund" ADD CONSTRAINT "Refund_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Refund" ADD CONSTRAINT "Refund_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 ALTER TABLE "Refund" ALTER COLUMN "sellerId" DROP NOT NULL;
 ALTER TABLE "Dispute" ALTER COLUMN "customerId" DROP NOT NULL;
 ALTER TABLE "Dispute" ALTER COLUMN "sellerId" DROP NOT NULL;
