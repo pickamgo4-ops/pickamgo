@@ -170,11 +170,20 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         where: { id: productId },
         include: {
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-          shop: { select: { id: true, name: true, status: true } },
+          shop: { select: { id: true, name: true, status: true, allowGuestCheckout: true } },
         },
       })
       if (!product || product.status !== 'ACTIVE' || product.stock <= 0 || product.shop?.status !== 'ACTIVE') {
         return errorResponse(res, 'Product not found or unavailable', 404)
+      }
+
+      if (!userId && !product.shop.allowGuestCheckout) {
+        return errorResponse(
+          res,
+          `This shop${product.shop.name ? ` (${product.shop.name})` : ''} requires you to sign in before placing an order.`,
+          403,
+          'GUEST_CHECKOUT_REQUIRES_AUTH',
+        )
       }
 
       if (variantId) {
@@ -199,11 +208,20 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         where: { id: serviceId },
         include: {
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-          shop: { select: { id: true, name: true, status: true } },
+          shop: { select: { id: true, name: true, status: true, allowGuestCheckout: true } },
         },
       })
       if (!service || service.status !== 'ACTIVE' || service.shop?.status !== 'ACTIVE') {
         return errorResponse(res, 'Service not found or unavailable', 404)
+      }
+
+      if (!userId && !service.shop.allowGuestCheckout) {
+        return errorResponse(
+          res,
+          `This shop${service.shop.name ? ` (${service.shop.name})` : ''} requires you to sign in before placing an order.`,
+          403,
+          'GUEST_CHECKOUT_REQUIRES_AUTH',
+        )
       }
 
       itemPrice = Number(service.price)

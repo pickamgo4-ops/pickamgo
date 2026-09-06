@@ -364,10 +364,10 @@ router.post('/webhook', async (req: AuthenticatedRequest, res) => {
             },
           })
 
-          const payoutUser = await prisma.user.findUnique({
+          const payoutUser = payout.userId ? await prisma.user.findUnique({
             where: { id: payout.userId },
             select: { email: true, name: true },
-          })
+          }) : null
 
           if (payoutUser?.email) {
             sendWithdrawalProcessedEmail(payoutUser.email, {

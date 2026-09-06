@@ -10,6 +10,7 @@ import { RiderSidebar } from '@/components/RiderSidebar'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { SETTINGS_SECTIONS } from '@/lib/rider-constants'
+import { AccountDeletionPanel } from '@/components/AccountDeletionPanel'
 
 const settingsRouteMap: Record<string, string> = {
   account: '/rider/profile',
@@ -90,6 +91,7 @@ export default function RiderSettingsPage() {
             </button>
           </div>
         </Card>
+        <AccountDeletionPanel />
       </div>
     </RiderSidebar>
   )

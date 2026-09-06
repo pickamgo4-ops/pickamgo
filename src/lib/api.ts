@@ -27,6 +27,7 @@ export interface ApiResponse<T = any> {
   data?: T
   message?: string
   error?: string
+  code?: string
   pagination?: {
     page: number
     limit: number
@@ -217,9 +218,10 @@ export const api = {
       method: 'POST',
       body,
     }),
-  delete: <T>(endpoint: string) =>
+  delete: <T>(endpoint: string, body?: any) =>
     request<T>(endpoint, {
       method: 'DELETE',
+      body: body ? JSON.stringify(body) : undefined,
     }),
   getCart: () => api.get<Cart>('/cart'),
   addToCart: (item: { productId?: string; serviceId?: string; variantId?: string; quantity?: number }) =>

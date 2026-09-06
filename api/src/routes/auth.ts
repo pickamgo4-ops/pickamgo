@@ -19,15 +19,21 @@ import {
   buildBaseHtml,
 } from "../services/email";
 import { validatePasswordOrThrow } from "../utils/password-validation";
-import { generateVerificationCode, hashCode } from "../utils/email-verification";
+import { compareCode, generateVerificationCode, hashCode } from "../utils/email-verification";
 import { getAppUrl } from "../utils/url";
 import { consumeRateLimit, getRequestIp, getRateLimitConfig, hashIdentity, isRateLimited } from "../middleware/rate-limit";
 import { createAndSendOtp, normalizeGhanaPhone, OTP_PURPOSES, verifyOtp } from '../services/otpService';
 
 const router = Router();
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
+const accountDeletionSchema = z.object({
+  confirmation: z.literal('DELETE'),
+});
+
+function getGoogleClient() {
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  return clientId ? { client: new OAuth2Client(clientId), clientId } : null;
+}
 
 function parseUserAgent(userAgent?: string) {
   if (!userAgent) return { device: null, browser: null, os: null }
@@ -88,8 +94,18 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  identifier: z.string().min(1, "Email or phone is required"),
   password: z.string().min(1, "Password is required"),
+});
+
+const loginVerificationSendSchema = z.object({
+  pendingToken: z.string().min(1),
+  method: z.enum(["SMS", "EMAIL"]),
+});
+
+const loginVerificationSchema = z.object({
+  pendingToken: z.string().min(1),
+  code: z.string().regex(/^\d{6}$/, "Verification code must be exactly 6 digits"),
 });
 
 const forgotPasswordSchema = z.object({
@@ -106,10 +122,8 @@ const googleAuthSchema = z.object({
 });
 
 const googleCompleteSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  idToken: z.string().min(1, "Google ID token is required"),
   phone: z.string().optional(),
-  avatar: z.string().optional(),
   role: z.enum(["buyer", "seller", "rider"]).default("buyer"),
 });
 
@@ -130,13 +144,67 @@ const phoneLoginVerifySchema = phoneLoginSchema.extend({
   otp: z.string().regex(/^\d{4,8}$/),
 });
 
+const pendingChallengeMinutes = 10;
+
+function hashPendingToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function maskEmail(email: string): string {
+  const [name, domain] = email.split("@");
+  return `${name.slice(0, 2)}***@${domain}`;
+}
+
+function maskPhone(phone: string): string {
+  return `••••${phone.slice(-4)}`;
+}
+
+async function sendLoginEmailCode(user: { id: string; email: string; name: string }, challengeId: string) {
+  const code = generateVerificationCode();
+  const codeHash = await hashCode(code);
+  const codeExpiresAt = new Date(Date.now() + 10 * 60_000);
+  await prisma.loginChallenge.update({
+    where: { id: challengeId },
+    data: { method: "EMAIL", codeHash, codeExpiresAt, attempts: 0 },
+  });
+
+  const result = await sendEmail({
+    to: user.email,
+    subject: "Your PickAmGo sign-in code",
+    html: buildBaseHtml("Your PickAmGo sign-in code", `<h2>Verify your sign-in</h2><p>Hi ${user.name},</p><p>Use this code to finish signing in:</p><p style="font-size:32px;font-weight:700;letter-spacing:8px;text-align:center;">${code}</p><p>This code expires in 10 minutes.</p>`),
+    text: `Your PickAmGo sign-in code is ${code}. It expires in 10 minutes.`,
+    purpose: "email_verification",
+  });
+  if (!result.success) throw new Error("Unable to send verification code");
+}
+
+async function createPendingLoginChallenge(userId: string) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const challenge = await prisma.loginChallenge.create({
+    data: {
+      userId,
+      tokenHash: hashPendingToken(token),
+      expiresAt: new Date(Date.now() + pendingChallengeMinutes * 60_000),
+    },
+  });
+  return { token, challenge };
+}
+
+function availableLoginMethods(user: { email: string; phone: string | null; phoneVerified: boolean }) {
+  const methods: Array<"SMS" | "EMAIL"> = [];
+  if (user.phone && user.phoneVerified) methods.push("SMS");
+  if (user.email) methods.push("EMAIL");
+  return methods;
+}
+
 async function verifyGoogleToken(idToken: string) {
-  if (!googleClient) {
+  const googleConfig = getGoogleClient();
+  if (!googleConfig) {
     throw new Error("Google OAuth is not configured on the server");
   }
-  const ticket = await googleClient.verifyIdToken({
+  const ticket = await googleConfig.client.verifyIdToken({
     idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
+    audience: googleConfig.clientId,
   });
   const payload = ticket.getPayload();
   if (!payload || !payload.email) {
@@ -187,7 +255,7 @@ router.post("/google", validateBody(googleAuthSchema), async (req: Authenticated
     );
   } catch (error: any) {
     console.error("Google auth error:", error);
-    return errorResponse(res, error.message || "Google authentication failed", 401);
+    return errorResponse(res, "Google sign-in failed. Please try again.", 401);
   }
 });
 
@@ -196,8 +264,9 @@ router.post(
   validateBody(googleCompleteSchema),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const { email, name, phone, avatar, role } = req.body;
-      const normalizedEmail = email.trim().toLowerCase();
+      const { idToken, phone, role } = req.body;
+      const googleUser = await verifyGoogleToken(idToken);
+      const { email: normalizedEmail, name, avatar } = googleUser;
 
       const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
       if (existingUser) {
@@ -264,7 +333,7 @@ router.post(
       );
     } catch (error) {
       console.error("Google complete error:", error);
-      return errorResponse(res, "Google registration failed", 500);
+      return errorResponse(res, "Google registration failed", 401);
     }
   },
 );
@@ -457,7 +526,8 @@ Verify your email: ${verifyUrl}
 
 router.post("/login", validateBody(loginSchema), async (req: AuthenticatedRequest, res) => {
   try {
-    const email = req.body.email.trim().toLowerCase();
+    const identifier = req.body.identifier.trim();
+    const email = identifier.toLowerCase();
     const { password } = req.body;
     const ip = getRequestIp(req);
     const loginAccount = getRateLimitConfig('login')
@@ -470,8 +540,11 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
       await consumeRateLimit('login-ip', ip, loginIp.limit, loginIp.windowMs)
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const normalizedPhone = (() => {
+      try { return normalizeGhanaPhone(identifier) } catch { return null }
+    })();
+    const user = await prisma.user.findFirst({
+      where: normalizedPhone ? { OR: [{ email }, { phone: normalizedPhone }] } : { email },
       include: {
         roles: {
           include: { role: true },
@@ -497,78 +570,20 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
       return errorResponse(res, "Invalid email or password", 401);
     }
 
-    if (!user.emailVerified) {
-      const code = generateVerificationCode();
-      const hashedCode = await hashCode(code);
-
-      await prisma.emailVerification.create({
-        data: {
-          userId: user.id,
-          email: user.email,
-          code,
-          hashedCode,
-        },
-      });
-
-      const appUrl = getAppUrl();
-      const verifyUrl = `${appUrl}/auth/verify-email?email=${encodeURIComponent(user.email)}`;
-
-      const html = buildBaseHtml("Verify your PickAmGo email", `
-        <div style="text-align: center; padding: 20px 0;">
-          <div style="font-size: 48px; margin-bottom: 20px;">🔐</div>
-          <h2 style="color: #FF6B35; margin-bottom: 10px;">Verify Your Email</h2>
-          <p style="color: #6b7280; margin-bottom: 30px;">Enter this code to verify your email address:</p>
-          <div style="background: #f9fafb; border: 2px dashed #e5e7eb; border-radius: 12px; padding: 20px; margin: 20px 0;">
-            <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1f2937;">${code}</span>
-          </div>
-          <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">This code expires in 10 minutes.</p>
-          <p style="color: #6b7280; font-size: 14px;">If you didn't request this, please ignore this email.</p>
-        </div>
-      `);
-
-      const text = `Verify your PickAmGo email\n\nYour verification code is: ${code}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, please ignore this email.`;
-
-      const emailResult = await sendEmail({
-        to: user.email,
-        subject: "Verify your PickAmGo email address",
-        html,
-        text,
-        purpose: "email_verification",
-      });
-
-      if (!emailResult.success) {
-        console.error("Failed to send verification email:", emailResult.error);
-      }
-
-      return successResponse(
-        res,
-        {
-          verificationRequired: true,
-          email: user.email,
-          verifyUrl,
-        },
-        200,
-        "Please verify your email address.",
-      );
+    const methods = availableLoginMethods(user);
+    if (methods.length === 0) {
+      await createLoginHistory(user.id, req, false, "no_verification_method");
+      return errorResponse(res, "No verification method is available for this account", 400);
     }
 
-    await createLoginHistory(user.id, req, true);
-
-    const token = generateToken(user);
-    const { passwordHash: _, ...userWithoutPassword } = user;
-
-    void (async () => {
-      try {
-        await sendSignInNotificationEmail(user.email, user.name, {
-          date: new Date().toLocaleString(),
-          browser: (req as any).get?.("user-agent") || undefined,
-        });
-      } catch (notificationError) {
-        console.error("Failed to send sign-in notification email:", notificationError);
-      }
-    })();
-
-    return successResponse(res, { user: userWithoutPassword, token });
+    const { token } = await createPendingLoginChallenge(user.id);
+    return successResponse(res, {
+      verificationRequired: true,
+      pendingToken: token,
+      methods,
+      email: maskEmail(user.email),
+      phone: user.phone && user.phoneVerified ? maskPhone(user.phone) : undefined,
+    }, 200, "Choose a verification method to finish signing in.");
   } catch (error: any) {
     console.error("Login error:", error);
     const message = error?.message ? error.message : "Login failed. Please try again later.";
@@ -576,7 +591,74 @@ router.post("/login", validateBody(loginSchema), async (req: AuthenticatedReques
   }
 });
 
-router.post('/login/otp/send', validateBody(phoneLoginSchema), async (req: AuthenticatedRequest, res) => {
+router.post('/login/verification/send', validateBody(loginVerificationSendSchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { pendingToken, method } = req.body;
+    const challenge = await prisma.loginChallenge.findUnique({ where: { tokenHash: hashPendingToken(pendingToken) }, include: { user: true } });
+    if (!challenge || challenge.used || challenge.expiresAt <= new Date()) return errorResponse(res, 'Verification session expired. Please sign in again.', 401);
+
+    const methods = availableLoginMethods(challenge.user);
+    if (!methods.includes(method)) return errorResponse(res, 'That verification method is unavailable.', 400);
+
+    if (method === 'SMS') {
+      await createAndSendOtp({ phoneNumber: challenge.user.phone!, purpose: 'LOGIN', userId: challenge.user.id, request: req });
+      await prisma.loginChallenge.update({ where: { id: challenge.id }, data: { method: 'SMS', codeHash: null, codeExpiresAt: null, attempts: 0 } });
+    } else {
+      await sendLoginEmailCode(challenge.user, challenge.id);
+    }
+
+    return successResponse(res, { method }, 200, 'Verification code sent.');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to send verification code';
+    return errorResponse(res, message.startsWith('Too many') || message.startsWith('Please wait') ? message : 'Unable to send verification code', message.startsWith('Too many') || message.startsWith('Please wait') ? 429 : 400);
+  }
+});
+
+router.post('/login/verification/verify', validateBody(loginVerificationSchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { pendingToken, code } = req.body;
+    const tokenHash = hashPendingToken(pendingToken);
+    const challenge = await prisma.loginChallenge.findUnique({ where: { tokenHash }, include: { user: true } });
+    if (!challenge || challenge.used || challenge.expiresAt <= new Date()) return errorResponse(res, 'Verification session expired. Please sign in again.', 401);
+
+    const blocked = await isRateLimited('login-verification-token', tokenHash, 10, 15 * 60_000) || await isRateLimited('login-verification-ip', getRequestIp(req), 20, 15 * 60_000);
+    if (blocked) return errorResponse(res, 'Too many verification attempts. Please sign in again later.', 429);
+    await consumeRateLimit('login-verification-token', tokenHash, 10, 15 * 60_000);
+    await consumeRateLimit('login-verification-ip', getRequestIp(req), 20, 15 * 60_000);
+
+    if (!challenge.method) return errorResponse(res, 'Choose a verification method first.', 400);
+    if (challenge.method === 'SMS') {
+      await verifyOtp({ phoneNumber: challenge.user.phone!, otp: code, purpose: 'LOGIN', userId: challenge.user.id });
+    } else {
+      if (!challenge.codeHash || !challenge.codeExpiresAt || challenge.codeExpiresAt <= new Date()) return errorResponse(res, 'This verification code has expired. Please request a new one.', 400);
+      if (challenge.attempts >= challenge.maxAttempts) return errorResponse(res, 'This verification code is no longer valid. Please request a new one.', 429);
+      const valid = await compareCode(code, challenge.codeHash);
+      if (!valid) {
+        const updated = await prisma.loginChallenge.update({ where: { id: challenge.id }, data: { attempts: { increment: 1 } } });
+        if (updated.attempts >= updated.maxAttempts) await prisma.loginChallenge.update({ where: { id: challenge.id }, data: { used: true } });
+        return errorResponse(res, updated.attempts >= updated.maxAttempts ? 'This verification code is no longer valid. Please request a new one.' : 'Invalid verification code', 400);
+      }
+    }
+
+    if (challenge.method === 'EMAIL' && !challenge.user.emailVerified) {
+      await prisma.user.update({ where: { id: challenge.user.id }, data: { emailVerified: true } });
+    }
+    await prisma.loginChallenge.update({ where: { id: challenge.id }, data: { used: true } });
+    await createLoginHistory(challenge.user.id, req, true);
+    const token = generateToken(challenge.user);
+    const { passwordHash: _, ...userWithoutPassword } = challenge.user;
+    void sendSignInNotificationEmail(challenge.user.email, challenge.user.name, { date: new Date().toLocaleString(), browser: (req as any).get?.('user-agent') || undefined }).catch(error => console.error('Failed to send sign-in notification email:', error));
+    return successResponse(res, { user: userWithoutPassword, token }, 200, 'Signed in successfully');
+  } catch (error) {
+    return errorResponse(res, error instanceof Error ? error.message : 'Invalid verification code', 401);
+  }
+});
+
+router.post('/login/otp/send', (_req, res) => {
+  return errorResponse(res, 'Enter your password first, then choose SMS verification.', 410, 'PASSWORD_REQUIRED_FOR_LOGIN')
+})
+
+router.post('/login/otp/send-legacy', validateBody(phoneLoginSchema), async (req: AuthenticatedRequest, res) => {
   try {
     const phoneNumber = normalizeGhanaPhone(req.body.phoneNumber)
     const user = await prisma.user.findFirst({ where: { phone: phoneNumber, phoneVerified: true } })
@@ -594,7 +676,11 @@ router.post('/login/otp/send', validateBody(phoneLoginSchema), async (req: Authe
   }
 })
 
-router.post('/login/otp/verify', validateBody(phoneLoginVerifySchema), async (req: AuthenticatedRequest, res) => {
+router.post('/login/otp/verify', (_req, res) => {
+  return errorResponse(res, 'Enter your password first, then choose SMS verification.', 410, 'PASSWORD_REQUIRED_FOR_LOGIN')
+})
+
+router.post('/login/otp/verify-legacy', validateBody(phoneLoginVerifySchema), async (req: AuthenticatedRequest, res) => {
   try {
     const phoneNumber = normalizeGhanaPhone(req.body.phoneNumber)
     const user = await prisma.user.findFirst({ where: { phone: phoneNumber, phoneVerified: true } })
@@ -671,6 +757,72 @@ router.get("/me", authMiddleware, async (req: AuthenticatedRequest, res) => {
     return successResponse(res, userWithoutPassword);
   } catch (error) {
     return errorResponse(res, "Failed to fetch profile", 500);
+  }
+});
+
+router.delete('/me', authMiddleware, validateBody(accountDeletionSchema), async (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  try {
+    await prisma.$transaction(async tx => {
+      const shops = await tx.shop.findMany({ where: { ownerId: userId }, select: { id: true } });
+      const shopIds = shops.map(shop => shop.id);
+      const products = await tx.product.findMany({ where: { sellerId: userId }, select: { id: true } });
+      const services = await tx.service.findMany({ where: { providerId: userId }, select: { id: true } });
+      const productIds = products.map(product => product.id);
+      const serviceIds = services.map(service => service.id);
+
+      // Preserve transaction structure while removing references to the person.
+      await tx.order.updateMany({ where: { OR: [{ customerId: userId }, { sellerId: userId }, { riderId: userId }, ...(shopIds.length ? [{ shopId: { in: shopIds } }] : [])] }, data: { customerId: null, sellerId: null, riderId: null, shopId: null, guestName: null, guestPhone: null, guestEmail: null, deliveryAddress: 'Address removed', notes: null } });
+      await tx.orderItem.updateMany({ where: { OR: [...(productIds.length ? [{ productId: { in: productIds } }] : []), ...(serviceIds.length ? [{ serviceId: { in: serviceIds } }] : [])] }, data: { productId: null, serviceId: null, variantId: null } });
+      await tx.cartItem.updateMany({ where: { OR: [...(productIds.length ? [{ productId: { in: productIds } }] : []), ...(serviceIds.length ? [{ serviceId: { in: serviceIds } }] : [])] }, data: { productId: null, serviceId: null, variantId: null } });
+      await tx.booking.updateMany({ where: { OR: [{ customerId: userId }, { providerId: userId }, ...(shopIds.length ? [{ shopId: { in: shopIds } }] : [])] }, data: { customerId: null, providerId: null, notes: null } });
+      await tx.delivery.updateMany({ where: { riderId: userId }, data: { riderId: null } });
+      await tx.refund.updateMany({ where: { OR: [{ customerId: userId }, { sellerId: userId }] }, data: { customerId: null, sellerId: null } });
+      await tx.dispute.updateMany({ where: { OR: [{ customerId: userId }, { sellerId: userId }] }, data: { customerId: null, sellerId: null } });
+      await tx.payout.updateMany({ where: { userId }, data: { userId: null, payoutMethodId: null } });
+      await tx.financialLedger.updateMany({ where: { userId }, data: { userId: null } });
+      await tx.sellerEarnings.updateMany({ where: { sellerId: userId }, data: { sellerId: null } });
+      await tx.riderEarnings.updateMany({ where: { riderId: userId }, data: { riderId: null } });
+      await tx.promoRedemption.updateMany({ where: { customerId: userId }, data: { customerId: null, guestIdentifier: null } });
+      await tx.emailLog.updateMany({ where: { userId }, data: { userId: null, to: 'deleted-account@invalid' } });
+      await tx.emailCampaign.updateMany({ where: { sentBy: userId }, data: { sentBy: null } });
+      await tx.promoCode.updateMany({ where: { OR: [{ createdBy: userId }, { sellerId: userId }] }, data: { createdBy: null, sellerId: null } });
+      await tx.publicNotice.updateMany({ where: { createdBy: userId }, data: { createdBy: null } });
+      await tx.productView.updateMany({ where: { userId }, data: { userId: null } });
+      await tx.inventoryMovement.updateMany({ where: { userId }, data: { userId: null } });
+      await tx.publicNoticeDismissal.updateMany({ where: { userId }, data: { userId: null } });
+
+      await tx.message.deleteMany({ where: { senderId: userId } });
+      await tx.conversation.deleteMany({ where: { OR: [{ participant1Id: userId }, { participant2Id: userId }] } });
+      await tx.report.deleteMany({ where: { reporterId: userId } });
+      await tx.review.deleteMany({ where: { userId } });
+      await tx.favorite.deleteMany({ where: { userId } });
+      await tx.shopFollow.deleteMany({ where: { userId } });
+      await tx.notification.deleteMany({ where: { userId } });
+      await tx.notificationPreference.deleteMany({ where: { userId } });
+      await tx.address.deleteMany({ where: { userId } });
+      await tx.searchHistory.deleteMany({ where: { userId } });
+      await tx.payoutMethod.deleteMany({ where: { userId } });
+      await tx.cart.deleteMany({ where: { userId } });
+      await tx.sellerVerification.deleteMany({ where: { userId } });
+      await tx.phoneOtp.deleteMany({ where: { userId } });
+      await tx.emailVerification.deleteMany({ where: { userId } });
+      await tx.loginChallenge.deleteMany({ where: { userId } });
+      await tx.passwordResetToken.deleteMany({ where: { userId } });
+      await tx.loginHistory.deleteMany({ where: { userId } });
+      await tx.auditLog.deleteMany({ where: { actorId: userId } });
+
+      await tx.product.deleteMany({ where: { sellerId: userId } });
+      await tx.service.deleteMany({ where: { providerId: userId } });
+      await tx.shop.deleteMany({ where: { ownerId: userId } });
+      await tx.rider.deleteMany({ where: { userId } });
+      await tx.userRole.deleteMany({ where: { userId } });
+      await tx.user.delete({ where: { id: userId } });
+    });
+    return successResponse(res, null, 200, 'Account permanently deleted');
+  } catch (error) {
+    console.error('Account deletion failed:', error);
+    return errorResponse(res, 'Unable to delete your account. Nothing was changed. Please try again.', 500);
   }
 });
 
@@ -785,8 +937,7 @@ router.post(
 
 router.get("/google-config", async (_req: AuthenticatedRequest, res) => {
   try {
-    const googleClientId =
-      process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+    const googleClientId = process.env.GOOGLE_CLIENT_ID || "";
     return successResponse(res, {
       clientId: googleClientId,
       configured: !!googleClientId,

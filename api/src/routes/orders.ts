@@ -415,7 +415,7 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
 
         if (status === 'DELIVERED') {
           const existingReview = await prisma.review.findFirst({
-            where: { userId: order.customerId, targetType: 'SHOP', targetId: updated.shopId },
+            where: order.customerId && updated.shopId ? { userId: order.customerId, targetType: 'SHOP', targetId: updated.shopId } : undefined,
           })
 
           if (!existingReview) {

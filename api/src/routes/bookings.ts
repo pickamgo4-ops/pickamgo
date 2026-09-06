@@ -264,15 +264,17 @@ router.patch('/:id/status', authMiddleware, validateBody(bookingStatusSchema), a
   })
 
   const notifyUserId = status === 'CANCELLED' ? booking.providerId : booking.customerId
-  await prisma.notification.create({
-    data: {
-      userId: notifyUserId,
-      type: status === 'CANCELLED' ? 'BOOKING_CANCELLED' : 'BOOKING_CONFIRMED',
-      title: 'Booking Update',
-      message: `Booking for ${updated.service?.name || 'service'} on ${booking.date} at ${booking.timeSlot} is now ${status.toLowerCase()}`,
-      data: JSON.stringify({ bookingId: booking.id, status }),
-    },
-  })
+  if (notifyUserId) {
+    await prisma.notification.create({
+      data: {
+        userId: notifyUserId,
+        type: status === 'CANCELLED' ? 'BOOKING_CANCELLED' : 'BOOKING_CONFIRMED',
+        title: 'Booking Update',
+        message: `Booking for ${updated.service?.name || 'service'} on ${booking.date} at ${booking.timeSlot} is now ${status.toLowerCase()}`,
+        data: JSON.stringify({ bookingId: booking.id, status }),
+      },
+    })
+  }
 
   if (status === 'CANCELLED') {
     if (updated.customer?.email) {

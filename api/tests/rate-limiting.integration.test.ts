@@ -60,7 +60,7 @@ async function login(port: number, email: string, password = 'CorrectPassword1!'
   const response = await request(port, '/api/auth/login', {
     method: 'POST',
     headers: { 'x-forwarded-for': testIp(ip) },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ identifier: email, password }),
   })
   const body = await response.json() as any
   return { response, body }
@@ -94,6 +94,7 @@ after(async () => {
     }
   }
   await prisma.emailVerification.deleteMany({ where: { userId: { in: createdUserIds } } })
+  await prisma.loginChallenge.deleteMany({ where: { userId: { in: createdUserIds } } })
   await prisma.passwordResetToken.deleteMany({ where: { userId: { in: createdUserIds } } })
   await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } })
   await prisma.rateLimitBucket.deleteMany()
@@ -101,6 +102,60 @@ after(async () => {
 })
 
 describe('rate limiting integration', { concurrency: false }, () => {
+  it('returns pending verification instead of a JWT after a correct password', async () => {
+    const user = await createUser()
+    const result = await login(basePorts[0], user.email, undefined, 25)
+
+    assert.equal(result.response.status, 200)
+    assert.equal(result.body.data.verificationRequired, true)
+    assert.ok(result.body.data.pendingToken)
+    assert.equal(result.body.data.token, undefined)
+
+    const pendingResponse = await request(basePorts[0], '/api/auth/me', {
+      headers: authHeaders(result.body.data.pendingToken, 26),
+    })
+    assert.equal(pendingResponse.status, 401)
+  })
+
+  it('deletes only the authenticated account and invalidates its session', async () => {
+    const user = await createUser({ email: `delete-${Date.now()}@example.com` })
+    const otherUser = await createUser({ email: `keep-${Date.now()}@example.com` })
+    const token = generateToken(user)
+    await prisma.address.create({ data: { userId: user.id, label: 'Home', address: 'Private address', city: 'Accra' } })
+    await prisma.loginChallenge.create({ data: { userId: user.id, tokenHash: `delete-test-${Date.now()}`, expiresAt: new Date(Date.now() + 60_000) } })
+
+    const rejectedDeletion = await request(basePorts[0], '/api/auth/me', {
+      method: 'DELETE',
+      headers: { ...authHeaders(token, 26), 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmation: 'delete' }),
+    })
+    assert.equal(rejectedDeletion.status, 400)
+    assert.ok(await prisma.user.findUnique({ where: { id: user.id } }))
+
+    const deletion = await request(basePorts[0], '/api/auth/me', {
+      method: 'DELETE',
+      headers: { ...authHeaders(token, 27), 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmation: 'DELETE' }),
+    })
+    assert.equal(deletion.status, 200)
+    assert.equal(await prisma.user.findUnique({ where: { id: user.id } }), null)
+    assert.equal(await prisma.address.count({ where: { userId: user.id } }), 0)
+    assert.equal(await prisma.loginChallenge.count({ where: { userId: user.id } }), 0)
+    assert.equal((await request(basePorts[0], '/api/auth/me', { headers: authHeaders(token, 28) })).status, 401)
+    assert.ok(await prisma.user.findUnique({ where: { id: otherUser.id } }))
+
+    for (const [role, flags] of [['seller', { isSeller: true }], ['rider', { isRider: true }]] as const) {
+      const roleUser = await createUser({ email: `delete-${role}-${Date.now()}@example.com`, ...flags })
+      const roleDeletion = await request(basePorts[0], '/api/auth/me', {
+        method: 'DELETE',
+        headers: { ...authHeaders(generateToken(roleUser), 29), 'content-type': 'application/json' },
+        body: JSON.stringify({ confirmation: 'DELETE' }),
+      })
+      assert.equal(roleDeletion.status, 200)
+      assert.equal(await prisma.user.findUnique({ where: { id: roleUser.id } }), null)
+    }
+  })
+
   it('shares one authenticated bucket across three sessions and isolates users', async () => {
     const userA = await createUser()
     const userB = await createUser()

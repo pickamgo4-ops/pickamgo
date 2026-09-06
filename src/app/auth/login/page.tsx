@@ -10,35 +10,37 @@ import { api } from '../../../lib/api'
 import { useRole } from '@/contexts/RoleContext'
 
 type UserRole = 'buyer' | 'seller' | 'rider'
-const DEFAULT_GOOGLE_CLIENT_ID = '806419638142-pkegcrntdkn3abahd3q4ti50fff1uol4.apps.googleusercontent.com'
-
+type LoginVerificationMethod = 'SMS' | 'EMAIL'
 export default function LoginPage() {
   const router = useRouter()
   const { setUser } = useRole()
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loginMethod, setLoginMethod] = useState<'password' | 'otp'>('password')
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [otp, setOtp] = useState('')
-  const [otpSent, setOtpSent] = useState(false)
-  const [otpCooldown, setOtpCooldown] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [deletionMessage, setDeletionMessage] = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
   const [showGoogleRoleModal, setShowGoogleRoleModal] = useState(false)
   const [googleUser, setGoogleUser] = useState<{ email: string; name: string; avatar: string } | null>(null)
+  const [googleIdToken, setGoogleIdToken] = useState('')
+  const [pendingToken, setPendingToken] = useState('')
+  const [verificationMethods, setVerificationMethods] = useState<LoginVerificationMethod[]>([])
+  const [verificationMethod, setVerificationMethod] = useState<LoginVerificationMethod | null>(null)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [verificationSent, setVerificationSent] = useState(false)
   const [selectedRole, setSelectedRole] = useState<UserRole>('buyer')
   const [showVerificationPrompt, setShowVerificationPrompt] = useState(false)
   const [verificationEmail, setVerificationEmail] = useState('')
   const submittingRef = useRef(false)
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
 
-  useEffect(() => {
-    if (otpCooldown <= 0) return
-    const timer = window.setInterval(() => setOtpCooldown(value => Math.max(0, value - 1)), 1000)
-    return () => window.clearInterval(timer)
-  }, [otpCooldown])
+  const getPostLoginPath = () => {
+    const returnTo = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('returnTo')
+      : null
+    return returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -71,6 +73,12 @@ export default function LoginPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('deleted') === '1') {
+      setDeletionMessage("Your account has been permanently deleted. We're sorry to see you go.")
+    }
+  }, [])
+
   const initializeGoogleSignIn = async () => {
     try {
       const google = (window as any).google
@@ -80,15 +88,11 @@ export default function LoginPage() {
       }
 
       let clientId = googleClientId
-      if (!clientId) {
-        try {
-          const configRes = await api.get<{ clientId: string; configured: boolean }>('/auth/google-config')
-          if (configRes.success && configRes.data?.configured) {
-            clientId = configRes.data.clientId
-          }
-        } catch (err) {
-          console.warn('Failed to fetch Google config:', err)
-        }
+      try {
+        const configRes = await api.get<{ clientId: string; configured: boolean }>('/auth/google-config')
+        if (configRes.success && configRes.data?.configured) clientId = configRes.data.clientId
+      } catch (err) {
+        console.warn('Failed to fetch Google config:', err)
       }
 
       if (!clientId) {
@@ -141,6 +145,7 @@ export default function LoginPage() {
 
       if (authResponse.success && authResponse.data) {
         if (authResponse.data.isNewUser) {
+          setGoogleIdToken(idToken)
           setGoogleUser({
             email: authResponse.data.email || '',
             name: authResponse.data.name || '',
@@ -151,13 +156,13 @@ export default function LoginPage() {
         } else if (authResponse.data.token && authResponse.data.user) {
           completeGoogleSignIn(authResponse.data)
         } else {
-          setError('Google authentication returned an invalid response.')
+          setError('Google sign-in failed. Please try again.')
         }
       } else {
         setError(authResponse.error || 'Google authentication failed.')
       }
     } catch {
-      setError('An error occurred during Google authentication.')
+      setError('Google sign-in failed. Please try again.')
     } finally {
       setGoogleLoading(false)
     }
@@ -187,7 +192,7 @@ export default function LoginPage() {
     localStorage.setItem('user', JSON.stringify(normalizedUser))
     setUser(normalizedUser)
     window.dispatchEvent(new Event('auth-changed'))
-    router.replace(u.isAdmin ? '/admin' : u.isRider ? '/rider' : u.isSeller ? '/seller' : '/')
+    router.replace(getPostLoginPath() || (u.isAdmin ? '/admin' : u.isRider ? '/rider' : u.isSeller ? '/seller' : '/'))
   }
 
   const handleGoogleComplete = async () => {
@@ -196,9 +201,7 @@ export default function LoginPage() {
     setError('')
     try {
       const response = await api.post<{ user: any; token: string }>('/auth/google/complete', {
-        email: googleUser.email,
-        name: googleUser.name,
-        avatar: googleUser.avatar,
+        idToken: googleIdToken,
         role: selectedRole,
       })
 
@@ -208,49 +211,11 @@ export default function LoginPage() {
         setError(response.error || 'Failed to complete Google registration.')
       }
     } catch {
-      setError('An error occurred. Please try again.')
+      setError('Google sign-in failed. Please try again.')
     } finally {
       setLoading(false)
       setShowGoogleRoleModal(false)
     }
-  }
-
-  const handleSendLoginOtp = async () => {
-    if (!phoneNumber || otpCooldown > 0) return
-    setLoading(true)
-    setError('')
-    const response = await api.post<{ cooldownSeconds?: number }>('/auth/login/otp/send', { phoneNumber })
-    if (response.success) {
-      setOtpSent(true)
-      setOtpCooldown(response.data?.cooldownSeconds || 60)
-    } else {
-      setError(response.error || 'Unable to send verification code')
-    }
-    setLoading(false)
-  }
-
-  const handleVerifyLoginOtp = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (otp.length !== 6) {
-      setError('Enter the 6-digit verification code')
-      return
-    }
-    setLoading(true)
-    setError('')
-    const response = await api.post<{ token?: string; user?: any }>('/auth/login/otp/verify', { phoneNumber, otp })
-    if (response.success && response.data?.token && response.data.user) {
-      const u = response.data.user
-      const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
-      const normalizedUser = { id: u.id, name: u.name, email: u.email, avatar: u.avatar, location: u.location, role, isSeller: !!u.isSeller, isRider: !!u.isRider, isAdmin: !!u.isAdmin }
-      localStorage.setItem('token', response.data.token)
-      localStorage.setItem('user', JSON.stringify(normalizedUser))
-      setUser(normalizedUser as any)
-      window.dispatchEvent(new Event('auth-changed'))
-      router.replace(u.isAdmin ? '/admin' : u.isRider ? '/rider' : u.isSeller ? '/seller' : '/')
-    } else {
-      setError(response.error || 'Invalid verification code')
-    }
-    setLoading(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -262,38 +227,25 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const response = await api.post<{ token?: string; user?: any; verificationRequired?: boolean; email?: string }>('/auth/login', {
-        email,
+      const response = await api.post<{ pendingToken?: string; verificationRequired?: boolean; methods?: LoginVerificationMethod[] }>('/auth/login', {
+        identifier: email,
         password,
       })
 
       if (response.success && response.data) {
         if (response.data.verificationRequired) {
-          router.push(`/auth/verify-email?email=${encodeURIComponent(response.data.email || email)}`)
+          const nextPendingToken = response.data.pendingToken || ''
+          const nextMethods = response.data.methods || []
+          setPendingToken(nextPendingToken)
+          setVerificationMethods(nextMethods)
+          setVerificationMethod(null)
+          setVerificationSent(false)
+          setVerificationCode('')
+          sessionStorage.setItem('pickamgo-pending-login', JSON.stringify({ pendingToken: nextPendingToken, methods: nextMethods }))
           setLoading(false)
           submittingRef.current = false
           return
         }
-
-        const u = response.data.user
-        const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
-        const normalizedUser = {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          avatar: u.avatar,
-          location: u.location,
-          role: role as 'buyer' | 'seller' | 'rider' | 'admin',
-          isSeller: u.isSeller || false,
-          isRider: u.isRider || false,
-          isAdmin: u.isAdmin || false,
-        }
-
-        localStorage.setItem('token', response.data.token || '')
-        localStorage.setItem('user', JSON.stringify(normalizedUser))
-        setUser(normalizedUser)
-        window.dispatchEvent(new Event('auth-changed'))
-        router.replace(u.isAdmin ? '/admin' : u.isRider ? '/rider' : u.isSeller ? '/seller' : '/')
       } else {
         setError(response.error || response.message || 'Login failed')
       }
@@ -303,6 +255,58 @@ export default function LoginPage() {
       setLoading(false)
       submittingRef.current = false
     }
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || pendingToken) return
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('pickamgo-pending-login') || 'null')
+      if (saved?.pendingToken && Array.isArray(saved.methods)) {
+        setPendingToken(saved.pendingToken)
+        setVerificationMethods(saved.methods)
+      }
+    } catch {
+      sessionStorage.removeItem('pickamgo-pending-login')
+    }
+  }, [pendingToken])
+
+  const sendLoginVerification = async (method: LoginVerificationMethod) => {
+    setLoading(true)
+    setError('')
+    const response = await api.post('/auth/login/verification/send', { pendingToken, method })
+    if (response.success) {
+      setVerificationMethod(method)
+      setVerificationSent(true)
+      setVerificationCode('')
+    } else {
+      setError(response.error || 'Unable to send verification code')
+    }
+    setLoading(false)
+  }
+
+  const handleVerifyLogin = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (verificationCode.length !== 6) {
+      setError('Enter the 6-digit verification code')
+      return
+    }
+    setLoading(true)
+    setError('')
+    const response = await api.post<{ token?: string; user?: any }>('/auth/login/verification/verify', { pendingToken, code: verificationCode })
+    if (response.success && response.data?.token && response.data.user) {
+      const u = response.data.user
+      const role = u.isAdmin ? 'admin' : u.isRider ? 'rider' : u.isSeller ? 'seller' : 'buyer'
+      const normalizedUser = { id: u.id, name: u.name, email: u.email, avatar: u.avatar, location: u.location, role, isSeller: !!u.isSeller, isRider: !!u.isRider, isAdmin: !!u.isAdmin }
+      localStorage.setItem('token', response.data.token)
+      localStorage.setItem('user', JSON.stringify(normalizedUser))
+      sessionStorage.removeItem('pickamgo-pending-login')
+      setUser(normalizedUser as any)
+      window.dispatchEvent(new Event('auth-changed'))
+      router.replace(getPostLoginPath() || (u.isAdmin ? '/admin' : u.isRider ? '/rider' : u.isSeller ? '/seller' : '/'))
+    } else {
+      setError(response.error || 'Invalid verification code')
+    }
+    setLoading(false)
   }
 
   return (
@@ -330,13 +334,13 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-warm-100 p-1">
-            <button type="button" onClick={() => { setLoginMethod('password'); setError('') }} className={`rounded-lg px-3 py-2 text-sm font-medium ${loginMethod === 'password' ? 'bg-white text-primary shadow-sm' : 'text-warm-800/60'}`}>Email & password</button>
-            <button type="button" onClick={() => { setLoginMethod('otp'); setError('') }} className={`rounded-lg px-3 py-2 text-sm font-medium ${loginMethod === 'otp' ? 'bg-white text-primary shadow-sm' : 'text-warm-800/60'}`}>Phone OTP</button>
-          </div>
-
-          {loginMethod === 'password' ? <form onSubmit={handleSubmit} className="space-y-4">
-            <Input type="email" placeholder="Email address" value={email} onValueChange={setEmail} icon={<Mail size={20} />} required />
+          {deletionMessage && (
+            <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+              {deletionMessage}
+            </div>
+          )}
+          {!pendingToken ? <form onSubmit={handleSubmit} className="space-y-4">
+            <Input type="text" placeholder="Email address or phone number" value={email} onValueChange={setEmail} icon={<Mail size={20} />} required />
             <Input type={showPassword ? 'text' : 'password'} placeholder="Password" value={password} onValueChange={setPassword} icon={<Lock size={20} />} rightIcon={<button type="button" onClick={() => setShowPassword(!showPassword)} className="text-warm-800/40 hover:text-warm-800">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>} required />
 
             <div className="flex items-center justify-between text-sm">
@@ -352,14 +356,21 @@ export default function LoginPage() {
             <Button fullWidth type="submit" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
-          </form> : <form onSubmit={handleVerifyLoginOtp} className="space-y-4">
-            <Input type="tel" placeholder="Phone number e.g. 0241234567" value={phoneNumber} onValueChange={setPhoneNumber} icon={<Phone size={20} />} required />
-            {otpSent && <Input type="text" inputMode="numeric" placeholder="6-digit verification code" value={otp} onValueChange={value => setOtp(value.replace(/\D/g, '').slice(0, 6))} icon={<Lock size={20} />} required />}
-            {!otpSent ? <Button fullWidth type="button" onClick={handleSendLoginOtp} disabled={loading || !phoneNumber}>{loading ? 'Sending code...' : 'Send verification code'}</Button> : <>
-              <Button fullWidth type="submit" disabled={loading || otp.length !== 6}>{loading ? 'Verifying...' : 'Sign in with OTP'}</Button>
-              <button type="button" onClick={handleSendLoginOtp} disabled={loading || otpCooldown > 0} className="w-full text-sm font-medium text-primary disabled:text-warm-800/40">{otpCooldown > 0 ? `Resend code in ${otpCooldown}s` : 'Resend code'}</button>
-            </>}
-          </form>}
+          </form> : <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-warm-900">Verify your account</h2>
+              <p className="mt-1 text-sm text-warm-800/60">Choose how you&apos;d like to receive your verification code.</p>
+            </div>
+            {!verificationSent ? <div className="space-y-3">
+              {verificationMethods.includes('SMS') && <Button fullWidth variant="outline" onClick={() => sendLoginVerification('SMS')} disabled={loading} icon={<Phone size={18} />}>Send code by SMS</Button>}
+              {verificationMethods.includes('EMAIL') && <Button fullWidth variant="outline" onClick={() => sendLoginVerification('EMAIL')} disabled={loading} icon={<Mail size={18} />}>Send code by Email</Button>}
+            </div> : <form onSubmit={handleVerifyLogin} className="space-y-4">
+              <p className="text-sm text-warm-800/70">Enter the 6-digit code sent by {verificationMethod === 'SMS' ? 'SMS' : 'email'}.</p>
+              <Input type="text" inputMode="numeric" placeholder="6-digit verification code" value={verificationCode} onValueChange={value => setVerificationCode(value.replace(/\D/g, '').slice(0, 6))} icon={<Lock size={20} />} required />
+              <Button fullWidth type="submit" disabled={loading || verificationCode.length !== 6}>{loading ? 'Verifying...' : 'Verify and Sign In'}</Button>
+              <button type="button" onClick={() => { setVerificationSent(false); setVerificationMethod(null); setError('') }} className="w-full text-sm font-medium text-primary">Choose another method</button>
+            </form>}
+          </div>}
 
           <div className="mt-6">
             <div className="relative">
@@ -372,11 +383,7 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-4">
-              {googleClientId ? (
-                <div id="googleSignInButton" className="w-full" />
-              ) : (
-                <p className="text-center text-sm text-warm-800/60">Google Sign-In is currently unavailable.</p>
-              )}
+              <div id="googleSignInButton" className="w-full" />
               {googleLoading && (
                 <div className="mt-2 text-center text-sm text-warm-800/60">Connecting to Google...</div>
               )}

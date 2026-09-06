@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { api } from '@/lib/api'
+import { AccountDeletionPanel } from '@/components/AccountDeletionPanel'
 
 export default function SellerSettingsPage() {
   const router = useRouter()
@@ -287,6 +288,7 @@ export default function SellerSettingsPage() {
             </Button>
           </div>
         </form>
+        <AccountDeletionPanel />
       </div>
     </SellerSidebar>
   )

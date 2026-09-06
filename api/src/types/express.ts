@@ -19,6 +19,7 @@ export interface ApiResponse<T = any> {
   data?: T
   message?: string
   error?: string
+  code?: string
   pagination?: {
     page: number
     limit: number
@@ -35,10 +36,11 @@ export function successResponse<T>(res: Response, data: T, statusCode = 200, mes
   } as ApiResponse<T>)
 }
 
-export function errorResponse(res: Response, message: string, statusCode = 400) {
+export function errorResponse(res: Response, message: string, statusCode = 400, code?: string) {
   return res.status(statusCode).json({
     success: false,
     error: message,
+    ...(code && { code }),
   } as ApiResponse)
 }
 

@@ -11,9 +11,6 @@ import { useRole } from "@/contexts/RoleContext";
 import { validatePassword, PasswordValidationResult } from "@/lib/password-validation";
 
 type UserRole = "buyer" | "seller" | "rider";
-const DEFAULT_GOOGLE_CLIENT_ID =
-  "806419638142-pkegcrntdkn3abahd3q4ti50fff1uol4.apps.googleusercontent.com";
-
 export default function SignupPage() {
   const router = useRouter();
   const { setUser } = useRole();
@@ -39,10 +36,11 @@ export default function SignupPage() {
     name: string;
     avatar: string;
   } | null>(null);
+  const [googleIdToken, setGoogleIdToken] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>("buyer");
   const [showVerificationPrompt, setShowVerificationPrompt] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID;
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -86,17 +84,13 @@ export default function SignupPage() {
       }
 
       let clientId = googleClientId;
-      if (!clientId) {
-        try {
-          const configRes = await api.get<{ clientId: string; configured: boolean }>(
-            "/auth/google-config",
-          );
-          if (configRes.success && configRes.data?.configured) {
-            clientId = configRes.data.clientId;
-          }
-        } catch (err) {
-          console.warn("Failed to fetch Google config:", err);
-        }
+      try {
+        const configRes = await api.get<{ clientId: string; configured: boolean }>(
+          "/auth/google-config",
+        );
+        if (configRes.success && configRes.data?.configured) clientId = configRes.data.clientId;
+      } catch (err) {
+        console.warn("Failed to fetch Google config:", err);
       }
 
       if (!clientId) {
@@ -156,6 +150,7 @@ export default function SignupPage() {
 
       if (authResponse.success && authResponse.data) {
         if (authResponse.data.isNewUser) {
+          setGoogleIdToken(idToken);
           setGoogleUser({
             email: authResponse.data.email || "",
             name: authResponse.data.name || "",
@@ -172,7 +167,7 @@ export default function SignupPage() {
         setError(authResponse.error || "Google authentication failed.");
       }
     } catch {
-      setError("An error occurred during Google authentication.");
+      setError("Google sign-in failed. Please try again.");
     } finally {
       setGoogleLoading(false);
     }
@@ -219,9 +214,7 @@ export default function SignupPage() {
     setError("");
     try {
       const response = await api.post<{ user: any; token: string }>("/auth/google/complete", {
-        email: googleUser.email,
-        name: googleUser.name,
-        avatar: googleUser.avatar,
+        idToken: googleIdToken,
         role: selectedRole,
       });
 
@@ -231,7 +224,7 @@ export default function SignupPage() {
         setError(response.error || "Failed to complete Google registration.");
       }
     } catch {
-      setError("An error occurred. Please try again.");
+      setError("Google sign-in failed. Please try again.");
     } finally {
       setLoading(false);
       setShowGoogleRoleModal(false);
@@ -513,13 +506,7 @@ export default function SignupPage() {
             </div>
 
             <div className="mt-4">
-              {googleClientId ? (
-                <div id="googleSignInButton" className="w-full" />
-              ) : (
-                <p className="text-center text-sm text-warm-800/60">
-                  Google Sign-Up is currently unavailable.
-                </p>
-              )}
+              <div id="googleSignInButton" className="w-full" />
               {googleLoading && (
                 <div className="mt-2 text-center text-sm text-warm-800/60">
                   Connecting to Google...

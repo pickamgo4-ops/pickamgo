@@ -107,6 +107,8 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
   })
 
   if (!order) return errorResponse(res, 'Order not found', 404)
+  if (!order.shop) return errorResponse(res, 'This order no longer has an active shop', 400)
+  const orderShop = order.shop
   if (!rider.isVerified && !order.isTestOrder) return errorResponse(res, 'Complete Ghana Card verification before accepting deliveries', 403)
   if (order.fulfillmentMethod !== 'FIND_IT_NEAR_ME_RIDER') return errorResponse(res, 'This order is not assigned to platform rider delivery', 403)
   if (order.deliveryStatus !== 'PENDING') {
@@ -135,12 +137,12 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
       data: {
         orderId: order.id,
         riderId: req.user!.id,
-        pickupLocation: order.shop.location,
+        pickupLocation: orderShop.location,
         dropoffLocation: order.deliveryAddress,
-        pickupAddress: order.shop.location,
+        pickupAddress: orderShop.location,
         dropoffAddress: order.deliveryAddress,
-        pickupLatitude: order.shop.latitude,
-        pickupLongitude: order.shop.longitude,
+        pickupLatitude: orderShop.latitude,
+        pickupLongitude: orderShop.longitude,
         dropoffLatitude: (order as any).deliveryLatitude ?? (order as any).delivery?.dropoffLatitude,
         dropoffLongitude: (order as any).deliveryLongitude ?? (order as any).delivery?.dropoffLongitude,
         status: 'ACCEPTED',
@@ -177,7 +179,7 @@ router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']
   if (riderEmail && !order.isTestOrder) {
     sendRiderNotification(riderEmail, {
       orderNumber: order.orderNumber,
-      pickupAddress: order.shop.location,
+      pickupAddress: orderShop.location,
       deliveryAddress: order.deliveryAddress,
       customerName: order.customer?.name || 'Guest',
       customerPhone: order.customer?.location,

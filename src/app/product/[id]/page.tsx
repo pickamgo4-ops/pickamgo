@@ -30,6 +30,7 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(true)
   const [addingToCart, setAddingToCart] = useState(false)
+  const [showGuestCheckoutNotice, setShowGuestCheckoutNotice] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
 
@@ -120,7 +121,7 @@ export default function ProductPage() {
     }
   }
 
-  const addToCart = useCallback(async (buyNow = false) => {
+  const addToCart = useCallback(async (buyNow = false): Promise<boolean | 'blocked'> => {
     if (!product) return false
     setAddingToCart(true)
     try {
@@ -135,6 +136,10 @@ export default function ProductPage() {
         }
         return true
       }
+      if (response.code === 'GUEST_CHECKOUT_REQUIRES_AUTH') {
+        setShowGuestCheckoutNotice(true)
+        return 'blocked'
+      }
       return false
     } catch (err) {
       console.error('Failed to add to cart:', err)
@@ -146,9 +151,9 @@ export default function ProductPage() {
 
   const handleBuyNow = async () => {
     const success = await addToCart(true)
-    if (success) {
+    if (success === true) {
       router.push('/checkout')
-    } else {
+    } else if (success !== 'blocked') {
       alert('Failed to add to cart. Please try again.')
     }
   }
@@ -651,6 +656,19 @@ export default function ProductPage() {
            </Button>
         </div>
       </div>
+
+      {showGuestCheckoutNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="font-display text-xl font-bold text-warm-900">Sign in required</h2>
+            <p className="mt-2 text-sm text-warm-800/70">This shop requires you to sign in before placing an order.</p>
+            <div className="mt-6 flex gap-3">
+              <Button fullWidth onClick={() => router.push(`/auth/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`)}>Sign In</Button>
+              <Button variant="ghost" fullWidth onClick={() => setShowGuestCheckoutNotice(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recommendations Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

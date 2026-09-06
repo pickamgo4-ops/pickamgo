@@ -13,6 +13,7 @@ import { api } from '../../lib/api'
 import { useRole } from '../../contexts/RoleContext'
 import { ThemeProvider, useTheme } from '../../components/theme/ThemeProvider'
 import { NotificationPreferences } from '../../types'
+import { AccountDeletionPanel } from '../../components/AccountDeletionPanel'
 
 const PREFERENCE_OPTIONS = [
   { key: 'orderUpdates' as keyof NotificationPreferences, label: 'Order updates', description: 'Get notified about your order status changes' },
@@ -182,6 +183,8 @@ function SettingsContent() {
               <Button variant="outline" fullWidth onClick={() => router.push('/help')}>Help & Support</Button>
             </div>
           </Card>
+
+          <AccountDeletionPanel />
         </div>
       </main>
 

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { api } from '@/lib/api'
 import { useRole } from '@/contexts/RoleContext'
+import { AccountDeletionPanel } from '@/components/AccountDeletionPanel'
 
 type SettingsTab = 'general' | 'marketplace' | 'commission' | 'payment' | 'delivery' | 'security' | 'notifications' | 'email'
 
@@ -522,6 +523,7 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       ) : null}
+      <AccountDeletionPanel />
     </div>
   )
 }
