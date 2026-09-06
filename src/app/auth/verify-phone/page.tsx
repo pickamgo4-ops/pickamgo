@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Phone } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -15,7 +15,7 @@ function maskPhone(value: string) {
   return digits.length >= 6 ? `+${digits.slice(0, 3)} ${digits.slice(3, 5)} *** **${digits.slice(-2)}` : value
 }
 
-export default function VerifyPhonePage() {
+function VerifyPhoneForm() {
   const router = useRouter()
   const params = useSearchParams()
   const phoneNumber = params.get('phone') || ''
@@ -76,5 +76,29 @@ export default function VerifyPhonePage() {
         </Card>
       </div>
     </main>
+  )
+}
+
+function VerifyPhoneLoading() {
+  return (
+    <main className="min-h-screen bg-warm-50 px-4 py-10">
+      <div className="mx-auto max-w-md">
+        <Card className="p-6 sm:p-8">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 w-1/2 rounded bg-warm-200" />
+            <div className="h-4 w-3/4 rounded bg-warm-200" />
+            <div className="h-12 w-full rounded bg-warm-200" />
+          </div>
+        </Card>
+      </div>
+    </main>
+  )
+}
+
+export default function VerifyPhonePage() {
+  return (
+    <Suspense fallback={<VerifyPhoneLoading />}>
+      <VerifyPhoneForm />
+    </Suspense>
   )
 }
