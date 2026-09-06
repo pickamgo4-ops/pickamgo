@@ -192,7 +192,7 @@ async function createPendingLoginChallenge(userId: string) {
 
 function availableLoginMethods(user: { email: string; phone: string | null; phoneVerified: boolean }) {
   const methods: Array<"SMS" | "EMAIL"> = [];
-  if (user.phone && user.phoneVerified) methods.push("SMS");
+  if (user.phone) methods.push("SMS");
   if (user.email) methods.push("EMAIL");
   return methods;
 }
@@ -642,6 +642,9 @@ router.post('/login/verification/verify', validateBody(loginVerificationSchema),
 
     if (challenge.method === 'EMAIL' && !challenge.user.emailVerified) {
       await prisma.user.update({ where: { id: challenge.user.id }, data: { emailVerified: true } });
+    }
+    if (challenge.method === 'SMS' && challenge.user.phone && !challenge.user.phoneVerified) {
+      await prisma.user.update({ where: { id: challenge.user.id }, data: { phoneVerified: true } });
     }
     await prisma.loginChallenge.update({ where: { id: challenge.id }, data: { used: true } });
     await createLoginHistory(challenge.user.id, req, true);
