@@ -133,7 +133,11 @@ export default function ServicePage() {
   }
 
   const handleBook = async () => {
-    if (!selectedDate || !selectedTime || !service) return
+    if (!service) return
+    if (!selectedDate || !selectedTime) {
+      setBookingError('Choose an available date and time before booking.')
+      return
+    }
     setBooking(true)
     setBookingError('')
     try {
@@ -439,11 +443,11 @@ export default function ServicePage() {
           <Button
             variant="primary"
             fullWidth
-            className="flex-[2]"
-            disabled={!selectedDate || !selectedTime || booking}
+            className="flex-[2] bg-orange-500 hover:bg-orange-600 shadow-orange-500/20 hover:shadow-orange-500/30"
+            disabled={booking}
             onClick={handleBook}
           >
-            {booking ? 'Preparing booking...' : selectedDate && selectedTime ? `Pay GH₵${service.price}` : 'Select a date and time'}
+            {booking ? 'Preparing booking...' : `Book Now · GH₵${service.price}`}
           </Button>
         </div>
       </div>
