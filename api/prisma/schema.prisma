@@ -821,6 +821,7 @@ model Rider {
   deliveriesCount   Int       @default(0)
   earnings          Decimal   @default(0) @db.Decimal(12, 2)
   vehicleType       String?
+  vehicleNumber     String?
   licenseNumber     String?
   isVerified        Boolean   @default(false)
   currentLatitude   Float?
@@ -1129,6 +1130,7 @@ model RiderEarnings {
   netAmount   Decimal   @db.Decimal(12, 2)
   status      String    @default("PENDING")
   availableAt DateTime?
+  deliveredAt DateTime?
   withdrawnAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

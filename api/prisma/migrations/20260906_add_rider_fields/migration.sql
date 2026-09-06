@@ -1,0 +1,2 @@
+ALTER TABLE "Rider" ADD COLUMN IF NOT EXISTS "vehicleNumber" TEXT;
+ALTER TABLE "RiderEarnings" ADD COLUMN IF NOT EXISTS "deliveredAt" TIMESTAMP(3);

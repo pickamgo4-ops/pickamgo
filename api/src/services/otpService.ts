@@ -89,9 +89,9 @@ export async function createAndSendOtp(params: {
   const phoneNumber = normalizeGhanaPhone(params.phoneNumber)
   const ip = params.request ? getRequestIp(params.request) : 'unknown'
   const userIdentity = params.userId ? `user:${params.userId}:${params.purpose}` : null
-  const identities = [
-    [`otp-send-phone:${params.purpose}`, phoneNumber, 3, 10 * 60_000] as const,
-    ['otp-send-ip', `${ip}:${params.purpose}`, 10, 60 * 60_000] as const,
+  const identities: Array<[string, string, number, number]> = [
+    [`otp-send-phone:${params.purpose}`, phoneNumber, 3, 10 * 60_000],
+    ['otp-send-ip', `${ip}:${params.purpose}`, 10, 60 * 60_000],
   ]
   if (userIdentity) identities.push(['otp-send-user', userIdentity, 3, 10 * 60_000])
   for (const [category, identity, limit, windowMs] of identities) {
