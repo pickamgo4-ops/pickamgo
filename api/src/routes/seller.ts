@@ -420,6 +420,7 @@ router.get('/trust', authMiddleware, requireRole(['SELLER']), async (req: Authen
 
     return successResponse(res, trustInfo)
   } catch (error) {
+    console.error('Failed to fetch trust info:', error)
     return errorResponse(res, 'Failed to fetch trust info', 500)
   }
 })
