@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Megaphone, AlertTriangle } from "lucide-react";
+import { Plus, Search, Megaphone, AlertTriangle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -64,18 +64,12 @@ export default function PublicNoticesPage() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!authInitialized || authLoading) return;
-    if (!user?.isAdmin) {
-      router.push("/");
-      return;
-    }
-    loadNotices();
-  }, [authInitialized, authLoading, user, router]);
-
-  const loadNotices = async () => {
+  const loadNotices = useCallback(async () => {
+    if (!authInitialized || !user?.isAdmin) return
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
@@ -88,13 +82,24 @@ export default function PublicNoticesPage() {
       );
       if (response.success && response.data) {
         setNotices(response.data.notices);
+      } else {
+        setError(response.error || "Failed to load notices");
       }
     } catch {
-      // ignore
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [authInitialized, user, search, filterType, filterStatus]);
+
+  useEffect(() => {
+    if (!authInitialized) return;
+    if (!user || !user.isAdmin) {
+      router.push("/");
+      return;
+    }
+    loadNotices();
+  }, [authInitialized, user, loadNotices, router]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this public notice?")) return;
@@ -168,203 +173,215 @@ export default function PublicNoticesPage() {
 
   return (
     <main className="p-4 md:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h1 className="font-display text-3xl font-bold text-warm-900">Public Notices</h1>
-                <p className="text-warm-800/60 mt-1">
-                  Create and manage public notices across the platform
-                </p>
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-warm-900">Public Notices</h1>
+            <p className="text-warm-800/60 mt-1">
+              Create and manage public notices across the platform
+            </p>
+          </div>
+          <Link href="/admin/public-notices/new">
+            <Button icon={<Plus size={18} />}>Create Notice</Button>
+          </Link>
+        </div>
+
+        {error && (
+          <Card className="p-4 mb-6 border-red-200 bg-red-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <XCircle size={18} className="text-red-600" />
+                <p className="text-sm text-red-700">{error}</p>
               </div>
+              <Button variant="outline" size="sm" onClick={loadNotices}>Retry</Button>
+            </div>
+          </Card>
+        )}
+
+        <Card className="p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1">
+              <Input
+                placeholder="Search notices..."
+                value={search}
+                onValueChange={setSearch}
+                icon={<Search size={18} />}
+              />
+            </div>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="rounded-xl border border-warm-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="">All Types</option>
+              {(
+                [
+                  "INFORMATION",
+                  "SUCCESS",
+                  "WARNING",
+                  "IMPORTANT",
+                  "MAINTENANCE",
+                  "PROMOTION",
+                  "UPDATE",
+                  "CUSTOM",
+                ] as NoticeType[]
+              ).map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="rounded-xl border border-warm-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="">All Statuses</option>
+              {(
+                ["DRAFT", "SCHEDULED", "PUBLISHED", "EXPIRED", "ARCHIVED"] as NoticeStatus[]
+              ).map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+            <Button variant="outline" onClick={loadNotices}>
+              Filter
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm text-warm-800/60">Loading notices...</p>
+            </div>
+          ) : notices.length === 0 ? (
+            <div className="p-8 text-center">
+              <Megaphone size={40} className="mx-auto text-warm-800/30 mb-3" />
+              <p className="text-warm-800/60">No public notices found</p>
               <Link href="/admin/public-notices/new">
-                <Button icon={<Plus size={18} />}>Create Notice</Button>
+                <Button className="mt-4" icon={<Plus size={18} />}>
+                  Create Your First Notice
+                </Button>
               </Link>
             </div>
-
-            <Card className="p-4 mb-6">
-              <div className="flex flex-col md:flex-row gap-3">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Search notices..."
-                    value={search}
-                    onValueChange={setSearch}
-                    icon={<Search size={18} />}
-                  />
-                </div>
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="rounded-xl border border-warm-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">All Types</option>
-                  {(
-                    [
-                      "INFORMATION",
-                      "SUCCESS",
-                      "WARNING",
-                      "IMPORTANT",
-                      "MAINTENANCE",
-                      "PROMOTION",
-                      "UPDATE",
-                      "CUSTOM",
-                    ] as NoticeType[]
-                  ).map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="rounded-xl border border-warm-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">All Statuses</option>
-                  {(
-                    ["DRAFT", "SCHEDULED", "PUBLISHED", "EXPIRED", "ARCHIVED"] as NoticeStatus[]
-                  ).map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-                <Button variant="outline" onClick={loadNotices}>
-                  Filter
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="overflow-hidden">
-              {loading ? (
-                <div className="p-8 text-center">
-                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-sm text-warm-800/60">Loading notices...</p>
-                </div>
-              ) : notices.length === 0 ? (
-                <div className="p-8 text-center">
-                  <Megaphone size={40} className="mx-auto text-warm-800/30 mb-3" />
-                  <p className="text-warm-800/60">No public notices found</p>
-                  <Link href="/admin/public-notices/new">
-                    <Button className="mt-4" icon={<Plus size={18} />}>
-                      Create Your First Notice
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-warm-200 bg-warm-50/50">
-                        <th className="px-4 py-3 font-semibold text-warm-900">Title</th>
-                        <th className="px-4 py-3 font-semibold text-warm-900">Type</th>
-                        <th className="px-4 py-3 font-semibold text-warm-900">Status</th>
-                        <th className="px-4 py-3 font-semibold text-warm-900">Pages</th>
-                        <th className="px-4 py-3 font-semibold text-warm-900">Starts</th>
-                        <th className="px-4 py-3 font-semibold text-warm-900">Ends</th>
-                        <th className="px-4 py-3 font-semibold text-warm-900">Priority</th>
-                        <th className="px-4 py-3 font-semibold text-warm-900 text-right">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-warm-100">
-                      {notices.map((notice) => (
-                        <tr key={notice.id} className="hover:bg-warm-50/50">
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-warm-900">{notice.title}</div>
-                            <div className="text-xs text-warm-800/60 line-clamp-1">
-                              {notice.message}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${typeColors[notice.type]}`}
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-warm-200 bg-warm-50/50">
+                    <th className="px-4 py-3 font-semibold text-warm-900">Title</th>
+                    <th className="px-4 py-3 font-semibold text-warm-900">Type</th>
+                    <th className="px-4 py-3 font-semibold text-warm-900">Status</th>
+                    <th className="px-4 py-3 font-semibold text-warm-900">Pages</th>
+                    <th className="px-4 py-3 font-semibold text-warm-900">Starts</th>
+                    <th className="px-4 py-3 font-semibold text-warm-900">Ends</th>
+                    <th className="px-4 py-3 font-semibold text-warm-900">Priority</th>
+                    <th className="px-4 py-3 font-semibold text-warm-900 text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-warm-100">
+                  {notices.map((notice) => (
+                    <tr key={notice.id} className="hover:bg-warm-50/50">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-warm-900">{notice.title}</div>
+                        <div className="text-xs text-warm-800/60 line-clamp-1">
+                          {notice.message}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${typeColors[notice.type]}`}
+                        >
+                          {notice.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[notice.status]}`}
+                        >
+                          {notice.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-warm-800/70">
+                        {notice.pageTargets.length === 1 && notice.pageTargets[0] === "ALL"
+                          ? "All Pages"
+                          : `${notice.pageTargets.length} pages`}
+                      </td>
+                      <td className="px-4 py-3 text-warm-800/70">
+                        {notice.startsAt ? new Date(notice.startsAt).toLocaleDateString() : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-warm-800/70">
+                        {notice.endsAt
+                          ? new Date(notice.endsAt).toLocaleDateString()
+                          : "No end"}
+                      </td>
+                      <td className="px-4 py-3 text-warm-800/70">{notice.priority}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link href={`/admin/public-notices/${notice.id}`}>
+                            <Button variant="ghost" size="sm">
+                              View
+                            </Button>
+                          </Link>
+                          <Link href={`/admin/public-notices/${notice.id}/edit`}>
+                            <Button variant="ghost" size="sm">
+                              Edit
+                            </Button>
+                          </Link>
+                          {notice.status === "DRAFT" || notice.status === "SCHEDULED" ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePublish(notice.id)}
                             >
-                              {notice.type}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[notice.status]}`}
+                              Publish
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleUnpublish(notice.id)}
                             >
-                              {notice.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-warm-800/70">
-                            {notice.pageTargets.length === 1 && notice.pageTargets[0] === "ALL"
-                              ? "All Pages"
-                              : `${notice.pageTargets.length} pages`}
-                          </td>
-                          <td className="px-4 py-3 text-warm-800/70">
-                            {notice.startsAt ? new Date(notice.startsAt).toLocaleDateString() : "-"}
-                          </td>
-                          <td className="px-4 py-3 text-warm-800/70">
-                            {notice.endsAt
-                              ? new Date(notice.endsAt).toLocaleDateString()
-                              : "No end"}
-                          </td>
-                          <td className="px-4 py-3 text-warm-800/70">{notice.priority}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-2">
-                              <Link href={`/admin/public-notices/${notice.id}`}>
-                                <Button variant="ghost" size="sm">
-                                  View
-                                </Button>
-                              </Link>
-                              <Link href={`/admin/public-notices/${notice.id}/edit`}>
-                                <Button variant="ghost" size="sm">
-                                  Edit
-                                </Button>
-                              </Link>
-                              {notice.status === "DRAFT" || notice.status === "SCHEDULED" ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handlePublish(notice.id)}
-                                >
-                                  Publish
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleUnpublish(notice.id)}
-                                >
-                                  Unpublish
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleArchive(notice.id)}
-                              >
-                                Archive
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDuplicate(notice.id)}
-                              >
-                                Duplicate
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(notice.id)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <AlertTriangle size={16} />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Card>
-          </div>
+                              Unpublish
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleArchive(notice.id)}
+                          >
+                            Archive
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDuplicate(notice.id)}
+                          >
+                            Duplicate
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(notice.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <AlertTriangle size={16} />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
     </main>
   );
 }

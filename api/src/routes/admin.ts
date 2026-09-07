@@ -161,7 +161,7 @@ router.get(
           by: ["type"],
           _sum: { amount: true },
           where: { type: "PLATFORM_COMMISSION" },
-        }),
+        }).catch(() => []),
       ]);
 
       const platformCommission = revenueBreakdown.reduce(

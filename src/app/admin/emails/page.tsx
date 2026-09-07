@@ -159,7 +159,8 @@ export default function AdminEmailsPage() {
     }
   }, [authInitialized, user, activeTab, campaignPage, loadCampaigns, router]);
 
-  const searchUsers = async (query: string) => {
+  const searchUsers = useCallback(async (query: string) => {
+    if (!authInitialized || !user?.isAdmin) return
     if (!query.trim()) {
       setUserSearchResults([]);
       return;
@@ -174,14 +175,14 @@ export default function AdminEmailsPage() {
     } catch {
       console.error("Failed to search users");
     }
-  };
+  }, [authInitialized, user]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
       searchUsers(userSearch);
     }, 300);
     return () => clearTimeout(timeout);
-  }, [userSearch]);
+  }, [userSearch, searchUsers]);
 
   const toggleAudience = (aud: string) => {
     setAudiences((prev) => (prev.includes(aud) ? prev.filter((a) => a !== aud) : [...prev, aud]));

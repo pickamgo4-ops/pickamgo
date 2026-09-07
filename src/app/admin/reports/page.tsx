@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Shield, Flag, MessageSquare, Search, Filter, Eye, CheckCircle, XCircle, Clock, ChevronLeft } from 'lucide-react'
+import { Shield, Flag, Search, Filter, Eye, CheckCircle, XCircle, Clock, ChevronLeft, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -28,9 +28,9 @@ interface Report {
 
 export default function AdminReportsPage() {
   const router = useRouter()
-  const { user } = useRole()
+  const { user, loading, authInitialized } = useRole()
   const [reports, setReports] = useState<Report[]>([])
-  const [loading, setLoading] = useState(true)
+  const [dataLoading, setDataLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
@@ -39,13 +39,12 @@ export default function AdminReportsPage() {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [adminNotes, setAdminNotes] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    loadReports()
-  }, [page, statusFilter, categoryFilter])
-
-  const loadReports = async () => {
-    setLoading(true)
+  const loadReports = useCallback(async () => {
+    if (!authInitialized || !user?.isAdmin) return
+    setDataLoading(true)
+    setError('')
     try {
       const params = new URLSearchParams()
       params.set('page', String(page))
@@ -53,29 +52,48 @@ export default function AdminReportsPage() {
       if (statusFilter) params.set('status', statusFilter)
       if (categoryFilter) params.set('category', categoryFilter)
 
-      const response = await api.get<any>(`/reports?${params.toString()}`)
+      const response = await api.get<any>(`/admin/reports?${params.toString()}`)
       if (response.success && response.data) {
         setReports(response.data.reports || [])
         setTotalPages(response.data.pagination?.totalPages || 1)
+      } else {
+        setError(response.error || 'Failed to load reports')
       }
     } catch (err) {
       console.error('Failed to load reports:', err)
+      setError('Network error. Please try again.')
     } finally {
-      setLoading(false)
+      setDataLoading(false)
     }
-  }
+  }, [authInitialized, user, page, statusFilter, categoryFilter])
+
+  useEffect(() => {
+    if (!authInitialized) return
+    if (!user || !user.isAdmin) {
+      router.push('/')
+      return
+    }
+    loadReports()
+  }, [authInitialized, user, loadReports, router])
+
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter, categoryFilter, searchQuery])
 
   const updateStatus = async (reportId: string, status: string) => {
     setUpdating(true)
     try {
-      const response = await api.patch(`/reports/${reportId}/status`, { status, adminNotes })
+      const response = await api.patch(`/admin/reports/${reportId}/resolve`, { status, adminNotes })
       if (response.success) {
         setSelectedReport(null)
         setAdminNotes('')
         loadReports()
+      } else {
+        setError(response.error || 'Failed to update report')
       }
     } catch (err) {
       console.error('Failed to update report:', err)
+      setError('Network error. Please try again.')
     } finally {
       setUpdating(false)
     }
@@ -92,6 +110,16 @@ export default function AdminReportsPage() {
     return <Badge variant={c.variant}>{c.label}</Badge>
   }
 
+  if (loading || !authInitialized) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -105,6 +133,15 @@ export default function AdminReportsPage() {
           <p className="text-warm-800/60 text-sm">Manage and review user reports</p>
         </div>
       </div>
+
+      {error && (
+        <Card className="p-4 border-red-200 bg-red-50">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-red-700">{error}</p>
+            <Button variant="outline" size="sm" onClick={loadReports}>Retry</Button>
+          </div>
+        </Card>
+      )}
 
       {selectedReport ? (
         <Card className="p-6">
@@ -237,7 +274,7 @@ export default function AdminReportsPage() {
             </select>
           </div>
 
-          {loading ? (
+          {dataLoading ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
                 <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
