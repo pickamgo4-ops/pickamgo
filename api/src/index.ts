@@ -47,7 +47,6 @@ import sellerPromoRoutes from './routes/seller-promo'
 import emailTestRoutes from './routes/email-test'
 import emailVerificationRoutes from './routes/email-verification'
 import publicNoticeRoutes from './routes/public-notices'
-import bookingSetupRoutes from './routes/booking-setup'
 import accountSecurityRoutes from './routes/account-security'
 import sellerStoreRoutes from './routes/seller-store'
 import testOrderRoutes from './routes/test-orders'
@@ -185,7 +184,6 @@ app.use('/api/services', serviceRoutes)
 app.use('/api/shops', shopRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/bookings', bookingRoutes)
-app.use('/api/booking-setup', bookingSetupRoutes)
 app.use('/api/favorites', favoriteRoutes)
 app.use('/api/reviews', reviewRoutes)
 app.use('/api/search', searchRoutes)
