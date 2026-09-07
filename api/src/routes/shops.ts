@@ -340,26 +340,8 @@ router.get('/:slug', async (req, res) => {
         orderBy: { createdAt: 'desc' },
         take: 20,
       },
-      followers: true,
       shopCategories: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
       customization: true,
-      shippingZones: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
-      collections: {
-        where: { isVisible: true },
-        include: {
-          products: {
-            include: {
-              product: {
-                include: {
-                  images: true,
-                },
-              },
-            },
-            orderBy: { sortOrder: 'asc' },
-          },
-        },
-        orderBy: { sortOrder: 'asc' },
-      },
     },
   })
 
