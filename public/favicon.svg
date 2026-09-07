@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 471">
-  <title>PickAmGo</title>
-  <image href="/logo.png" width="580" height="471" preserveAspectRatio="xMidYMid meet"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">PickAmGo</title>
+  <rect width="64" height="64" rx="14" fill="#FF6B35"/>
+  <path d="M18 16h17c8 0 13 4 13 11s-5 11-13 11h-7v10h-10V16Zm10 8v6h6c2.6 0 4-1 4-3s-1.4-3-4-3h-6Z" fill="#fff"/>
+  <path d="m39 43 7 5-5 4-7-5 5-4Z" fill="#fff"/>
 </svg>
