@@ -67,7 +67,7 @@ export function Header() {
             <img
               src="/logo.png"
               alt="PickAmGo logo"
-              className="h-12 w-12 rounded-xl object-contain shadow-sm"
+              className="h-14 w-14 sm:h-16 sm:w-16 object-contain"
               onError={(e) => {
                 const target = e.currentTarget as HTMLImageElement
                 if (!target.src.endsWith('/logo.jpg')) {
