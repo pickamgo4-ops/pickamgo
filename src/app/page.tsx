@@ -26,6 +26,8 @@ export default function HomePage() {
   const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null)
   const [locationQuery, setLocationQuery] = useState('')
   const [isLocationOpen, setIsLocationOpen] = useState(false)
+  const [locationError, setLocationError] = useState('')
+  const [locating, setLocating] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [products, setProducts] = useState<Product[]>([])
   const [shops, setShops] = useState<Shop[]>([])
@@ -103,14 +105,30 @@ export default function HomePage() {
   }, [coordinates, locationQuery])
 
   const useCurrentLocation = () => {
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(position => {
-      const next = { latitude: position.coords.latitude, longitude: position.coords.longitude }
-      setCoordinates(next)
-      setLocation('Your current location')
-      localStorage.setItem('pickamgo-location', JSON.stringify({ ...next, address: 'Your current location' }))
-      setIsLocationOpen(false)
-    }, () => setLocation('Location unavailable - browse all'))
+    setLocationError('')
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationError('Current location is not supported by this browser.')
+      return
+    }
+
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const next = { latitude: position.coords.latitude, longitude: position.coords.longitude }
+        setCoordinates(next)
+        setLocation('Your current location')
+        localStorage.setItem('pickamgo-location', JSON.stringify({ ...next, address: 'Your current location' }))
+        setIsLocationOpen(false)
+        setLocating(false)
+      },
+      error => {
+        setLocating(false)
+        setLocationError(error.code === error.PERMISSION_DENIED
+          ? 'Location permission was denied. Use the Google Maps search instead.'
+          : 'Could not find your location. Use the Google Maps search instead.')
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+    )
   }
 
   const handleSearch = (event: React.FormEvent) => {
@@ -170,9 +188,10 @@ export default function HomePage() {
 
               {isLocationOpen && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-warm-200 p-3 z-20">
-                  <button onClick={useCurrentLocation} className="w-full text-left px-3 py-2.5 text-primary font-medium hover:bg-warm-100 rounded-lg">
-                    Use my current location
+                  <button type="button" onClick={useCurrentLocation} disabled={locating} className="w-full text-left px-3 py-2.5 text-primary font-medium hover:bg-warm-100 rounded-lg disabled:opacity-50">
+                    {locating ? 'Finding your location...' : 'Use my current location'}
                   </button>
+                  {locationError && <p className="px-3 pb-2 text-xs text-red-600">{locationError}</p>}
                   <GoogleLocationPicker
                     value={coordinates ? { address: location, ...coordinates } : null}
                     onChange={(result) => {

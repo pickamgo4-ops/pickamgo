@@ -42,6 +42,7 @@ export default function ShopPage() {
       if (response.success && response.data) {
         const mappedShop = mapApiShopToFrontend(response.data)
         setShop(mappedShop)
+        setLoading(false)
         checkFollowStatus(mappedShop.id)
 
         const reviewsResponse = await api.get<{ reviews: any[]; averageRating: number; totalReviews: number }>(`/reviews/shop/${response.data.id}`)

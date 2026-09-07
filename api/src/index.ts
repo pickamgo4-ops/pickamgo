@@ -16,6 +16,7 @@ import serviceRoutes from './routes/services'
 import shopRoutes from './routes/shops'
 import orderRoutes from './routes/orders'
 import bookingRoutes from './routes/bookings'
+import bookingSetupRoutes from './routes/booking-setup'
 import favoriteRoutes from './routes/favorites'
 import reviewRoutes from './routes/reviews'
 import searchRoutes from './routes/search'
@@ -184,6 +185,7 @@ app.use('/api/services', serviceRoutes)
 app.use('/api/shops', shopRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/bookings', bookingRoutes)
+app.use('/api/booking-setup', bookingSetupRoutes)
 app.use('/api/favorites', favoriteRoutes)
 app.use('/api/reviews', reviewRoutes)
 app.use('/api/search', searchRoutes)

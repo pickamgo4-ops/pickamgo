@@ -125,7 +125,6 @@ export default function TrackOrderPage() {
               value={orderNumber}
               onValueChange={setOrderNumber}
               icon={<Search size={20} />}
-              centerIcon
               required
             />
             <Button type="submit" disabled={!orderNumber.trim() || !email.trim()}>

@@ -97,7 +97,7 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b border-warm-200 dark:border-warm-200">
             <Link href="/admin" className="flex items-center gap-2.5" onClick={onClose}>
-              <div className="w-9 h-9 overflow-hidden rounded-xl bg-white flex items-center justify-center">
+              <div className="h-12 w-12 overflow-hidden rounded-xl bg-white flex items-center justify-center">
                 <img src="/logo.png" alt="PickAmGo logo" className="h-full w-full object-contain" />
               </div>
               <div>

@@ -45,8 +45,17 @@ export default function SellerTour({ children }: SellerTourProps) {
       try {
         const response = await api.get<{ status: TourStatus }>('/seller/tour/status')
         if (response.success && response.data) {
-          setStatus(response.data.status)
-          if (response.data.status === 'IN_PROGRESS') {
+          const nextStatus = response.data.status
+          if (nextStatus === 'NOT_STARTED') {
+            setStatus('IN_PROGRESS')
+            setCurrentStep(0)
+            setIsVisible(true)
+            localStorage.setItem(SELLER_TOUR_KEY, '0')
+            await api.post('/seller/tour/status', { status: 'IN_PROGRESS' })
+          } else {
+            setStatus(nextStatus)
+          }
+          if (nextStatus === 'IN_PROGRESS') {
             const savedStep = localStorage.getItem(SELLER_TOUR_KEY)
             setCurrentStep(savedStep ? parseInt(savedStep, 10) : 0)
             setIsVisible(true)

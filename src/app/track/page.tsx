@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Package, Mail } from 'lucide-react'
+import { ChevronLeft, Search, Package, Mail } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
 import { Button } from '../../components/ui/Button'
@@ -28,7 +28,7 @@ export default function TrackPage() {
       <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-warm-100 transition-colors">
-            <Search size={20} className="text-warm-800" />
+            <ChevronLeft size={20} className="text-warm-800" />
           </button>
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
@@ -61,7 +61,6 @@ export default function TrackPage() {
               value={orderNumber}
               onValueChange={setOrderNumber}
               icon={<Search size={20} />}
-              centerIcon
               required
             />
             <Button

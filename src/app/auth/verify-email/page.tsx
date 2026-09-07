@@ -168,7 +168,7 @@ function VerifyEmailForm() {
               <img
                 src="/logo.png"
                 alt="PickAmGo logo"
-                className="h-20 w-20 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+                className="h-28 w-40 object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
               />
             </Link>
             <Link
@@ -204,7 +204,7 @@ function VerifyEmailForm() {
             <img
               src="/logo.png"
               alt="PickAmGo logo"
-                className="h-20 w-20 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+                className="h-28 w-40 object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
             />
           </Link>
           <Link

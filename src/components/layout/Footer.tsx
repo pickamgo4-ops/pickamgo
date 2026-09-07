@@ -70,7 +70,7 @@ export function Footer() {
               <img
                 src="/logo.png"
                 alt="PickAmGo"
-                className="h-8 w-8 rounded-lg object-contain"
+                className="h-14 w-14 object-contain"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement
                   if (!target.src.endsWith('/logo.jpg')) {
