@@ -11,12 +11,30 @@ ALTER TABLE "PayoutMethod" ADD COLUMN "disclaimerAcceptedAt" TIMESTAMP(3);
 ALTER TABLE "PayoutMethod" ADD COLUMN "lastChangedIp" TEXT;
 ALTER TABLE "PayoutMethod" ADD COLUMN "lastChangedUserAgent" TEXT;
 
-ALTER TABLE "PayoutMethodChange" ADD COLUMN "previousPhoneLast4" TEXT;
-ALTER TABLE "PayoutMethodChange" ADD COLUMN "newPhoneLast4" TEXT;
-ALTER TABLE "PayoutMethodChange" ADD COLUMN "previousNameHash" TEXT;
-ALTER TABLE "PayoutMethodChange" ADD COLUMN "newNameHash" TEXT;
-ALTER TABLE "PayoutMethodChange" ADD COLUMN "ipAddress" TEXT;
-ALTER TABLE "PayoutMethodChange" ADD COLUMN "userAgent" TEXT;
+CREATE TABLE "PayoutMethodChange" (
+  "id" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "payoutMethodId" TEXT NOT NULL,
+  "changedByUserId" TEXT NOT NULL,
+  "changeReason" TEXT,
+  "confirmedVia" TEXT,
+  "changedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "isUnusual" BOOLEAN NOT NULL DEFAULT false,
+  "previousPhoneLast4" TEXT,
+  "newPhoneLast4" TEXT,
+  "previousNameHash" TEXT,
+  "newNameHash" TEXT,
+  "ipAddress" TEXT,
+  "userAgent" TEXT,
+  CONSTRAINT "PayoutMethodChange_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX "PayoutMethodChange_userId_idx" ON "PayoutMethodChange"("userId");
+CREATE INDEX "PayoutMethodChange_payoutMethodId_idx" ON "PayoutMethodChange"("payoutMethodId");
+CREATE INDEX "PayoutMethodChange_changedByUserId_idx" ON "PayoutMethodChange"("changedByUserId");
+CREATE INDEX "PayoutMethodChange_isUnusual_idx" ON "PayoutMethodChange"("isUnusual");
+ALTER TABLE "PayoutMethodChange" ADD CONSTRAINT "PayoutMethodChange_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PayoutMethodChange" ADD CONSTRAINT "PayoutMethodChange_payoutMethodId_fkey" FOREIGN KEY ("payoutMethodId") REFERENCES "PayoutMethod"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PayoutMethodChange" ADD CONSTRAINT "PayoutMethodChange_changedByUserId_fkey" FOREIGN KEY ("changedByUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 CREATE TABLE "PayoutDisclaimerAcceptance" (
   "id" TEXT NOT NULL,
