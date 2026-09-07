@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Store, Upload, MapPin } from 'lucide-react'
+import { CheckCircle2, Loader2, Store, Upload, MapPin, XCircle } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '../../../../components/ui/Button'
 import { Input } from '../../../../components/ui/Input'
@@ -11,12 +11,19 @@ import { api } from '../../../../lib/api'
 import dynamic from 'next/dynamic'
 
 const GoogleLocationPicker = dynamic(() => import('@/components/map/GoogleLocationPicker'), { ssr: false })
+const marketplaceDomain = process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'
+
+function shopSlugFromName(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
+}
 
 export default function CreateShopPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState<string | null>(null)
+  const [slugStatus, setSlugStatus] = useState<{ slug: string; available: boolean; reason: string | null } | null>(null)
+  const [checkingSlug, setCheckingSlug] = useState(false)
 
   const [form, setForm] = useState({
     name: '',
@@ -34,6 +41,24 @@ export default function CreateShopPage() {
   const updateField = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }
+
+  useEffect(() => {
+    const name = form.name.trim()
+    if (!name) {
+      setSlugStatus(null)
+      setCheckingSlug(false)
+      return
+    }
+    const timer = window.setTimeout(async () => {
+      setCheckingSlug(true)
+      const slug = shopSlugFromName(name)
+      const response = await api.get<{ available: boolean; slug: string; reason: string | null }>(`/shops/slug-availability?name=${encodeURIComponent(name)}`)
+      if (response.success && response.data) setSlugStatus(response.data)
+      else setSlugStatus({ slug, available: false, reason: response.error || 'Could not check this store URL.' })
+      setCheckingSlug(false)
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [form.name])
 
   const uploadImage = async (field: 'logo' | 'banner') => {
     const input = document.createElement('input')
@@ -68,6 +93,10 @@ export default function CreateShopPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (checkingSlug || !slugStatus?.available) {
+      setError('Choose an available store URL before creating your shop.')
+      return
+    }
     setLoading(true)
     setError('')
 
@@ -114,6 +143,15 @@ export default function CreateShopPage() {
             onChange={(e) => updateField('name', e.target.value)}
             required
           />
+          {form.name.trim() && slugStatus && (
+            <div className={`-mt-2 rounded-xl border px-3 py-2.5 text-sm ${slugStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+              <div className="flex items-center gap-2 font-medium">
+                {checkingSlug ? <Loader2 size={16} className="animate-spin" /> : slugStatus.available ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                <span>{checkingSlug ? 'Checking store URL...' : slugStatus.available ? 'Store URL is available' : slugStatus.reason}</span>
+              </div>
+              <p className="mt-1 break-all text-xs opacity-80">Your store URL: https://{slugStatus.slug}.{marketplaceDomain}</p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-warm-900 mb-1.5">Description</label>
@@ -205,7 +243,7 @@ export default function CreateShopPage() {
             required
           />
 
-          <Button type="submit" fullWidth disabled={loading}>
+          <Button type="submit" fullWidth disabled={loading || checkingSlug || !slugStatus?.available}>
             {loading ? 'Creating Shop...' : 'Create Shop'}
           </Button>
         </form>

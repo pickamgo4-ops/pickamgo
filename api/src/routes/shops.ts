@@ -14,6 +14,7 @@ const legacyQuickPicksId = 'CAMP' + 'US'
 const themes = ['CLEAN', 'MIDNIGHT', 'SOFT', 'LUXURY', 'FRESH', 'QUICK_PICKS', legacyQuickPicksId, 'STREET', 'BEAUTY'] as const
 const layouts = ['CLASSIC', 'GRID', 'FEATURED', 'BEAUTY', 'QUICK_PICKS', legacyQuickPicksId] as const
 const reservedShopSlugs = new Set(['www', 'api', 'admin', 'app', 'mail', 'support', 'help', 'dashboard', 'checkout', 'login', 'signup'])
+const shopSlugFromName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
 const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Colors must be six-digit hex values')
 const customizationFields = {
   theme: z.enum(themes).default('CLEAN'),
@@ -302,6 +303,15 @@ router.get('/', async (req, res) => {
     shops: shopsWithDistance.length >= 3 || query.latitude === undefined ? shopsWithDistance : shops,
     pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) },
   })
+})
+
+router.get('/slug-availability', async (req, res) => {
+  const name = typeof req.query.name === 'string' ? req.query.name.trim() : ''
+  const slug = shopSlugFromName(name)
+  if (!name || name.length < 2) return successResponse(res, { available: false, slug, reason: 'Enter at least 2 characters.' })
+  if (reservedShopSlugs.has(slug)) return successResponse(res, { available: false, slug, reason: 'This store URL is reserved.' })
+  const existing = await prisma.shop.findUnique({ where: { slug }, select: { id: true, name: true } })
+  return successResponse(res, { available: !existing, slug, reason: existing ? 'This store URL is already taken.' : null })
 })
 
 router.get('/:slug', async (req, res) => {
