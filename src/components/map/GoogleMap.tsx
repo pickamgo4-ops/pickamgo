@@ -80,7 +80,7 @@ export default function GoogleMap({
   ] : []
 
   const markerIcon = {
-    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#FF6B35"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="white"/></svg>')}`,
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#1769D1"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="white"/></svg>')}`,
     scaledSize: new google.maps.Size(24, 24),
   }
 
@@ -224,7 +224,7 @@ export default function GoogleMap({
               icon={markerIcon}
             />
           ))}
-          {directions && <DirectionsRenderer directions={directions} options={{ polylineOptions: { strokeColor: '#FF6B35', strokeWeight: 5, strokeOpacity: 0.85 } }} />}
+          {directions && <DirectionsRenderer directions={directions} options={{ polylineOptions: { strokeColor: '#1769D1', strokeWeight: 5, strokeOpacity: 0.85 } }} />}
         </GoogleMapsLibMap>
         {loading && <div className="absolute inset-0 flex items-center justify-center bg-warm-100/80 text-sm text-warm-800/70">Loading map...</div>}
       </div>

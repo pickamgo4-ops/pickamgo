@@ -102,7 +102,7 @@ export default function RiderMiniMap({ pickup, dropoff, height = '128px' }: Ride
           <DirectionsRenderer
             options={{
               directions,
-              polylineOptions: { strokeColor: '#FF6B35', strokeWeight: 4, strokeOpacity: 0.8 },
+              polylineOptions: { strokeColor: '#1769D1', strokeWeight: 4, strokeOpacity: 0.8 },
               suppressMarkers: true,
             }}
           />

@@ -73,30 +73,36 @@ export function buildBaseHtml(title: string, body: string): string {
   <title>${title}</title>
   <link rel="bimi" href="${BIMI_LOGO_URL}">
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
-    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    .header { background: linear-gradient(135deg, #FF6B35 0%, #E85D2E 100%); padding: 24px; text-align: center; }
-    .header img { max-height: 48px; max-width: 160px; object-fit: contain; display: block; margin: 0 auto; }
-    .header h1 { color: #ffffff; margin: 12px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
-    .body { padding: 32px 24px; color: #1f2937; }
-    .button { display: inline-block; padding: 14px 32px; background-color: #FF6B35; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 24px; text-align: center; }
-    .button-secondary { background-color: #f3f4f6; color: #374151; }
-    .footer { background-color: #f9fafb; padding: 24px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
-    .footer a { color: #FF6B35; text-decoration: none; }
-    .info-box { background-color: #fff7ed; border-left: 4px solid #FF6B35; padding: 14px 18px; border-radius: 8px; margin: 16px 0; }
-    .info-box p { margin: 0; font-size: 14px; color: #4b5563; }
-    .order-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    .order-table th { background-color: #fff7ed; padding: 10px 12px; text-align: left; font-size: 13px; font-weight: 600; color: #9a3412; text-transform: uppercase; letter-spacing: 0.5px; }
-    .order-table td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: #374151; }
+    body { font-family: Arial, Helvetica, sans-serif; background-color: #f4f7fb; margin: 0; padding: 32px 16px; color: #102a43; -webkit-font-smoothing: antialiased; }
+    .container { max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #dce6f0; border-radius: 10px; overflow: hidden; }
+    .header { padding: 28px 32px 24px; text-align: left; border-top: 4px solid #1769D1; border-bottom: 1px solid #e8eef5; }
+    .header img { width: 48px; height: 36px; object-fit: contain; display: block; margin-bottom: 18px; }
+    .header h1 { color: #102a43; margin: 0; font-size: 22px; line-height: 1.3; font-weight: 700; }
+    .body { padding: 32px; color: #23466b; font-size: 15px; line-height: 1.65; }
+    .body h2 { color: #102a43; font-size: 22px; line-height: 1.3; margin: 0 0 12px; }
+    .body p { margin: 0 0 16px; }
+    .body strong { color: #102a43; }
+    .button { display: inline-block; padding: 12px 20px; background-color: #1769D1; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 700; margin: 8px 0 16px; text-align: center; }
+    .button-secondary { background-color: #eaf5ff; color: #0b4ea2 !important; }
+    .footer { padding: 22px 32px 26px; text-align: left; font-size: 12px; line-height: 1.6; color: #71859a; border-top: 1px solid #e8eef5; }
+    .footer p { margin: 0; }
+    .footer a { color: #0B4EA2; text-decoration: none; }
+    .info-box { background-color: #f5f9fd; border: 1px solid #dce6f0; padding: 14px 16px; border-radius: 6px; margin: 20px 0; }
+    .info-box p { margin: 0 0 6px; font-size: 14px; color: #23466b; }
+    .info-box p:last-child { margin-bottom: 0; }
+    .order-table { width: 100%; border-collapse: collapse; margin: 20px 0 8px; }
+    .order-table th { background-color: #f5f9fd; padding: 11px 12px; text-align: left; font-size: 11px; font-weight: 700; color: #58708a; text-transform: uppercase; letter-spacing: 0.5px; }
+    .order-table td { padding: 12px; border-bottom: 1px solid #e8eef5; font-size: 14px; color: #23466b; }
     .order-table td:last-child { text-align: right; font-weight: 600; }
-    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
-    .status-pending { background-color: #fef3c7; color: #92400e; }
-    .status-confirmed { background-color: #dbeafe; color: #1e40af; }
-    .status-delivered { background-color: #d1fae5; color: #065f46; }
-    .status-cancelled { background-color: #fee2e2; color: #991b1b; }
-    .section { margin-top: 24px; padding-top: 24px; border-top: 1px solid #f3f4f6; }
-    .section-title { font-size: 14px; font-weight: 600; color: #9a3412; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-    .text-link { color: #FF6B35; word-break: break-all; }
+    .status-badge { display: inline-block; padding: 4px 9px; border-radius: 4px; font-size: 12px; font-weight: 700; }
+    .status-pending { background-color: #fff7d6; color: #8a6500; }
+    .status-confirmed { background-color: #eaf5ff; color: #0b4ea2; }
+    .status-delivered { background-color: #e9f8ef; color: #167044; }
+    .status-cancelled { background-color: #fff0f0; color: #a22a2a; }
+    .section { margin-top: 24px; padding-top: 24px; border-top: 1px solid #e8eef5; }
+    .section-title { font-size: 12px; font-weight: 700; color: #58708a; text-transform: uppercase; letter-spacing: 0.6px; margin: 24px 0 10px; }
+    .text-link { color: #0B4EA2; word-break: break-all; }
+    @media only screen and (max-width: 640px) { body { padding: 16px 8px; } .header, .body { padding-left: 22px; padding-right: 22px; } .footer { padding-left: 22px; padding-right: 22px; } }
   </style>
 </head>
 <body>
@@ -238,7 +244,7 @@ export async function sendOrderConfirmationEmail(to: string, order: {
       <tfoot>
         <tr>
           <td colspan="2" style="padding: 12px; text-align: right; font-weight: 700; color: #374151;">Total</td>
-          <td style="padding: 12px; text-align: right; font-weight: 700; color: #FF6B35; font-size: 16px;">GH₵${order.total.toFixed(2)}</td>
+          <td style="padding: 12px; text-align: right; font-weight: 700; color: #1769D1; font-size: 16px;">GH₵${order.total.toFixed(2)}</td>
         </tr>
       </tfoot>
     </table>
@@ -460,7 +466,7 @@ export async function sendSellerOrderNotification(to: string, order: {
       <tfoot>
         <tr>
           <td colspan="2" style="padding: 12px; text-align: right; font-weight: 700; color: #374151;">Order Total</td>
-          <td style="padding: 12px; text-align: right; font-weight: 700; color: #FF6B35; font-size: 16px;">GH₵${orderTotal.toFixed(2)}</td>
+          <td style="padding: 12px; text-align: right; font-weight: 700; color: #1769D1; font-size: 16px;">GH₵${orderTotal.toFixed(2)}</td>
         </tr>
       </tfoot>
     </table>

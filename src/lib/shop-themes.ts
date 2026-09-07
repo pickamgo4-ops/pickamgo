@@ -33,7 +33,7 @@ export interface ShopCustomization {
 }
 
 export const themePresets: Array<{ id: ShopTheme; name: string; description: string; colors: [string, string, string] }> = [
-  { id: 'CLEAN', name: 'Clean', description: 'Bright, crisp and easy to browse', colors: ['#FF6B35', '#FFF5E6', '#2C1F15'] },
+  { id: 'CLEAN', name: 'Clean', description: 'Bright, crisp and easy to browse', colors: ['#1769D1', '#EAF5FF', '#102A43'] },
   { id: 'MIDNIGHT', name: 'Midnight', description: 'Confident dark surfaces with warm highlights', colors: ['#F4A261', '#17202A', '#F8F1E7'] },
   { id: 'SOFT', name: 'Soft', description: 'Calm neutrals for an inviting storefront', colors: ['#B76E79', '#FAF5F2', '#47343A'] },
   { id: 'LUXURY', name: 'Luxury', description: 'Editorial spacing and premium contrast', colors: ['#B08D57', '#171614', '#F4E8D0'] },
@@ -44,7 +44,7 @@ export const themePresets: Array<{ id: ShopTheme; name: string; description: str
 ]
 
 export const defaultShopCustomization: ShopCustomization = {
-  theme: 'CLEAN', layout: 'CLASSIC', primaryColor: '#FF6B35', secondaryColor: '#FFF5E6', accentColor: '#2C1F15',
+  theme: 'CLEAN', layout: 'CLASSIC', primaryColor: '#1769D1', secondaryColor: '#EAF5FF', accentColor: '#102A43',
   showReviews: true, showCategories: true, showFeatured: true, showServices: true,
   headerStyle: 'STANDARD', bannerStyle: 'COVER', productCardStyle: 'SOFT', productColumns: 4,
   showAbout: true, showHours: true, showContact: true, sectionOrder: 'featured,products,services,reviews,about',

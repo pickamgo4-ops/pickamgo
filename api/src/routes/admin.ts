@@ -619,7 +619,7 @@ router.post(
           description: description || "",
           image: image || "",
           emoji: emoji || "",
-          color: color || "#FF6B35",
+          color: color || "#1769D1",
           parentId: parentId || null,
           displayOrder: displayOrder ?? 0,
           isActive: isActive !== undefined ? isActive : true,
@@ -2201,7 +2201,7 @@ router.post(
         const batchErrors: string[] = [];
 
         const unsubscribeHtml = `<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #6b7280;">
-        <p>You received this email because you have a PickAmGo account. If you no longer wish to receive these emails, you can <a href="mailto:support@pickamgo.com?subject=Unsubscribe&body=Please%20unsubscribe%20me%20from%20PickAmGo%20emails." style="color: #FF6B35; text-decoration: none;">unsubscribe</a> or update your notification preferences in your account settings.</p>
+        <p>You received this email because you have a PickAmGo account. If you no longer wish to receive these emails, you can <a href="mailto:support@pickamgo.com?subject=Unsubscribe&body=Please%20unsubscribe%20me%20from%20PickAmGo%20emails." style="color: #0B4EA2; text-decoration: none;">unsubscribe</a> or update your notification preferences in your account settings.</p>
       </div>`;
 
         await Promise.allSettled(

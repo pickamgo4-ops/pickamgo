@@ -211,17 +211,20 @@ export default function AdminEmailsPage() {
 <html>
 <head>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    .header { background: linear-gradient(135deg, #FF6B35 0%, #E85D2E 100%); padding: 28px 24px; text-align: center; }
-    .header h1 { color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; }
-    .body { padding: 28px 24px; color: #1f2937; }
-    .footer { background-color: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+    body { font-family: Arial, Helvetica, sans-serif; background-color: #f4f7fb; margin: 0; padding: 32px 16px; color: #102a43; }
+    .container { max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #dce6f0; border-radius: 10px; overflow: hidden; }
+    .header { padding: 28px 32px 24px; border-top: 4px solid #1769D1; border-bottom: 1px solid #e8eef5; }
+    .header img { width: 48px; height: 36px; object-fit: contain; display: block; margin-bottom: 18px; }
+    .header h1 { color: #102a43; margin: 0; font-size: 22px; line-height: 1.3; font-weight: 700; }
+    .body { padding: 32px; color: #23466b; font-size: 15px; line-height: 1.65; }
+    .body h2 { color: #102a43; font-size: 22px; line-height: 1.3; margin: 0 0 12px; }
+    .footer { padding: 22px 32px 26px; text-align: left; font-size: 12px; line-height: 1.6; color: #71859a; border-top: 1px solid #e8eef5; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
+      <img src="/logo.png" alt="PickAmGo" />
       <h1>PickAmGo</h1>
     </div>
     <div class="body">

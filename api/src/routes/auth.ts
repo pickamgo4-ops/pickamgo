@@ -484,35 +484,35 @@ router.post("/register", validateBody(registerSchema), async (req: Authenticated
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Verify your PickAmGo email</title>
 </head>
-<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f9fafb;padding:40px 20px;">
+<body style="margin:0;padding:32px 16px;background-color:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#102a43;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f7fb;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" max-width="480" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border:1px solid #dce6f0;border-radius:10px;overflow:hidden;">
           <tr>
-            <td style="background:linear-gradient(135deg,#FF6B35,#FF8F35);padding:32px 24px;text-align:center;">
-              <h1 style="color:#ffffff;font-size:24px;font-weight:700;margin:0;">PickAmGo</h1>
-              <p style="color:#ffffff;opacity:0.9;font-size:14px;margin:8px 0 0 0;">Verify your email address</p>
+            <td style="padding:28px 32px 24px;text-align:left;border-top:4px solid #1769D1;border-bottom:1px solid #e8eef5;">
+              <img src="${appUrl}/logo.png" alt="PickAmGo" width="48" height="36" style="display:block;width:48px;height:36px;object-fit:contain;margin:0 0 18px;">
+              <h1 style="color:#102a43;font-size:22px;line-height:1.3;font-weight:700;margin:0;">Verify your email address</h1>
             </td>
           </tr>
           <tr>
-            <td style="padding:32px 24px;text-align:center;">
-              <p style="color:#4b5563;font-size:16px;line-height:1.6;margin:0 0 24px 0;">Hi ${user.name},</p>
-              <p style="color:#4b5563;font-size:16px;line-height:1.6;margin:0 0 24px 0;">Thanks for joining PickAmGo. Use the code below to verify your email address:</p>
+            <td style="padding:32px;text-align:left;">
+              <p style="color:#23466b;font-size:15px;line-height:1.65;margin:0 0 16px;">Hi ${user.name},</p>
+              <p style="color:#23466b;font-size:15px;line-height:1.65;margin:0 0 22px;">Thanks for joining PickAmGo. Use the code below to verify your email address:</p>
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 24px auto;">
                 <tr>
-                  <td style="background:#f3f4f6;border:2px dashed #e5e7eb;border-radius:12px;padding:16px 24px;text-align:center;">
-                    <span style="font-size:28px;font-weight:700;letter-spacing:6px;color:#1f2937;">${code}</span>
+                  <td style="background:#f5f9fd;border:1px solid #dce6f0;border-radius:6px;padding:16px 24px;text-align:center;">
+                    <span style="font-size:28px;font-weight:700;letter-spacing:6px;color:#102a43;">${code}</span>
                   </td>
                 </tr>
               </table>
-              <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 32px 0;">This code expires in 10 minutes. If you didn&apos;t create an account, you can safely ignore this email.</p>
-              <a href="${verifyUrl}" style="display:inline-block;background:#FF6B35;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;font-size:14px;">Verify Email</a>
+              <p style="color:#71859a;font-size:14px;line-height:1.6;margin:0 0 24px;">This code expires in 10 minutes. If you didn&apos;t create an account, you can safely ignore this email.</p>
+              <a href="${verifyUrl}" style="display:inline-block;background:#1769D1;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:700;font-size:14px;">Verify email</a>
             </td>
           </tr>
           <tr>
-            <td style="padding:24px;text-align:center;border-top:1px solid #f3f4f6;">
-              <p style="color:#9ca3af;font-size:12px;margin:0;">&copy; ${new Date().getFullYear()} PickAmGo. All rights reserved.</p>
+            <td style="padding:22px 32px 26px;text-align:left;border-top:1px solid #e8eef5;">
+              <p style="color:#71859a;font-size:12px;line-height:1.6;margin:0;">&copy; ${new Date().getFullYear()} PickAmGo. All rights reserved.</p>
             </td>
           </tr>
         </table>
