@@ -213,7 +213,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
               location: true,
             },
           },
-          shop: { include: { customization: true } },
+          shop: { select: { id: true, name: true, slug: true, logo: true, location: true, latitude: true, longitude: true, status: true } },
           category: { select: { id: true, name: true, emoji: true, color: true } },
           images: {
             orderBy: { sortOrder: 'asc' },
@@ -260,7 +260,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
             location: true,
           },
         },
-        shop: { include: { customization: true } },
+        shop: { select: { id: true, name: true, slug: true, logo: true, location: true, latitude: true, longitude: true, status: true } },
           category: { select: { id: true, name: true, emoji: true, color: true } },
           images: {
           orderBy: { sortOrder: 'asc' },
