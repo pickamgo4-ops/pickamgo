@@ -110,7 +110,7 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
               event.stopPropagation()
               onClick?.()
             }}
-            className="text-sm font-semibold py-2 px-4 rounded-xl transition-colors flex items-center gap-1.5 bg-orange-500 text-white hover:bg-orange-600"
+            className="!bg-orange-500 !text-white text-sm font-semibold py-2 px-4 rounded-xl transition-colors flex items-center gap-1.5 hover:!bg-orange-600"
           >
             <Calendar size={16} />
             Book

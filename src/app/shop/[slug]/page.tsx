@@ -405,7 +405,7 @@ export default function ShopPage() {
           />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {shop.services.map((service) => (
-              <BeautyCard key={service.id} service={service} />
+              <BeautyCard key={service.id} service={service} onClick={() => router.push(`/service/${service.id}`)} />
             ))}
           </div>
         </section>
