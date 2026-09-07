@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { 
   Home, LayoutDashboard, Store, Package, Tag, Archive, ShoppingBag, 
@@ -10,7 +10,9 @@ import {
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
-import SellerTour from './SellerTour'
+import SellerTour from './seller/SellerTour'
+
+type TourStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED'
 
 const shopSections = [
   {
@@ -104,18 +106,36 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
     router.push('/auth/login')
   }
 
-  const restartTour = async () => {
+  const [tourStatus, setTourStatus] = useState<TourStatus | null>(null)
+  const [isExpanded, setIsExpanded] = useState(true)
+
+  useEffect(() => {
+    const checkTourStatus = async () => {
+      try {
+        const response = await api.get<{ status: TourStatus }>('/seller/tour/status')
+        if (response.success && response.data) {
+          setTourStatus(response.data.status)
+        }
+      } catch {
+        // ignore
+      }
+    }
+    checkTourStatus()
+  }, [])
+
+  const restartTour = useCallback(async () => {
     try {
       await api.post('/seller/tour/status', { status: 'IN_PROGRESS' })
+      localStorage.setItem('seller-tour-current-step', '0')
       window.location.reload()
     } catch {
       // ignore
     }
-  }
+  }, [])
 
   const SidebarContent = () => (
     <>
-      <div className="p-4 border-b border-warm-200">
+      <div className="p-4 border-b border-warm-200 dark:border-warm-700">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 ring-1 ring-primary/20 shrink-0 flex items-center justify-center text-white font-bold text-sm">
             {user?.avatar ? (
@@ -136,9 +156,9 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="min-w-0">
-            <h2 className="font-display font-bold text-warm-900 truncate">PickAmGo Seller</h2>
-            <p className="text-xs text-warm-800/60 truncate">{user?.name}</p>
-            <p className="text-xs text-primary/70 font-medium">Where Every Pick Finds You</p>
+            <h2 className="font-display font-bold text-warm-900 dark:text-white truncate">PickAmGo Seller</h2>
+            <p className="text-xs text-warm-800/60 dark:text-warm-200/60 truncate">{user?.name}</p>
+            <p className="text-xs text-primary/70 dark:text-primary-light/70 font-medium">Where Every Pick Finds You</p>
           </div>
         </div>
       </div>
@@ -146,7 +166,7 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
       <nav className="flex-1 overflow-y-auto p-3 space-y-4">
         {shopSections.map((section) => (
           <div key={section.title}>
-            <h3 className="text-[10px] font-bold text-warm-800/50 uppercase tracking-wider px-2 mb-1.5">
+            <h3 className="text-[10px] font-bold text-warm-800/50 dark:text-warm-200/50 uppercase tracking-wider px-2 mb-1.5">
               {section.title}
             </h3>
             <div className="space-y-0.5">
@@ -166,8 +186,8 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
                       w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left
                       transition-all duration-200 text-sm font-medium
                       ${isActive 
-                        ? 'bg-primary/10 text-primary' 
-                        : 'text-warm-800/70 hover:bg-warm-100 hover:text-warm-900'
+                        ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light' 
+                        : 'text-warm-800/70 dark:text-warm-200/70 hover:bg-warm-100 dark:hover:bg-warm-800 hover:text-warm-900 dark:hover:text-warm-100'
                       }
                     `}
                   >
@@ -181,51 +201,65 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
         ))}
       </nav>
 
-      <div className="p-3 border-t border-warm-200">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium text-red-600 hover:bg-red-50 transition-all"
-        >
-          <LogOut size={18} className="flex-shrink-0" />
-          <span>Logout</span>
-        </button>
+      <div className="p-3 border-t border-warm-200 dark:border-warm-700">
+        {(tourStatus === 'NOT_STARTED' || tourStatus === 'SKIPPED') && (
+          <button
+            onClick={restartTour}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium text-primary hover:bg-primary/10 dark:hover:bg-primary/20 transition-all mb-1"
+            aria-label="Restart Seller Dashboard Tour"
+          >
+            <Sparkles size={18} className="flex-shrink-0" />
+            <span>Take Seller Tour</span>
+          </button>
+        )}
         {pathname === '/seller/help' && (
           <button
             onClick={restartTour}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium text-primary hover:bg-primary/10 transition-all mt-1"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium text-primary dark:text-primary-light hover:bg-primary/10 dark:hover:bg-primary/20 transition-all"
+            aria-label="Restart Seller Dashboard Tour"
           >
             <Sparkles size={18} className="flex-shrink-0" />
             <span>Restart Seller Tour</span>
           </button>
         )}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+        >
+          <LogOut size={18} className="flex-shrink-0" />
+          <span>Logout</span>
+        </button>
       </div>
     </>
   )
 
   return (
     <SellerTour>
-      <div className="min-h-screen overflow-x-hidden bg-warm-50">
+      <div className="min-h-screen overflow-x-hidden bg-warm-50 dark:bg-warm-950">
         {/* Desktop Sidebar */}
-        <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-warm-200 flex-col z-40">
+        <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-white dark:bg-warm-900 border-r border-warm-200 dark:border-warm-700 flex-col z-40">
           <SidebarContent />
         </aside>
 
         {/* Mobile Header */}
-        <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-warm-200 flex items-center px-4 z-40">
+        <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white dark:bg-warm-900 border-b border-warm-200 dark:border-warm-700 flex items-center px-4 z-40">
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 -ml-2 rounded-xl hover:bg-warm-100"
+            className="p-2 -ml-2 rounded-xl hover:bg-warm-100 dark:hover:bg-warm-800"
           >
-            {isOpen ? <ChevronLeft size={24} /> : <LayoutDashboard size={24} />}
+            {isOpen ? <ChevronLeft size={24} className="text-warm-900 dark:text-warm-100" /> : <LayoutDashboard size={24} className="text-warm-900 dark:text-warm-100" />}
           </button>
-          <span className="font-display font-bold text-warm-900 ml-2 truncate">Seller Dashboard</span>
+          <span className="font-display font-bold text-warm-900 dark:text-warm-100 ml-2 truncate">Seller Dashboard</span>
         </div>
 
         {/* Mobile Sidebar Overlay */}
         {isOpen && (
           <div className="md:hidden fixed inset-0 z-50">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setIsOpen(false)} />
-            <aside className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl flex flex-col">
+            <div className="absolute inset-0 bg-black/30 dark:bg-black/50" onClick={() => setIsOpen(false)} />
+            <aside
+              data-mobile-sidebar
+              className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-warm-900 shadow-xl flex flex-col"
+            >
               <SidebarContent />
             </aside>
           </div>
