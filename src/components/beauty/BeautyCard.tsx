@@ -104,7 +104,14 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
               GH₵{service.price}
             </p>
           </div>
-          <button className="text-sm font-semibold py-2 px-4 rounded-xl transition-colors flex items-center gap-1.5" style={customization ? { backgroundColor: 'var(--shop-primary)', color: 'var(--shop-primary-text)' } : undefined}>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onClick?.()
+            }}
+            className="text-sm font-semibold py-2 px-4 rounded-xl transition-colors flex items-center gap-1.5 bg-orange-500 text-white hover:bg-orange-600"
+          >
             <Calendar size={16} />
             Book
           </button>
