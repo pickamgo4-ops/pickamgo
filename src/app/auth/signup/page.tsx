@@ -327,12 +327,12 @@ export default function SignupPage() {
             <img
               src="/logo.png"
               alt="PickAmGo logo"
-              className="h-16 w-16 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+              className="h-20 w-20 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
             />
           </Link>
           <Link
             href="/"
-            className="block text-2xl font-bold text-orange-500 hover:text-orange-600 transition-colors mb-1"
+            className="block text-2xl font-bold text-primary hover:text-primary-dark transition-colors mb-1"
           >
             PickAmGo
           </Link>

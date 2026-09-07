@@ -314,9 +314,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/">
-            <img src="/logo.png" alt="PickAmGo logo" className="h-16 w-16 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity" />
+            <img src="/logo.png" alt="PickAmGo logo" className="h-20 w-20 rounded-2xl object-contain shadow-lg shadow-primary/20 mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity" />
           </Link>
-          <Link href="/" className="block text-2xl font-bold text-orange-500 hover:text-orange-600 transition-colors mb-1">
+          <Link href="/" className="block text-2xl font-bold text-primary hover:text-primary-dark transition-colors mb-1">
             PickAmGo
           </Link>
           <p className="text-xs text-primary/70 font-medium italic mb-4">Where Every Pick Finds You</p>

@@ -39,21 +39,49 @@ async function resolveAccess(currentUserId: string, otherUserId: string, orderId
     }
   }
 
-  const shop = await prisma.shop.findFirst({
+  const purchasedOrder = await prisma.order.findFirst({
     where: {
-      status: 'ACTIVE',
+      customerId: currentUserId,
+      shopId: { not: null },
       OR: [
-        { ownerId: otherUserId },
-        { products: { some: { sellerId: otherUserId } } },
-        { services: { some: { providerId: otherUserId } } },
+        { sellerId: otherUserId },
+        { shop: { ownerId: otherUserId } },
       ],
     },
+    include: { payment: true },
   })
-  if (shop) {
-    return { shopId: shop.id, orderId: undefined, closedAt: undefined }
+
+  if (purchasedOrder && isOrderEligibleForMessaging(purchasedOrder)) {
+    return {
+      shopId: purchasedOrder.shopId,
+      orderId: purchasedOrder.id,
+      closedAt: ['CANCELLED', 'DELIVERED', 'FAILED'].includes(purchasedOrder.status) ? new Date() : undefined,
+    }
   }
 
   return null
+}
+
+async function resolvePurchasedShopAccess(currentUserId: string, otherUserId: string, shopId?: string | null) {
+  const order = await prisma.order.findFirst({
+    where: {
+      customerId: currentUserId,
+      ...(shopId ? { shopId } : {}),
+      OR: [
+        { sellerId: otherUserId },
+        { shop: { ownerId: otherUserId } },
+      ],
+    },
+    include: { payment: true },
+  })
+
+  if (!order || !isOrderEligibleForMessaging(order)) return null
+
+  return {
+    shopId: order.shopId,
+    orderId: order.id,
+    closedAt: ['CANCELLED', 'DELIVERED', 'FAILED'].includes(order.status) ? new Date() : undefined,
+  }
 }
 
 async function canAccessExistingConversation(currentUserId: string, otherUserId: string, conversation: any) {
@@ -65,7 +93,7 @@ async function canAccessExistingConversation(currentUserId: string, otherUserId:
     return !!access
   }
 
-  return true
+  return !!(await resolvePurchasedShopAccess(currentUserId, otherUserId, conversation.shopId))
 }
 
 async function resolveConversationShop(currentUserId: string, otherUserId: string, shopId?: string | null) {

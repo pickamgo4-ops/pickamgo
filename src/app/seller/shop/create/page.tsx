@@ -42,6 +42,8 @@ export default function CreateShopPage() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  const previewSlug = shopSlugFromName(form.name.trim())
+
   useEffect(() => {
     const name = form.name.trim()
     if (!name) {
@@ -103,7 +105,7 @@ export default function CreateShopPage() {
     try {
       const response = await api.post<any>('/shops', form)
       if (response.success && response.data) {
-        router.push('/seller/shop/settings')
+        router.push(`/shop/${encodeURIComponent(response.data.slug)}`)
       } else {
         setError(response.error || 'Failed to create shop')
       }
@@ -143,13 +145,13 @@ export default function CreateShopPage() {
             onChange={(e) => updateField('name', e.target.value)}
             required
           />
-          {form.name.trim() && slugStatus && (
-            <div className={`-mt-2 rounded-xl border px-3 py-2.5 text-sm ${slugStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+          {form.name.trim() && (
+            <div className={`-mt-2 rounded-xl border px-3 py-2.5 text-sm ${checkingSlug || !slugStatus ? 'border-warm-200 bg-warm-50 text-warm-800/70' : slugStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
               <div className="flex items-center gap-2 font-medium">
-                {checkingSlug ? <Loader2 size={16} className="animate-spin" /> : slugStatus.available ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                <span>{checkingSlug ? 'Checking store URL...' : slugStatus.available ? 'Store URL is available' : slugStatus.reason}</span>
+                {checkingSlug || !slugStatus ? <Loader2 size={16} className="animate-spin" /> : slugStatus.available ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                <span>{checkingSlug || !slugStatus ? 'Checking store URL...' : slugStatus.available ? 'Store URL is available' : slugStatus.reason}</span>
               </div>
-              <p className="mt-1 break-all text-xs opacity-80">Your store URL: https://{slugStatus.slug}.{marketplaceDomain}</p>
+              <p className="mt-1 break-all text-xs opacity-80">Your store URL: https://{previewSlug}.{marketplaceDomain}</p>
             </div>
           )}
 
