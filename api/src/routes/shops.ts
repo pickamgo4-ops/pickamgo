@@ -317,64 +317,51 @@ router.get('/slug-availability', async (req, res) => {
 router.get('/:slug', async (req, res) => {
   const shop = await prisma.shop.findFirst({
     where: { slug: req.params.slug },
-    include: {
-      owner: {
-        select: { id: true, name: true, avatar: true, location: true },
-      },
-      customization: true,
+    select: {
+      id: true,
+      ownerId: true,
+      name: true,
+      slug: true,
+      logo: true,
+      banner: true,
+      description: true,
+      location: true,
+      area: true,
+      campus: true,
+      latitude: true,
+      longitude: true,
+      status: true,
+      verificationStatus: true,
+      isVerified: true,
+      isOpen: true,
+      isBookingEnabled: true,
+      openingHours: true,
+      deliveryAvailable: true,
+      pickupAvailable: true,
+      sellerDeliveryAvailable: true,
+      deliveryFee: true,
+      platformDeliveryFee: true,
+      sellerDeliveryFee: true,
+      allowGuestCheckout: true,
+      pickupInstructions: true,
+      followersCount: true,
+      rating: true,
+      reviewsCount: true,
+      createdAt: true,
+      updatedAt: true,
     },
   })
 
   if (!shop) return errorResponse(res, 'Shop not found', 404)
   if (shop.status !== 'ACTIVE') return errorResponse(res, 'Shop not found', 404)
 
-  const [products, services, shopCategories] = await Promise.all([
-    prisma.product.findMany({
-      where: { ...publicProductVisibility, shopId: shop.id },
-      include: {
-        category: { select: { id: true, name: true, emoji: true, color: true } },
-        images: { orderBy: { sortOrder: 'asc' }, take: 4 },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    }),
-    prisma.service.findMany({
-      where: { ...publicServiceVisibility, shopId: shop.id },
-      include: {
-        category: { select: { id: true, name: true, emoji: true, color: true } },
-        images: { orderBy: { sortOrder: 'asc' }, take: 4 },
-        availability: { where: { isAvailable: true }, take: 5 },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    }),
-    prisma.shopCategory.findMany({ where: { shopId: shop.id, isActive: true }, orderBy: { sortOrder: 'asc' } }),
-  ])
-
-  let customization = shop.customization
-  if (!customization) {
-    customization = await prisma.shopCustomization.create({
-      data: {
-        shopId: shop.id,
-        draftTheme: 'CLEAN',
-        draftLayout: 'CLASSIC',
-          draftPrimaryColor: '#1769D1',
-        draftSecondaryColor: '#FFF5E6',
-        draftAccentColor: '#2C1F15',
-        draftShowReviews: true,
-        draftShowCategories: true,
-        draftShowFeatured: true,
-        draftShowServices: true,
-      },
-    })
-  }
-
   const shopResponse = {
     ...shop,
-    products,
-    services,
-    shopCategories,
-    customization: effectiveCustomization(customization),
+    owner: { id: shop.ownerId, name: '', avatar: '', location: shop.location },
+    products: [],
+    services: [],
+    shopCategories: [],
+    customization: null,
     followersCount: shop.followersCount,
     deliveryAvailable: shop.deliveryAvailable,
     pickupAvailable: shop.pickupAvailable,
