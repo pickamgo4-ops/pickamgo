@@ -321,32 +321,35 @@ router.get('/:slug', async (req, res) => {
       owner: {
         select: { id: true, name: true, avatar: true, location: true },
       },
-      products: {
-        where: publicProductVisibility,
-        include: {
-          category: { select: { id: true, name: true, emoji: true, color: true } },
-          images: { orderBy: { sortOrder: 'asc' }, take: 4 },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      },
-      services: {
-        where: publicServiceVisibility,
-        include: {
-          category: { select: { id: true, name: true, emoji: true, color: true } },
-          images: { orderBy: { sortOrder: 'asc' }, take: 4 },
-          availability: { where: { isAvailable: true }, take: 5 },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      },
-      shopCategories: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
       customization: true,
     },
   })
 
   if (!shop) return errorResponse(res, 'Shop not found', 404)
   if (shop.status !== 'ACTIVE') return errorResponse(res, 'Shop not found', 404)
+
+  const [products, services, shopCategories] = await Promise.all([
+    prisma.product.findMany({
+      where: { ...publicProductVisibility, shopId: shop.id },
+      include: {
+        category: { select: { id: true, name: true, emoji: true, color: true } },
+        images: { orderBy: { sortOrder: 'asc' }, take: 4 },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    }),
+    prisma.service.findMany({
+      where: { ...publicServiceVisibility, shopId: shop.id },
+      include: {
+        category: { select: { id: true, name: true, emoji: true, color: true } },
+        images: { orderBy: { sortOrder: 'asc' }, take: 4 },
+        availability: { where: { isAvailable: true }, take: 5 },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    }),
+    prisma.shopCategory.findMany({ where: { shopId: shop.id, isActive: true }, orderBy: { sortOrder: 'asc' } }),
+  ])
 
   let customization = shop.customization
   if (!customization) {
@@ -368,6 +371,9 @@ router.get('/:slug', async (req, res) => {
 
   const shopResponse = {
     ...shop,
+    products,
+    services,
+    shopCategories,
     customization: effectiveCustomization(customization),
     followersCount: shop.followersCount,
     deliveryAvailable: shop.deliveryAvailable,
