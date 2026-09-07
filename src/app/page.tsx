@@ -35,8 +35,6 @@ export default function HomePage() {
   const [maintenanceMode, setMaintenanceMode] = useState(false)
   const generationRef = useRef(0)
 
-  const locations = ['Accra', 'Kumasi', 'Takoradi', 'Tema', 'Cape Coast']
-
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('pickamgo-location') || 'null')
@@ -149,9 +147,6 @@ export default function HomePage() {
         {/* Hero */}
         <section className="pt-8 pb-10 md:pt-14 md:pb-16">
           <div className="max-w-2xl">
-            <span className="inline-block rounded-full bg-primary/5 border border-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-primary mb-4">
-              PickAmGo
-            </span>
             <h1 className="font-display text-3xl font-bold leading-tight text-warm-900 sm:text-5xl">
               Where every pick <span className="text-primary">finds you</span>
             </h1>
@@ -190,22 +185,6 @@ export default function HomePage() {
                     placeholder="Search a neighborhood, town, or city"
                     height="180px"
                   />
-                  {locations.map((loc) => (
-                    <button
-                      key={loc}
-                      onClick={() => {
-                        setLocation(loc)
-                        setCoordinates(null)
-                        setLocationQuery(loc)
-                        setIsLocationOpen(false)
-                      }}
-                      className={`w-full text-left px-4 py-2.5 hover:bg-warm-100 transition-colors rounded-lg ${
-                        location === loc ? 'bg-warm-100 text-primary font-medium' : 'text-warm-900'
-                      }`}
-                    >
-                      {loc}
-                    </button>
-                  ))}
                 </div>
               )}
             </div>
