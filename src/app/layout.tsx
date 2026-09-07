@@ -32,9 +32,12 @@ export const metadata: Metadata = {
     canonical: "https://pickamgo.com/",
   },
   icons: {
-    icon: [{ url: "/logo.png", type: "image/png" }],
-    shortcut: ["/logo.png"],
-    apple: [{ url: "/logo.png", type: "image/png" }],
+    icon: [
+      { url: "/favicon.png", type: "image/png", sizes: "512x512" },
+      { url: "/favicon.png", type: "image/png", sizes: "32x32" },
+    ],
+    shortcut: ["/favicon.png"],
+    apple: [{ url: "/favicon.png", type: "image/png", sizes: "512x512" }],
   },
   openGraph: {
     type: "website",

@@ -326,12 +326,6 @@ router.get('/:slug', async (req, res) => {
         include: {
           category: { select: { id: true, name: true, emoji: true, color: true } },
           images: { orderBy: { sortOrder: 'asc' }, take: 4 },
-          promotionItems: {
-            where: { promotion: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } } },
-            include: { promotion: { select: { id: true, name: true, type: true } } },
-            orderBy: { promotion: { endsAt: 'asc' } },
-            take: 1,
-          },
         },
         orderBy: { createdAt: 'desc' },
         take: 20,
@@ -358,12 +352,6 @@ router.get('/:slug', async (req, res) => {
               product: {
                 include: {
                   images: true,
-                  promotionItems: {
-                    where: { promotion: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } } },
-                    include: { promotion: { select: { id: true, name: true, type: true } } },
-                    orderBy: { promotion: { endsAt: 'asc' } },
-                    take: 1,
-                  },
                 },
               },
             },
@@ -372,7 +360,6 @@ router.get('/:slug', async (req, res) => {
         },
         orderBy: { sortOrder: 'asc' },
       },
-      promotions: { where: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } }, include: { products: { include: { product: true } } } },
     },
   })
 
@@ -414,7 +401,7 @@ router.get('/:slug', async (req, res) => {
 
 const createShopSchema = z.object({
   name: z.string().min(2),
-  description: z.string().min(10),
+  description: z.string().trim().min(10, 'Shop description must be at least 10 characters.'),
   logo: z.string().url().optional().or(z.literal('')),
   banner: z.string().url().optional().or(z.literal('')),
   location: z.string().min(2),

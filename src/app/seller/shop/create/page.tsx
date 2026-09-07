@@ -95,6 +95,10 @@ export default function CreateShopPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (form.description.trim().length < 10) {
+      setError('Please enter a shop description with at least 10 characters.')
+      return
+    }
     if (checkingSlug || !slugStatus?.available) {
       setError('Choose an available store URL before creating your shop.')
       return
@@ -165,6 +169,12 @@ export default function CreateShopPage() {
               onChange={(e) => updateField('description', e.target.value)}
               required
             />
+            <div className="mt-1 flex items-center justify-between text-xs">
+              <span className={form.description.trim().length > 0 && form.description.trim().length < 10 ? 'text-red-600' : 'text-warm-800/50'}>
+                {form.description.trim().length < 10 ? 'Use at least 10 characters.' : 'Description looks good.'}
+              </span>
+              <span className="text-warm-800/50">{form.description.trim().length}/10 minimum</span>
+            </div>
           </div>
 
           <div>

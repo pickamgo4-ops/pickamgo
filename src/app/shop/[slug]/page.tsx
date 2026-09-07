@@ -22,6 +22,7 @@ export default function ShopPage() {
   const params = useParams()
   const router = useRouter()
   const { theme } = useTheme()
+  const routeSlug = Array.isArray(params.slug) ? params.slug[0] : params.slug
   const [shop, setShop] = useState<Shop | null>(null)
   const [loading, setLoading] = useState(true)
   const [isFollowing, setIsFollowing] = useState(false)
@@ -33,12 +34,13 @@ export default function ShopPage() {
 
   useEffect(() => {
     loadShop()
-  }, [params.slug])
+  }, [routeSlug])
 
   const loadShop = async () => {
     setLoading(true)
     try {
-      const response = await api.get<Shop>(`/shops/${params.slug}`)
+      if (!routeSlug) return
+      const response = await api.get<Shop>(`/shops/${encodeURIComponent(decodeURIComponent(routeSlug))}`)
       if (response.success && response.data) {
         const mappedShop = mapApiShopToFrontend(response.data)
         setShop(mappedShop)

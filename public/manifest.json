@@ -4,17 +4,17 @@
   "description": "Shop, sell, and discover products and services from businesses and sellers around you.",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#FF6B35",
-  "background_color": "#FFF8F0",
+  "theme_color": "#1769D1",
+  "background_color": "#FFFFFF",
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
+      "src": "/favicon.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/favicon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
