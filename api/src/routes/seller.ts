@@ -162,7 +162,18 @@ router.get('/orders', authMiddleware, requireRole(['SELLER']), async (req: Authe
     const status = req.query.status as string | undefined
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
 
-    const where: any = { sellerId: req.user!.id }
+    const shops = await prisma.shop.findMany({ where: { ownerId: req.user!.id }, select: { id: true } })
+    const shopIds = shops.map(shop => shop.id)
+    const where: any = {
+      OR: [
+        { sellerId: req.user!.id },
+        ...(shopIds.length ? [{ shopId: { in: shopIds } }] : []),
+        ...(shopIds.length ? [
+          { items: { some: { product: { shopId: { in: shopIds } } } } },
+          { items: { some: { service: { shopId: { in: shopIds } } } } },
+        ] : []),
+      ],
+    }
     if (status) where.status = status
     if (search) {
       where.OR = [
@@ -410,6 +421,34 @@ router.get('/trust', authMiddleware, requireRole(['SELLER']), async (req: Authen
     return successResponse(res, trustInfo)
   } catch (error) {
     return errorResponse(res, 'Failed to fetch trust info', 500)
+  }
+})
+
+router.get('/tour/status', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { sellerTourStatus: true },
+    })
+    return successResponse(res, { status: user?.sellerTourStatus || 'NOT_STARTED' })
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch tour status', 500)
+  }
+})
+
+router.post('/tour/status', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const status = req.body?.status
+    if (!['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED'].includes(status)) {
+      return errorResponse(res, 'Invalid tour status', 400)
+    }
+    await prisma.user.update({
+      where: { id: req.user!.id },
+      data: { sellerTourStatus: status },
+    })
+    return successResponse(res, { status })
+  } catch (error) {
+    return errorResponse(res, 'Failed to update tour status', 500)
   }
 })
 

@@ -115,6 +115,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
   const isAuthorized = req.user!.isAdmin ||
     order.customerId === req.user!.id ||
     order.sellerId === req.user!.id ||
+    order.shop?.owner?.id === req.user!.id ||
     (order.riderId === req.user!.id)
 
   if (!isAuthorized) return errorResponse(res, 'Not authorized to view this order', 403)
