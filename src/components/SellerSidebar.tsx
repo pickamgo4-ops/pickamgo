@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
+import SellerTour from './SellerTour'
 
 const shopSections = [
   {
@@ -103,6 +104,15 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
     router.push('/auth/login')
   }
 
+  const restartTour = async () => {
+    try {
+      await api.post('/seller/tour/status', { status: 'IN_PROGRESS' })
+      window.location.reload()
+    } catch {
+      // ignore
+    }
+  }
+
   const SidebarContent = () => (
     <>
       <div className="p-4 border-b border-warm-200">
@@ -147,6 +157,7 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
                 return (
                   <button
                     key={item.href}
+                    data-tour-target={item.href}
                     onClick={() => {
                       router.push(item.href)
                       setIsOpen(false)
@@ -178,44 +189,55 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
           <LogOut size={18} className="flex-shrink-0" />
           <span>Logout</span>
         </button>
+        {pathname === '/seller/help' && (
+          <button
+            onClick={restartTour}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium text-primary hover:bg-primary/10 transition-all mt-1"
+          >
+            <Sparkles size={18} className="flex-shrink-0" />
+            <span>Restart Seller Tour</span>
+          </button>
+        )}
       </div>
     </>
   )
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-warm-50">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-warm-200 flex-col z-40">
-        <SidebarContent />
-      </aside>
+    <SellerTour>
+      <div className="min-h-screen overflow-x-hidden bg-warm-50">
+        {/* Desktop Sidebar */}
+        <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-warm-200 flex-col z-40">
+          <SidebarContent />
+        </aside>
 
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-warm-200 flex items-center px-4 z-40">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="p-2 -ml-2 rounded-xl hover:bg-warm-100"
-        >
-          {isOpen ? <ChevronLeft size={24} /> : <LayoutDashboard size={24} />}
-        </button>
-        <span className="font-display font-bold text-warm-900 ml-2 truncate">Seller Dashboard</span>
+        {/* Mobile Header */}
+        <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-warm-200 flex items-center px-4 z-40">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="p-2 -ml-2 rounded-xl hover:bg-warm-100"
+          >
+            {isOpen ? <ChevronLeft size={24} /> : <LayoutDashboard size={24} />}
+          </button>
+          <span className="font-display font-bold text-warm-900 ml-2 truncate">Seller Dashboard</span>
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
+        {isOpen && (
+          <div className="md:hidden fixed inset-0 z-50">
+            <div className="absolute inset-0 bg-black/30" onClick={() => setIsOpen(false)} />
+            <aside className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl flex flex-col">
+              <SidebarContent />
+            </aside>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <main className="md:ml-64 min-w-0 max-w-full overflow-x-hidden pt-14 md:pt-0">
+          <div className="max-w-7xl mx-auto min-w-0 p-4 md:p-6 lg:p-8">
+            {children}
+          </div>
+        </main>
       </div>
-
-      {/* Mobile Sidebar Overlay */}
-      {isOpen && (
-        <div className="md:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setIsOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl flex flex-col">
-            <SidebarContent />
-          </aside>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="md:ml-64 min-w-0 max-w-full overflow-x-hidden pt-14 md:pt-0">
-        <div className="max-w-7xl mx-auto min-w-0 p-4 md:p-6 lg:p-8">
-          {children}
-        </div>
-      </main>
-    </div>
+    </SellerTour>
   )
 }

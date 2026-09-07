@@ -81,6 +81,7 @@ model User {
   accountStatus          String                @default("ACTIVE")
   restrictionReason      String?
   statusChangedAt        DateTime?
+  sellerTourStatus       String?               @default("NOT_STARTED")
 }
 
 model Role {
