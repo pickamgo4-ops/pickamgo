@@ -976,6 +976,7 @@ router.get(
 
       return successResponse(res, verifications);
     } catch (error) {
+      console.error("Failed to fetch verifications:", error);
       return errorResponse(res, "Failed to fetch verifications", 500);
     }
   },
