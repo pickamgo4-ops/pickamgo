@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
 import { mapApiCategoryToFrontend } from '../../lib/api-mappers'
 import { Category } from '../../types'
-import * as LucideIcons from 'lucide-react'
+import { getCategoryIcon } from '../../lib/category-icons'
 
 interface CategoryGridProps {
   categories?: Category[]
@@ -35,14 +35,6 @@ export function CategoryGrid({ categories: categoriesProp, onSelect }: CategoryG
 
   const displayCategories = categoriesProp || categories
 
-  const renderIcon = (iconName: string) => {
-    const IconComponent = (LucideIcons as any)[iconName]
-    if (IconComponent) {
-      return <IconComponent size={22} />
-    }
-    return <LucideIcons.PackageOpen size={22} />
-  }
-
   return (
     <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-4 lg:grid-cols-8 md:overflow-visible">
       {displayCategories.map((category: any) => (
@@ -59,7 +51,7 @@ export function CategoryGrid({ categories: categoriesProp, onSelect }: CategoryG
               ${category.color}
             `}
           >
-            {renderIcon(category.icon)}
+            {(() => { const Icon = getCategoryIcon(category); return <Icon size={22} strokeWidth={1.8} /> })()}
           </div>
           <span className="text-xs font-medium text-warm-900 whitespace-nowrap">
             {category.name}
