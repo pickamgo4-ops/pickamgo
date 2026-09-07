@@ -6,6 +6,13 @@ import { distanceInKm } from '../utils/geo'
 
 const router = Router()
 
+async function resolveCategoryIds(value: string): Promise<string[]> {
+  const category = await prisma.category.findFirst({ where: { OR: [{ id: value }, { slug: value }, { name: { equals: value, mode: 'insensitive' } }] }, select: { id: true } })
+  if (!category) return [value]
+  const children = await prisma.category.findMany({ where: { parentId: category.id, isActive: true }, select: { id: true } })
+  return [category.id, ...children.map(child => child.id)]
+}
+
 const searchQuerySchema = z.object({
   q: z.string().default(''),
   type: z.enum(['all', 'products', 'services', 'shops']).default('all'),
@@ -40,7 +47,7 @@ router.get('/', async (req, res) => {
         { shop: { name: { contains: searchTerm, mode: 'insensitive' } } },
         { category: { name: { contains: searchTerm, mode: 'insensitive' } } },
       ]
-      if (category) productWhere.category = { name: { contains: category, mode: 'insensitive' } }
+      if (category) productWhere.categoryId = { in: await resolveCategoryIds(category) }
       if (location) productWhere.location = { contains: location, mode: 'insensitive' }
       if (minPrice !== undefined) productWhere.price = { ...productWhere.price, gte: minPrice }
       if (maxPrice !== undefined) productWhere.price = { ...productWhere.price, lte: maxPrice }
@@ -86,7 +93,7 @@ router.get('/', async (req, res) => {
         { shop: { name: { contains: searchTerm, mode: 'insensitive' } } },
         { category: { name: { contains: searchTerm, mode: 'insensitive' } } },
       ]
-      if (category) serviceWhere.category = { name: { contains: category, mode: 'insensitive' } }
+      if (category) serviceWhere.categoryId = { in: await resolveCategoryIds(category) }
       if (location) serviceWhere.location = { contains: location, mode: 'insensitive' }
       if (minPrice !== undefined) serviceWhere.price = { ...serviceWhere.price, gte: minPrice }
       if (maxPrice !== undefined) serviceWhere.price = { ...serviceWhere.price, lte: maxPrice }

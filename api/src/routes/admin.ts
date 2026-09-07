@@ -674,11 +674,15 @@ router.delete(
       const category = await prisma.category.findUnique({ where: { id: req.params.id } });
       if (!category) return errorResponse(res, "Category not found", 404);
 
-      const productCount = await prisma.product.count({ where: { categoryId: req.params.id } });
-      if (productCount > 0) {
+      const [productCount, serviceCount, childCount] = await Promise.all([
+        prisma.product.count({ where: { categoryId: req.params.id } }),
+        prisma.service.count({ where: { categoryId: req.params.id } }),
+        prisma.category.count({ where: { parentId: req.params.id } }),
+      ]);
+      if (productCount > 0 || serviceCount > 0 || childCount > 0) {
         return errorResponse(
           res,
-          `Cannot delete category with ${productCount} products. Reassign products first.`,
+          `Cannot delete a category with ${productCount} products, ${serviceCount} services, or ${childCount} subcategories. Reassign or remove them first.`,
           409,
         );
       }

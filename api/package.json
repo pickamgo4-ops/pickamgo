@@ -14,6 +14,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:categories": "tsx scripts/seed-categories.ts",
     "db:studio": "prisma studio",
     "test:integration": "node --test --test-concurrency=1 --import tsx tests/rate-limiting.integration.test.ts",
     "test:booking": "node --test --test-concurrency=1 --import tsx tests/booking.integration.test.ts",

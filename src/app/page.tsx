@@ -11,6 +11,9 @@ import { api } from '../lib/api'
 import { getShopUrl } from '../lib/shop-url'
 import { Product, Shop } from '../types'
 import { mapApiProductToFrontend, mapApiShopToFrontend } from '../lib/api-mappers'
+import { mapApiCategoryToFrontend } from '../lib/api-mappers'
+import { CategoryGrid } from '../components/layout/CategoryGrid'
+import { Category } from '../types'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 
@@ -25,6 +28,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [products, setProducts] = useState<Product[]>([])
   const [shops, setShops] = useState<Shop[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [maintenanceMode, setMaintenanceMode] = useState(false)
@@ -57,11 +61,12 @@ export default function HomePage() {
       const results = await Promise.allSettled([
         api.get<{ products: any[] }>(`/products?limit=20${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=25` : locationQuery ? `&location=${encodeURIComponent(locationQuery)}` : ''}`),
         api.get<{ shops: any[] }>(`/shops?limit=6${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=5` : ''}`),
+        api.get<any[]>('/categories'),
       ])
 
       if (currentGeneration !== generationRef.current) return
 
-      const [productsRes, shopsRes] = results
+      const [productsRes, shopsRes, categoriesRes] = results
 
       if (productsRes.status === 'fulfilled' && productsRes.value.success && productsRes.value.data) {
         setProducts((productsRes.value.data.products || []).map(mapApiProductToFrontend))
@@ -76,6 +81,10 @@ export default function HomePage() {
         setShops((shopsRes.value.data.shops || []).map(mapApiShopToFrontend))
       } else if (shopsRes.status === 'rejected') {
         console.error('Shops API error:', shopsRes.reason)
+      }
+
+      if (categoriesRes.status === 'fulfilled' && categoriesRes.value.success && Array.isArray(categoriesRes.value.data)) {
+        setCategories(categoriesRes.value.data.map(mapApiCategoryToFrontend))
       }
     } catch (error) {
       console.error('Failed to load data:', error)
@@ -227,6 +236,15 @@ export default function HomePage() {
           </div>
         ) : (
           <>
+            {categories.length > 0 && (
+              <section className="mb-10">
+                <SectionHeader title="Popular Categories" subtitle="Browse products and services by category" link="/categories" />
+                <CategoryGrid
+                  categories={categories.slice(0, 8)}
+                  onSelect={(category) => router.push(`/discover?category=${encodeURIComponent(category)}`)}
+                />
+              </section>
+            )}
             {nearbyProducts.length > 0 && (
               <section className="mb-10">
                 <SectionHeader title="Products Near You" emoji={<MapPin size={20} className="text-primary" />} subtitle={`Closest finds around ${location}`} link="/discover" />

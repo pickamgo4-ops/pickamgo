@@ -160,7 +160,7 @@ export function mapApiCategoryToFrontend(apiCategory: any): Category {
     image: apiCategory.image || '',
     icon: apiCategory.emoji || apiCategory.icon || 'PackageOpen',
     color: apiCategory.color || 'bg-warm-100 text-warm-800',
-    count: apiCategory._count?.products || apiCategory.productCount || apiCategory.count || 0,
+    count: apiCategory._count ? (apiCategory._count.products || 0) + (apiCategory._count.services || 0) : (apiCategory.productCount || apiCategory.count || 0),
     isActive: apiCategory.isActive !== undefined ? apiCategory.isActive : true,
     displayOrder: apiCategory.displayOrder ?? 0,
     parentId: apiCategory.parentId,

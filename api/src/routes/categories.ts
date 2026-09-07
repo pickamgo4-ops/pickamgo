@@ -14,7 +14,9 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
           children: {
             where: { isActive: true },
             orderBy: { displayOrder: 'asc' },
+            include: { _count: { select: { products: true, services: true } } },
           },
+          _count: { select: { products: true, services: true } },
         },
         orderBy: { displayOrder: 'asc' },
       })

@@ -14,6 +14,7 @@ export default function EditProductPage() {
   const [product, setProduct] = useState<any>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [platformCategories, setPlatformCategories] = useState<any[]>([])
+  const [parentCategoryId, setParentCategoryId] = useState('')
   const [form, setForm] = useState<any>({})
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -51,7 +52,10 @@ export default function EditProductPage() {
         api.get<any>('/categories'),
         api.get<any>('/seller/shop'),
       ])
-      setPlatformCategories(Array.isArray(platformResponse.data) ? platformResponse.data : [])
+      const nextPlatformCategories = Array.isArray(platformResponse.data) ? platformResponse.data : []
+      setPlatformCategories(nextPlatformCategories)
+      const selected = nextPlatformCategories.flatMap((category: any) => [category, ...(category.children || [])]).find((category: any) => category.id === value.categoryId)
+      setParentCategoryId(selected?.parentId || selected?.id || '')
       if (shop.data?.shop) {
         const categoryResponse = await api.get<any>(`/shop-categories/shops/${shop.data.shop.id}`)
         setCategories(categoryResponse.data || [])
@@ -156,19 +160,25 @@ export default function EditProductPage() {
             </div>
             <Input label="Sale/original price" type="number" min="0" step="0.01" value={form.originalPrice} onChange={e => update('originalPrice', e.target.value)} />
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm font-medium">Platform category
-                <select value={form.categoryId} onChange={e => update('categoryId', e.target.value)} className="mt-2 w-full rounded-xl border border-warm-200 p-3" required>
+              <label className="text-sm font-medium">Category
+                <select value={parentCategoryId} onChange={e => { setParentCategoryId(e.target.value); update('categoryId', e.target.value) }} className="mt-2 w-full rounded-xl border border-warm-200 p-3" required>
                   <option value="">Select category</option>
                   {platformCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                 </select>
               </label>
-              <label className="text-sm font-medium">Shop category
+              <label className="text-sm font-medium">Subcategory
+                <select value={platformCategories.find(category => category.id === parentCategoryId)?.children?.some((child: any) => child.id === form.categoryId) ? form.categoryId : ''} onChange={e => update('categoryId', e.target.value)} className="mt-2 w-full rounded-xl border border-warm-200 p-3" disabled={!parentCategoryId} required>
+                  <option value="">Select subcategory</option>
+                  {(platformCategories.find(category => category.id === parentCategoryId)?.children || []).map((category: any) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+              </label>
+            </div>
+            <label className="text-sm font-medium">Shop category
                 <select value={form.shopCategoryId} onChange={e => update('shopCategoryId', e.target.value)} className="mt-2 w-full rounded-xl border border-warm-200 p-3">
                   <option value="">None</option>
                   {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                 </select>
               </label>
-            </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Product Images</label>
               <div className="flex gap-2 mb-2">

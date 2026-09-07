@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
+import { seedMarketplaceCategories } from './category-catalog'
 
 const prisma = new PrismaClient()
 
@@ -202,6 +203,8 @@ async function main() {
       create: cat,
     })
   }
+
+  await seedMarketplaceCategories(prisma)
 
   const categoryMap: Record<string, string> = {}
   for (const cat of categoriesToUpsert) {

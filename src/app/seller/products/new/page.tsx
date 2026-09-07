@@ -27,6 +27,7 @@ export default function CreateProductPage() {
   const [shopCategories, setShopCategories] = useState<any[]>([])
   const [platformCategories, setPlatformCategories] = useState<any[]>([])
   const [isDraft, setIsDraft] = useState(false)
+  const [parentCategoryId, setParentCategoryId] = useState('')
 
   const [form, setForm] = useState({
     name: '',
@@ -101,6 +102,8 @@ export default function CreateProductPage() {
   }
 
   const parseImages = (value: string) => value.split(/\r?\n/).map((url) => url.trim()).filter(Boolean)
+  const selectedParent = platformCategories.find(category => category.id === parentCategoryId)
+  const selectedCategory = platformCategories.flatMap(category => [category, ...(category.children || [])]).find(category => category.id === form.categoryId)
 
   const uploadImage = () => {
     const input = document.createElement('input')
@@ -339,11 +342,11 @@ export default function CreateProductPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-warm-900 mb-1.5">Platform Category</label>
+              <label className="block text-sm font-medium text-warm-900 mb-1.5">Category</label>
               <select
                 className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4 text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                value={form.categoryId}
-                onChange={(e) => updateField('categoryId', e.target.value)}
+                value={parentCategoryId}
+                onChange={(e) => { setParentCategoryId(e.target.value); updateField('categoryId', e.target.value) }}
                 required
               >
                 <option value="">Select category</option>
@@ -352,31 +355,16 @@ export default function CreateProductPage() {
                 ))}
               </select>
             </div>
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Shop Category (optional)</label>
-                  <select className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4" value={form.shopCategoryId} onChange={(e) => updateField('shopCategoryId', e.target.value)}><option value="">No shop category</option>{categories.filter(category => category.shopCategory).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-                </div>
+            <label className="block text-sm font-medium text-warm-900">Subcategory
+              <select className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4 mt-1.5" value={selectedCategory?.parentId ? form.categoryId : ''} onChange={(e) => updateField('categoryId', e.target.value)} disabled={!selectedParent} required>
+                <option value="">Select subcategory</option>
+                {(selectedParent?.children || []).map((category: any) => <option key={category.id} value={category.id}>{category.name}</option>)}
+              </select>
+            </label>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-warm-900 mb-1.5">Platform Category</label>
-              <select
-                className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4 text-warm-900 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                value={form.categoryId}
-                onChange={(e) => updateField('categoryId', e.target.value)}
-                required
-              >
-                <option value="">Select category</option>
-                {platformCategories.map((cat: any) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-            </div>
-                <div>
-                  <label className="block text-sm font-medium text-warm-900 mb-1.5">Shop Category (optional)</label>
-                  <select className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4" value={form.shopCategoryId} onChange={(e) => updateField('shopCategoryId', e.target.value)}><option value="">No shop category</option>{categories.filter(category => category.shopCategory).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-                </div>
+          <div>
+            <label className="block text-sm font-medium text-warm-900 mb-1.5">Shop Category (optional)</label>
+            <select className="w-full bg-white border border-warm-200 rounded-xl py-3 px-4" value={form.shopCategoryId} onChange={(e) => updateField('shopCategoryId', e.target.value)}><option value="">No shop category</option>{categories.filter(category => category.shopCategory).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
