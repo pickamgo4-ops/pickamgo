@@ -180,10 +180,10 @@ export default function ShopPage() {
       </div>
 
       {/* Shop Info */}
-      <div className={`max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10 ${customization.bannerStyle === 'MINIMAL' ? '-mt-4' : '-mt-10 sm:-mt-12'}`}>
-        <div className={`rounded-[var(--shop-card-radius,1rem)] p-4 sm:p-6 shadow-sm border border-[var(--shop-border)] bg-[var(--shop-surface)] ${customization.headerStyle === 'CENTERED' ? 'text-center' : ''}`}>
+      <div className={`max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10 ${customization.bannerStyle === 'MINIMAL' ? '-mt-3 sm:-mt-4' : '-mt-8 sm:-mt-12'}`}>
+        <div className={`rounded-[var(--shop-card-radius,1rem)] p-3 sm:p-6 shadow-sm border border-[var(--shop-border)] bg-[var(--shop-surface)] ${customization.headerStyle === 'CENTERED' ? 'text-center' : ''}`}>
           <div className={`flex items-start gap-3 sm:gap-4 mb-4 ${customization.headerStyle === 'CENTERED' ? 'flex-col items-center' : ''}`}>
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-warm-100 -mt-12 sm:-mt-16 flex-shrink-0">
+            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-warm-100 -mt-10 sm:-mt-16 flex-shrink-0">
               <img
                 src={customization.logo || shop.logo}
                 alt={shop.name}
@@ -191,13 +191,13 @@ export default function ShopPage() {
               />
             </div>
             <div className="flex-1 min-w-0 pt-1 sm:pt-2">
-              <div className="flex items-start gap-2 mb-1">
-                <h1 className="font-display text-lg sm:text-xl font-bold break-words" style={{ color: surfaceTextColor }}>{shop.name}</h1>
+              <div className="flex items-start gap-2 mb-1 min-w-0">
+                <h1 className="font-display text-base sm:text-xl font-bold break-words leading-tight" style={{ color: surfaceTextColor }}>{shop.name}</h1>
                  {shop.isVerified && <CheckCircle2 size={18} className="text-emerald-500" />}
               </div>
               <div className="flex items-center gap-1 text-sm opacity-70">
                 <MapPin size={14} />
-                <span>{shop.distance} away · {shop.location}</span>
+                <span className="min-w-0 break-words">{shop.distance} away · {shop.location}</span>
               </div>
             </div>
           </div>

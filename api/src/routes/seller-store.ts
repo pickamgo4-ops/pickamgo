@@ -102,7 +102,8 @@ router.get('/qr/:token', async (req, res) => {
   const qr = await prisma.sellerQrCode.findUnique({ where: { publicToken: req.params.token }, include: { shop: { select: { slug: true } } } })
   if (!qr) return errorResponse(res, 'QR code not found', 404)
   await prisma.$transaction([prisma.sellerQrCode.update({ where: { id: qr.id }, data: { scanCount: { increment: 1 } } }), prisma.sellerQrScan.create({ data: { qrCodeId: qr.id, referrer: req.get('referer') || null } })])
-  return res.redirect(`/shop/${qr.shop.slug}`)
+  const frontendUrl = process.env.FRONTEND_URL?.split(',')[0]?.trim() || 'https://pickamgo.com'
+  return res.redirect(`${frontendUrl.replace(/\/$/, '')}/shop/${encodeURIComponent(qr.shop.slug)}`)
 })
 
 export function zoneMatchesAddress(zone: { name: string; region: string | null; city: string | null; area: string | null; locations: string | null }, address: string): boolean {

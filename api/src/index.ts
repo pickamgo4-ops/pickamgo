@@ -53,6 +53,12 @@ import testOrderRoutes from './routes/test-orders'
 import sessionRoutes from './routes/sessions'
 import trustSafetyRoutes from './routes/trust-safety'
 import adminBootstrapRoutes from './routes/admin-bootstrap'
+import flashSaleRoutes from './routes/flash-sales'
+import dealsRoutes from './routes/deals'
+import sellerWalletRoutes from './routes/seller-wallet'
+import cancellationRequestRoutes from './routes/cancellation-requests'
+import abandonedCartRoutes from './routes/abandoned-cart'
+import orderHistoryRoutes from './routes/order-history'
 import prisma from './utils/prisma'
 
 const app = express()
@@ -217,6 +223,12 @@ app.use('/api/account-security', accountSecurityRoutes)
 app.use('/api/seller/store', sellerStoreRoutes)
 app.use('/api/sessions', sessionRoutes)
 app.use('/api/admin/trust-safety', trustSafetyRoutes)
+app.use('/api/promos/flash-sales', flashSaleRoutes)
+app.use('/api/deals', dealsRoutes)
+app.use('/api/seller/wallet', sellerWalletRoutes)
+app.use('/api/orders/cancellation-requests', cancellationRequestRoutes)
+app.use('/api/cart/abandoned', abandonedCartRoutes)
+app.use('/api/orders', orderHistoryRoutes)
 
 if (process.env.ADMIN_BOOTSTRAP_TOKEN?.trim()) {
   app.use('/api/admin/bootstrap', adminBootstrapRoutes)

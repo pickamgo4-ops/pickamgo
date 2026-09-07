@@ -13,6 +13,7 @@ interface SellerTourProps {
 }
 
 const SELLER_TOUR_KEY = 'seller-tour-current-step'
+const SELLER_TOUR_INTRO_KEY = 'seller-tour-intro-shown'
 
 export default function SellerTour({ children }: SellerTourProps) {
   const pathname = usePathname()
@@ -46,7 +47,14 @@ export default function SellerTour({ children }: SellerTourProps) {
         const response = await api.get<{ status: TourStatus }>('/seller/tour/status')
         if (response.success && response.data) {
           const nextStatus = response.data.status
+          const storedUser = JSON.parse(localStorage.getItem('user') || 'null') as { id?: string } | null
+          const introKey = `${SELLER_TOUR_INTRO_KEY}:${storedUser?.id || 'current'}`
           if (nextStatus === 'NOT_STARTED') {
+            if (localStorage.getItem(introKey) === 'true') {
+              setStatus('SKIPPED')
+              return
+            }
+            localStorage.setItem(introKey, 'true')
             setStatus('IN_PROGRESS')
             setCurrentStep(0)
             setIsVisible(true)
@@ -56,6 +64,7 @@ export default function SellerTour({ children }: SellerTourProps) {
             setStatus(nextStatus)
           }
           if (nextStatus === 'IN_PROGRESS') {
+            localStorage.setItem(introKey, 'true')
             const savedStep = localStorage.getItem(SELLER_TOUR_KEY)
             setCurrentStep(savedStep ? parseInt(savedStep, 10) : 0)
             setIsVisible(true)
@@ -266,7 +275,7 @@ export default function SellerTour({ children }: SellerTourProps) {
       >
         <div
           ref={welcomeRef}
-          className="bg-white dark:bg-warm-900 rounded-2xl shadow-2xl max-w-md w-full p-8 relative"
+          className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl relative dark:bg-warm-900 sm:p-8"
         >
           <button
             onClick={skipTour}
@@ -313,7 +322,7 @@ export default function SellerTour({ children }: SellerTourProps) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 dark:bg-black/70">
         <div
-          className="bg-white dark:bg-warm-900 rounded-2xl shadow-2xl max-w-md w-full p-8 text-center"
+          className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 text-center shadow-2xl dark:bg-warm-900 sm:p-8"
           role="dialog"
           aria-modal="true"
           aria-labelledby="group-intro-title"
@@ -396,7 +405,7 @@ export default function SellerTour({ children }: SellerTourProps) {
 
         <div
           ref={tooltipRef}
-          className="fixed z-[90] bg-white dark:bg-warm-900 rounded-xl shadow-2xl border border-warm-200 dark:border-warm-700 p-5"
+          className="fixed z-[90] max-h-[calc(100dvh-2rem)] overflow-y-auto bg-white dark:bg-warm-900 rounded-xl shadow-2xl border border-warm-200 dark:border-warm-700 p-4 sm:p-5"
           style={tooltipStyle}
           role="dialog"
           aria-modal="true"

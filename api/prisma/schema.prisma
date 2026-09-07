@@ -57,6 +57,8 @@ model User {
   sellerPromos           PromoCode[]             @relation("PromoSeller")
   reports                Report[]
   reviews                Review[]
+  reviewResponses        ReviewResponse[]
+  disputeMessages        DisputeMessage[]
   riderProfile           Rider?
   riderEarnings          RiderEarnings[]
   searchHistory          SearchHistory[]
@@ -573,6 +575,7 @@ model Product {
   inventoryMovements InventoryMovement[]
   collectionItems   CollectionProduct[]
   promotionItems    PromotionProduct[]
+  flashSaleProducts FlashSaleProduct[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -919,6 +922,7 @@ model Order {
   custodyEvents      OrderCustodyEvent[]
   fraudAlerts        FraudAlert[]
   moderationEvents   MessageModeration[]
+  statusHistory      OrderStatusHistory[]
 
   @@index([customerId])
   @@index([shopId])
@@ -1013,6 +1017,8 @@ model Review {
   comment    String
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses  ReviewResponse[]
+  images     ReviewImage[]
 
   @@index([targetType, targetId])
   @@index([userId])
@@ -1275,6 +1281,7 @@ model Dispute {
   customer    User?    @relation("DisputeCustomer", fields: [customerId], references: [id], onDelete: SetNull)
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   seller      User?    @relation("DisputeSeller", fields: [sellerId], references: [id], onDelete: SetNull)
+  messages    DisputeMessage[]
 
   @@index([orderId])
   @@index([status])
@@ -1819,4 +1826,110 @@ model RefundAbuseSignal {
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
+}
+
+model ReviewResponse {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  userName  String
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@index([userId])
+}
+
+model ReviewImage {
+  id        String   @id @default(cuid())
+  reviewId  String
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+}
+
+model OrderStatusHistory {
+  id          String   @id @default(cuid())
+  orderId     String
+  status      String
+  notes       String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model DisputeMessage {
+  id          String   @id @default(cuid())
+  disputeId   String
+  senderId    String
+  senderRole  String
+  content     String
+  attachmentUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  dispute     Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  sender      User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId])
+  @@index([senderId])
+}
+
+model AbandonedCart {
+  id              String   @id @default(cuid())
+  cartId          String   @unique
+  userId          String?
+  sessionId       String?
+  itemsCount      Int
+  subtotal        Decimal  @db.Decimal(12, 2)
+  recovered       Boolean  @default(false)
+  recoveryToken   String?  @unique
+  lastRemindedAt  DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([recovered])
+  @@index([expiresAt])
+}
+
+model FlashSale {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  discountType  String
+  discountValue Decimal  @db.Decimal(12, 2)
+  maxQuantity   Int?
+  soldCount     Int      @default(0)
+  startsAt      DateTime
+  endsAt        DateTime
+  status        String   @default("ACTIVE")
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  products      FlashSaleProduct[]
+
+  @@index([status, startsAt, endsAt])
+}
+
+model FlashSaleProduct {
+  flashSaleId String
+  productId   String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  flashSale   FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([flashSaleId, productId])
+  @@index([productId])
 }

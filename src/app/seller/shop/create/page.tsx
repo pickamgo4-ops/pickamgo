@@ -8,6 +8,7 @@ import { Button } from '../../../../components/ui/Button'
 import { Input } from '../../../../components/ui/Input'
 import { Card } from '../../../../components/ui/Card'
 import { api } from '../../../../lib/api'
+import { getShopUrl } from '../../../../lib/shop-url'
 import dynamic from 'next/dynamic'
 
 const GoogleLocationPicker = dynamic(() => import('@/components/map/GoogleLocationPicker'), { ssr: false })
@@ -109,7 +110,7 @@ export default function CreateShopPage() {
     try {
       const response = await api.post<any>('/shops', form)
       if (response.success && response.data) {
-        router.push(`/shop/${encodeURIComponent(response.data.slug)}`)
+        window.location.assign(getShopUrl(response.data.slug))
       } else {
         setError(response.error || 'Failed to create shop')
       }

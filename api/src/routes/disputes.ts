@@ -181,4 +181,76 @@ router.patch('/:id/status', authMiddleware, async (req: AuthenticatedRequest, re
   }
 })
 
+router.get('/:id/messages', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  try {
+    const dispute = await prisma.dispute.findUnique({ where: { id: req.params.id } })
+    if (!dispute) return errorResponse(res, 'Dispute not found', 404)
+
+    const isCustomer = dispute.customerId === req.user!.id
+    const isSeller = dispute.sellerId === req.user!.id
+    const isAdmin = req.user!.isAdmin
+
+    if (!isCustomer && !isSeller && !isAdmin) {
+      return errorResponse(res, 'Not authorized', 403)
+    }
+
+    const messages = await prisma.disputeMessage.findMany({
+      where: { disputeId: req.params.id },
+      include: { sender: { select: { id: true, name: true, avatar: true } } },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    return successResponse(res, messages)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch messages', 500)
+  }
+})
+
+const messageSchema = z.object({ content: z.string().min(1).max(2000), attachmentUrl: z.string().optional() })
+
+router.post('/:id/messages', authMiddleware, validateBody(messageSchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const dispute = await prisma.dispute.findUnique({ where: { id: req.params.id } })
+    if (!dispute) return errorResponse(res, 'Dispute not found', 404)
+
+    const isCustomer = dispute.customerId === req.user!.id
+    const isSeller = dispute.sellerId === req.user!.id
+    const isAdmin = req.user!.isAdmin
+
+    if (!isCustomer && !isSeller && !isAdmin) {
+      return errorResponse(res, 'Not authorized', 403)
+    }
+
+    const senderRole = isAdmin ? 'ADMIN' : isCustomer ? 'CUSTOMER' : 'SELLER'
+
+    const message = await prisma.disputeMessage.create({
+      data: {
+        disputeId: req.params.id,
+        senderId: req.user!.id,
+        senderRole,
+        content: req.body.content,
+        attachmentUrl: req.body.attachmentUrl,
+      },
+      include: { sender: { select: { id: true, name: true, avatar: true } } },
+    })
+
+    const recipientId = isCustomer ? dispute.sellerId : dispute.customerId
+    if (recipientId) {
+      await prisma.notification.create({
+        data: {
+          userId: recipientId,
+          type: 'DISPUTE_MESSAGE',
+          title: 'New dispute message',
+          message: `A new message was added to dispute for order ${dispute.orderId}`,
+          data: JSON.stringify({ disputeId: dispute.id }),
+        },
+      })
+    }
+
+    return successResponse(res, message, 201, 'Message added')
+  } catch (error) {
+    return errorResponse(res, 'Failed to add message', 500)
+  }
+})
+
 export default router

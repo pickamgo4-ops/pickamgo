@@ -369,11 +369,14 @@ router.get('/trust', authMiddleware, requireRole(['SELLER']), async (req: Authen
   try {
     const userId = req.user!.id
 
-    const [verification, risk, freeze] = await Promise.all([
+    const [verificationResult, riskResult, freezeResult] = await Promise.allSettled([
       prisma.sellerVerification.findFirst({ where: { userId, type: 'SELLER' } }),
       prisma.sellerRisk.findUnique({ where: { userId } }),
       prisma.sellerPayoutFreeze.findFirst({ where: { userId, thawedAt: null } }),
     ])
+    const verification = verificationResult.status === 'fulfilled' ? verificationResult.value : null
+    const risk = riskResult.status === 'fulfilled' ? riskResult.value : null
+    const freeze = freezeResult.status === 'fulfilled' ? freezeResult.value : null
 
     let verificationStatus: string = 'NOT_SUBMITTED'
     let canSell = true

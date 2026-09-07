@@ -454,4 +454,36 @@ export const api = {
     api.patch(`/admin/reports/${id}/resolve`, data),
   updatePayoutMethod: (id: string, data: any) => api.patch(`/payouts/methods/${id}`, data),
   getVerificationHistory: () => api.get<any[]>('/seller/verification/history'),
+  getReviewResponses: (reviewId: string) => api.get<any>(`/reviews/${reviewId}/responses`),
+  addReviewResponse: (reviewId: string, comment: string) => api.post(`/reviews/${reviewId}/responses`, { comment }),
+  addReviewImages: (reviewId: string, urls: string[]) => api.post(`/reviews/${reviewId}/images`, { urls }),
+  getDisputeMessages: (disputeId: string) => api.get<any>(`/disputes/${disputeId}/messages`),
+  addDisputeMessage: (disputeId: string, content: string, attachmentUrl?: string) => api.post(`/disputes/${disputeId}/messages`, { content, attachmentUrl }),
+  getFlashSales: () => api.get<any>('/promos/flash-sales'),
+  getDeals: (params?: { page?: number; limit?: number; category?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<any>(`/deals${query}`)
+  },
+  getSellerWallet: () => api.get<any>('/seller/wallet'),
+  getSellerTransactions: (params?: { page?: number; limit?: number; type?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<any>(`/seller/wallet/transactions${query}`)
+  },
+  requestOrderCancellation: (orderId: string, reason: string, explanation?: string) => api.post('/orders/cancellation-requests', { orderId, reason, explanation }),
+  getOrderCancellationRequests: (orderId: string) => api.get<any>(`/orders/${orderId}/cancellation-requests`),
+  getAbandonedCart: () => api.get<any>('/cart/abandoned'),
+  recoverAbandonedCart: (token: string) => api.post('/cart/abandoned/recover', { token }),
+  getOrderStatusHistory: (orderId: string) => api.get<any>(`/orders/${orderId}/status-history`),
 }

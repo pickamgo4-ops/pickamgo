@@ -638,3 +638,142 @@ export interface SellerTrustInfo {
   canSell: boolean;
   restrictions: string[];
 }
+
+export interface ReviewResponse {
+  id: string;
+  reviewId: string;
+  userId: string;
+  userName: string;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: { id: string; name: string; avatar?: string };
+}
+
+export interface ReviewImage {
+  id: string;
+  reviewId: string;
+  url: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface OrderStatusHistoryEntry {
+  id: string;
+  orderId: string;
+  status: string;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+export interface DisputeMessage {
+  id: string;
+  disputeId: string;
+  senderId: string;
+  senderRole: string;
+  content: string;
+  attachmentUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sender?: { id: string; name: string; avatar?: string };
+}
+
+export interface FlashSale {
+  id: string;
+  name: string;
+  description?: string | null;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  maxQuantity?: number | null;
+  soldCount: number;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  products?: Array<{
+    productId: string;
+    product: Product;
+    sortOrder: number;
+  }>;
+}
+
+export interface SellerWalletSummary {
+  gross: number;
+  commission: number;
+  deliveryFee: number;
+  net: number;
+  promoDiscount: number;
+  orderCount: number;
+  availableBalance: number;
+  withdrawnAmount: number;
+  pendingPayout: number;
+  products: number;
+  orders: number;
+  customers: number;
+  views: number;
+}
+
+export interface SellerWalletTransaction {
+  id: string;
+  sellerId?: string;
+  orderId?: string;
+  payoutId?: string;
+  type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  description?: string | null;
+  createdAt: string;
+  order?: { orderNumber: string; createdAt: string };
+}
+
+export interface CancellationRequest {
+  id: string;
+  orderId: string;
+  sellerId?: string;
+  customerId?: string;
+  amount: number;
+  currency: string;
+  reason?: string | null;
+  status: string;
+  adminNotes?: string | null;
+  processedBy?: string | null;
+  processedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  order?: { orderNumber: string; status: string };
+  customer?: { id: string; name: string; avatar?: string };
+  seller?: { id: string; name: string; avatar?: string };
+}
+
+export interface AbandonedCartInfo {
+  id: string;
+  cartId: string;
+  userId?: string | null;
+  sessionId?: string | null;
+  itemsCount: number;
+  subtotal: number;
+  recovered: boolean;
+  recoveryToken?: string | null;
+  lastRemindedAt?: string | null;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  cart?: {
+    id: string;
+    items: Array<{
+      id: string;
+      productId?: string | null;
+      serviceId?: string | null;
+      quantity: number;
+      price: number;
+      name: string;
+      image: string;
+      product?: Product;
+      service?: BeautyService;
+    }>;
+  };
+}

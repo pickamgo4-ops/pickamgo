@@ -32,6 +32,8 @@ export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([])
   const [shops, setShops] = useState<Shop[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([])
+  const [followedShops, setFollowedShops] = useState<Shop[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [maintenanceMode, setMaintenanceMode] = useState(false)
@@ -63,11 +65,13 @@ export default function HomePage() {
         api.get<{ products: any[] }>(`/products?limit=20${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=25` : locationQuery ? `&location=${encodeURIComponent(locationQuery)}` : ''}`),
         api.get<{ shops: any[] }>(`/shops?limit=6${coordinates ? `&latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&radius=5` : ''}`),
         api.get<any[]>('/categories'),
+        api.get<any>('/search/history').catch(() => ({ success: true, data: { history: [] } })),
+        api.get<any>('/follows/user/following').catch(() => ({ success: true, data: { shops: [] } })),
       ])
 
       if (currentGeneration !== generationRef.current) return
 
-      const [productsRes, shopsRes, categoriesRes] = results
+      const [productsRes, shopsRes, categoriesRes, historyRes, followsRes] = results
 
       if (productsRes.status === 'fulfilled' && productsRes.value.success && productsRes.value.data) {
         setProducts((productsRes.value.data.products || []).map(mapApiProductToFrontend))
@@ -86,6 +90,19 @@ export default function HomePage() {
 
       if (categoriesRes.status === 'fulfilled' && categoriesRes.value.success && Array.isArray(categoriesRes.value.data)) {
         setCategories(categoriesRes.value.data.map(mapApiCategoryToFrontend))
+      }
+
+      if (historyRes.status === 'fulfilled' && historyRes.value.success && Array.isArray(historyRes.value.data?.history)) {
+        const viewedIds = historyRes.value.data.history.slice(0, 10).map((h: any) => h.productId).filter(Boolean)
+        if (viewedIds.length > 0) {
+          const viewedProducts = await api.get<{ products: any[] }>(`/products?ids=${viewedIds.join(',')}`).then(r => r.data?.products || []).catch(() => [])
+          setRecentlyViewed(viewedProducts.map(mapApiProductToFrontend))
+        }
+      }
+
+      if (followsRes.status === 'fulfilled' && followsRes.value.success && Array.isArray(followsRes.value.data?.shops)) {
+        const followed = followsRes.value.data.shops.map(mapApiShopToFrontend)
+        setFollowedShops(followed)
       }
     } catch (error) {
       console.error('Failed to load data:', error)
@@ -337,6 +354,61 @@ export default function HomePage() {
                           }`}>
                             {shop.isOpen ? 'Open' : 'Closed'}
                           </span>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {recentlyViewed.length > 0 && (
+              <section className="mb-10">
+                <SectionHeader
+                  title="Recently viewed"
+                  subtitle="Products you checked out"
+                  link="/discover"
+                />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {recentlyViewed.map((product) => (
+                    <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {followedShops.length > 0 && (
+              <section className="mb-10">
+                <SectionHeader
+                  title="Shops you follow"
+                  subtitle="Updates from your favorite sellers"
+                  link="/discover?type=shops"
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {followedShops.map((shop) => (
+                    <Card
+                      key={shop.id}
+                      className="overflow-hidden cursor-pointer"
+                      onClick={() => window.location.assign(getShopUrl(shop.slug))}
+                    >
+                      <div className="h-28 bg-warm-100 relative overflow-hidden">
+                        {shop.banner && (
+                          <img src={shop.banner} alt={shop.name} className="w-full h-full object-cover" />
+                        )}
+                        <div className="absolute -bottom-7 left-4">
+                          <div className="w-14 h-14 rounded-xl overflow-hidden border-4 border-white shadow-md bg-white">
+                            <img src={shop.logo} alt={shop.name} className="w-full h-full object-cover" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="pt-9 px-4 pb-4">
+                        <div className="flex items-start justify-between mb-1">
+                          <h3 className="font-bold text-warm-900">{shop.name}</h3>
+                          {shop.isVerified && <span className="text-emerald-500">✓</span>}
+                        </div>
+                        <div className="flex items-center gap-1 text-sm text-warm-800/60">
+                          <MapPin size={14} />
+                          <span>{shop.distance} away</span>
                         </div>
                       </div>
                     </Card>

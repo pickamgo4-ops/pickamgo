@@ -230,4 +230,65 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res) => 
   return successResponse(res, { deleted: true }, 200, 'Review deleted successfully')
 })
 
+router.get('/:id/responses', async (req, res) => {
+  const responses = await prisma.reviewResponse.findMany({
+    where: { reviewId: req.params.id },
+    include: { user: { select: { id: true, name: true, avatar: true } } },
+    orderBy: { createdAt: 'asc' },
+  })
+  return successResponse(res, responses)
+})
+
+const responseSchema = z.object({ comment: z.string().min(2).max(1000) })
+
+router.post('/:id/responses', authMiddleware, validateBody(responseSchema), async (req: AuthenticatedRequest, res) => {
+  const review = await prisma.review.findUnique({ where: { id: req.params.id } })
+  if (!review) return errorResponse(res, 'Review not found', 404)
+
+  const isShopOwner = review.targetType === 'SHOP'
+    ? (await prisma.shop.findUnique({ where: { id: review.targetId }, select: { ownerId: true } }))?.ownerId === req.user!.id
+    : false
+  const isProductSeller = review.targetType === 'PRODUCT'
+    ? (await prisma.product.findUnique({ where: { id: review.targetId }, select: { sellerId: true } }))?.sellerId === req.user!.id
+    : false
+  const isServiceProvider = review.targetType === 'SERVICE'
+    ? (await prisma.service.findUnique({ where: { id: review.targetId }, select: { providerId: true } }))?.providerId === req.user!.id
+    : false
+
+  if (!isShopOwner && !isProductSeller && !isServiceProvider && !req.user!.isAdmin) {
+    return errorResponse(res, 'Only the shop owner, seller, provider, or admin can reply to this review.', 403)
+  }
+
+  const response = await prisma.reviewResponse.create({
+    data: {
+      reviewId: req.params.id,
+      userId: req.user!.id,
+      userName: req.user!.name,
+      comment: req.body.comment,
+    },
+    include: { user: { select: { id: true, name: true, avatar: true } } },
+  })
+
+  return successResponse(res, response, 201, 'Reply added')
+})
+
+router.post('/:id/images', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  const review = await prisma.review.findUnique({ where: { id: req.params.id } })
+  if (!review) return errorResponse(res, 'Review not found', 404)
+  if (review.userId !== req.user!.id) return errorResponse(res, 'Not authorized', 403)
+
+  const { urls } = req.body as { urls?: string[] }
+  const imageUrls = Array.isArray(urls) ? urls : [urls].filter(Boolean)
+
+  const images = await prisma.$transaction(
+    imageUrls.map((url, index) =>
+      prisma.reviewImage.create({
+        data: { reviewId: req.params.id, url, sortOrder: index },
+      })
+    )
+  )
+
+  return successResponse(res, images, 201, 'Images uploaded')
+})
+
 export default router

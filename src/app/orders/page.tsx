@@ -26,6 +26,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [bookings, setBookings] = useState<BookingRecord[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
+  const [cancelling, setCancelling] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authInitialized) return
@@ -62,6 +63,30 @@ export default function OrdersPage() {
     const response = await api.patch(`/bookings/${bookingId}/status`, { status: 'CANCELLED' })
     if (response.success) await loadOrders()
     else window.alert(response.error || 'This booking could not be cancelled.')
+  }
+
+  const cancelOrder = async (orderId: string) => {
+    const reason = window.prompt('Please provide a reason for cancellation (max 100 characters):')
+    if (!reason || !reason.trim()) return
+    if (reason.trim().length > 100) {
+      window.alert('Reason must be 100 characters or less')
+      return
+    }
+    setCancelling(orderId)
+    try {
+      const response = await api.post('/orders/cancellation-requests', { orderId, reason: reason.trim() })
+      if (response.success) {
+        window.alert('Cancellation request submitted successfully')
+        await loadOrders()
+      } else {
+        window.alert(response.error || 'Failed to submit cancellation request')
+      }
+    } catch (err) {
+      console.error('Failed to cancel order:', err)
+      window.alert('Something went wrong. Please try again.')
+    } finally {
+      setCancelling(null)
+    }
   }
 
   const currentDate = new Date()
@@ -198,6 +223,11 @@ export default function OrdersPage() {
                       {order.riderId && order.fulfillmentMethod === 'PLATFORM_DELIVERY' && (
                         <Button size="sm" variant="outline" onClick={() => router.push(`/messages/${order.riderId}?orderId=${order.id}`)} icon={<MessageCircle size={14} />}>
                           Rider
+                        </Button>
+                      )}
+                      {['PENDING_PAYMENT', 'PAID', 'CONFIRMED'].includes(order.status) && (
+                        <Button size="sm" variant="ghost" onClick={() => cancelOrder(order.id)} disabled={cancelling === order.id}>
+                          {cancelling === order.id ? 'Cancelling...' : 'Cancel'}
                         </Button>
                       )}
                     </div>
