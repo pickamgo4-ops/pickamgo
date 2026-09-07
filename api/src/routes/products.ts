@@ -261,21 +261,33 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
 
     const product = await prisma.product.findUnique({
       where: { id },
-      include: {
-        seller: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-            location: true,
-          },
-        },
+      select: {
+        id: true,
+        shopId: true,
+        sellerId: true,
+        categoryId: true,
+        name: true,
+        description: true,
+        price: true,
+        originalPrice: true,
+        discount: true,
+        stock: true,
+        condition: true,
+        status: true,
+        location: true,
+        area: true,
+        campus: true,
+        isTrending: true,
+        isNew: true,
+        isDeal: true,
+        rating: true,
+        reviewsCount: true,
+        createdAt: true,
+        seller: { select: { id: true, name: true, email: true, avatar: true, location: true } },
         shop: { select: { id: true, name: true, slug: true, logo: true, location: true, latitude: true, longitude: true, status: true } },
-          category: { select: { id: true, name: true, emoji: true, color: true } },
-          images: {
-          orderBy: { sortOrder: 'asc' },
-        },
+        category: { select: { id: true, name: true, emoji: true, color: true } },
+        images: { select: { id: true, url: true, sortOrder: true }, orderBy: { sortOrder: 'asc' } },
+        variants: { select: { id: true, productId: true, name: true, sku: true, price: true, originalPrice: true, stock: true, image: true, attributes: true, isActive: true, sortOrder: true, createdAt: true, updatedAt: true }, orderBy: { sortOrder: 'asc' } },
       },
     })
 
