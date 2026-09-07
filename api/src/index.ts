@@ -52,6 +52,7 @@ import sellerStoreRoutes from './routes/seller-store'
 import testOrderRoutes from './routes/test-orders'
 import sessionRoutes from './routes/sessions'
 import trustSafetyRoutes from './routes/trust-safety'
+import adminBootstrapRoutes from './routes/admin-bootstrap'
 import prisma from './utils/prisma'
 
 const app = express()
@@ -216,6 +217,10 @@ app.use('/api/account-security', accountSecurityRoutes)
 app.use('/api/seller/store', sellerStoreRoutes)
 app.use('/api/sessions', sessionRoutes)
 app.use('/api/admin/trust-safety', trustSafetyRoutes)
+
+if (process.env.ADMIN_BOOTSTRAP_TOKEN?.trim()) {
+  app.use('/api/admin/bootstrap', adminBootstrapRoutes)
+}
 
 if (process.env.NODE_ENV !== 'production') {
   app.use('/api/dev/test-orders', testOrderRoutes)
