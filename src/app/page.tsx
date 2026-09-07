@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { MapPin, ChevronDown, Flame, Sparkles, Tag, Star, Eye, CheckCircle2, Wrench } from 'lucide-react'
+import { MapPin, ChevronDown, Flame, Sparkles, Tag, Star, Eye, Search, CheckCircle2, Wrench } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { BottomNav } from '../components/layout/BottomNav'
 import { ProductCard } from '../components/product/ProductCard'
@@ -147,29 +147,28 @@ export default function HomePage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero Section */}
-        <section className="py-8 md:py-12">
-          <div className="max-w-2xl">
-            <div className="mb-4 flex items-end gap-2">
-              <p className="text-sm font-display font-bold text-primary">PickAmGo</p>
-              <p className="text-xs text-primary/70 font-medium italic">Where Every Pick Finds You</p>
+        <section className="border-b border-warm-200 py-8 md:py-14">
+          <div className="max-w-3xl">
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-primary">PickAmGo</span>
+              <span className="text-sm font-medium text-warm-800/60">Where Every Pick Finds You</span>
             </div>
-            <h1 className="font-display text-3xl md:text-5xl lg:text-6xl font-bold text-warm-900 leading-tight mb-4">
-              Find something good{' '}
-              <span className="text-primary">near you</span>{' '}
-              <Eye size={28} className="inline-block text-warm-800/70" />
+            <h1 className="max-w-2xl font-display text-3xl font-bold leading-[1.08] text-warm-900 sm:text-5xl lg:text-6xl">
+              Find something good <span className="text-primary">near you</span> <Eye size={28} className="inline-block text-warm-800/70 sm:h-9 sm:w-9" />
             </h1>
-            <p className="text-lg md:text-xl text-warm-800/70 mb-6 text-balance">
-              Discover products, beauty, food, fashion and businesses around you.
+            <p className="mb-7 mt-4 max-w-2xl text-base leading-7 text-warm-800/70 sm:text-lg">
+              Discover products, food, fashion, services, and trusted local businesses in one place.
             </p>
 
             {/* Location Selector */}
-            <div className="relative mb-6">
+            <div className="relative mb-5 max-w-md">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-warm-800/50">Set your area</p>
               <button
                 onClick={() => setIsLocationOpen(!isLocationOpen)}
-                className="flex items-center gap-2 bg-white border border-warm-200 rounded-xl px-4 py-3 shadow-sm hover:border-primary/30 transition-colors"
+                className="flex w-full items-center gap-3 rounded-xl border border-warm-200 bg-white px-4 py-3.5 text-left shadow-sm transition-colors hover:border-primary/50"
               >
                 <MapPin size={20} className="text-primary" />
-                <span className="font-medium text-warm-900">{location}</span>
+                <span className="min-w-0 flex-1 truncate font-medium text-warm-900">{location}</span>
                 <ChevronDown size={18} className="text-warm-800/50 ml-auto" />
               </button>
 
@@ -212,13 +211,17 @@ export default function HomePage() {
             <form onSubmit={handleSearch} className="relative">
               <input
                 type="text"
-                placeholder="Search beauty, food, sneakers, phones..."
+                placeholder="Search products, shops, or services..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white border border-warm-200 rounded-2xl py-4 pl-14 pr-4 text-warm-900 placeholder:text-warm-800/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
               />
-              <MapPin size={22} className="absolute left-5 top-1/2 -translate-y-1/2 text-warm-800/40" />
+              <Search size={22} className="absolute left-5 top-1/2 -translate-y-1/2 text-warm-800/40" />
             </form>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-warm-800/60">
+              <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-warm-800/50">Try</span>
+              {['Phones', 'Fashion', 'Food', 'Beauty'].map(term => <button key={term} type="button" onClick={() => router.push(`/discover?search=${encodeURIComponent(term)}`)} className="rounded-full border border-warm-200 bg-white px-3 py-1.5 font-medium text-warm-800 transition hover:border-primary/50 hover:text-primary">{term}</button>)}
+            </div>
           </div>
         </section>
 
