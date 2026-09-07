@@ -25,7 +25,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
     <div
       onClick={onClick}
       style={cardStyle}
-      className="group cursor-pointer bg-[var(--shop-secondary)] rounded-2xl overflow-hidden border border-[var(--shop-border)] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+      className="group cursor-pointer bg-[var(--shop-surface,var(--shop-secondary))] rounded-[var(--shop-card-radius,1rem)] overflow-hidden border border-[var(--shop-border)] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
     >
       {/* Image Container */}
       <div className="relative aspect-[4/5] sm:aspect-square overflow-hidden bg-warm-100">

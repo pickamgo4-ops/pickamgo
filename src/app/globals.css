@@ -199,27 +199,3 @@
 .dark .bg-green-100 { background-color: rgba(34, 197, 94, 0.2) !important; }
 .dark .text-green-700 { color: #86EFAC !important; }
 
-/* Shop dark mode overrides */
-.dark .theme-CLEAN,
-.dark .theme-SOFT,
-.dark .theme-FRESH,
-.dark .theme-QUICK_PICKS,
-.dark .theme-BEAUTY {
-  --shop-secondary: #17151A !important;
-  --shop-accent: #2A252B !important;
-}
-
-.dark .theme-MIDNIGHT {
-  --shop-secondary: #0F1419 !important;
-  --shop-accent: #1A1D23 !important;
-}
-
-.dark .theme-LUXURY {
-  --shop-secondary: #0D0C0B !important;
-  --shop-accent: #1A1816 !important;
-}
-
-.dark .theme-STREET {
-  --shop-secondary: #0D0D0D !important;
-  --shop-accent: #171717 !important;
-}

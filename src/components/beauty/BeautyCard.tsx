@@ -16,7 +16,7 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
     <div
       onClick={onClick}
       style={customization ? shopCustomizationStyle(customization) : undefined}
-      className="group cursor-pointer bg-[var(--shop-secondary,#fff)] rounded-2xl overflow-hidden border border-[var(--shop-border,rgba(120,100,80,0.2))] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+      className="group cursor-pointer bg-[var(--shop-surface,var(--shop-secondary,#fff))] rounded-[var(--shop-card-radius,1rem)] overflow-hidden border border-[var(--shop-border,rgba(120,100,80,0.2))] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
     >
       {/* Image Container */}
       <div className="relative aspect-[4/5] overflow-hidden bg-warm-100">

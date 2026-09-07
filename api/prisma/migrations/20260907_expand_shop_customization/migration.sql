@@ -1,0 +1,17 @@
+ALTER TABLE "ShopCustomization"
+  ADD COLUMN "draftHeaderStyle" TEXT NOT NULL DEFAULT 'STANDARD',
+  ADD COLUMN "draftBannerStyle" TEXT NOT NULL DEFAULT 'COVER',
+  ADD COLUMN "draftProductCardStyle" TEXT NOT NULL DEFAULT 'SOFT',
+  ADD COLUMN "draftProductColumns" INTEGER NOT NULL DEFAULT 4,
+  ADD COLUMN "draftShowAbout" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN "draftShowHours" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN "draftShowContact" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN "draftSectionOrder" TEXT NOT NULL DEFAULT 'featured,products,services,reviews,about',
+  ADD COLUMN "publishedHeaderStyle" TEXT,
+  ADD COLUMN "publishedBannerStyle" TEXT,
+  ADD COLUMN "publishedProductCardStyle" TEXT,
+  ADD COLUMN "publishedProductColumns" INTEGER,
+  ADD COLUMN "publishedShowAbout" BOOLEAN,
+  ADD COLUMN "publishedShowHours" BOOLEAN,
+  ADD COLUMN "publishedShowContact" BOOLEAN,
+  ADD COLUMN "publishedSectionOrder" TEXT;

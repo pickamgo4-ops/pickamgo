@@ -368,6 +368,14 @@ model ShopCustomization {
   draftShowCategories        Boolean   @default(true)
   draftShowFeatured          Boolean   @default(true)
   draftShowServices          Boolean   @default(true)
+  draftHeaderStyle            String    @default("STANDARD")
+  draftBannerStyle            String    @default("COVER")
+  draftProductCardStyle       String    @default("SOFT")
+  draftProductColumns         Int       @default(4)
+  draftShowAbout              Boolean   @default(true)
+  draftShowHours              Boolean   @default(true)
+  draftShowContact            Boolean   @default(true)
+  draftSectionOrder           String    @default("featured,products,services,reviews,about")
   publishedAt                DateTime?
   publishedTheme             String?
   publishedLayout            String?
@@ -384,6 +392,14 @@ model ShopCustomization {
   publishedShowCategories    Boolean?
   publishedShowFeatured      Boolean?
   publishedShowServices      Boolean?
+  publishedHeaderStyle         String?
+  publishedBannerStyle         String?
+  publishedProductCardStyle    String?
+  publishedProductColumns     Int?
+  publishedShowAbout           Boolean?
+  publishedShowHours           Boolean?
+  publishedShowContact         Boolean?
+  publishedSectionOrder        String?
   customizationVersion       Int       @default(1)
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt

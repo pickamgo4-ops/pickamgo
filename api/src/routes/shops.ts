@@ -29,6 +29,14 @@ const customizationFields = {
   showCategories: z.boolean().default(true),
   showFeatured: z.boolean().default(true),
   showServices: z.boolean().default(true),
+  headerStyle: z.enum(['STANDARD', 'COMPACT', 'CENTERED']).default('STANDARD'),
+  bannerStyle: z.enum(['COVER', 'SHORT', 'MINIMAL']).default('COVER'),
+  productCardStyle: z.enum(['SOFT', 'OUTLINED', 'EDITORIAL']).default('SOFT'),
+  productColumns: z.number().int().min(2).max(5).default(4),
+  showAbout: z.boolean().default(true),
+  showHours: z.boolean().default(true),
+  showContact: z.boolean().default(true),
+  sectionOrder: z.string().max(200).default('featured,products,services,reviews,about'),
 }
 const customizationSchema = z.object(customizationFields).partial()
 
@@ -55,6 +63,14 @@ const draftToResponse = (customization: any) => ({
   showCategories: customization.draftShowCategories,
   showFeatured: customization.draftShowFeatured,
   showServices: customization.draftShowServices,
+  headerStyle: customization.draftHeaderStyle,
+  bannerStyle: customization.draftBannerStyle,
+  productCardStyle: customization.draftProductCardStyle,
+  productColumns: customization.draftProductColumns,
+  showAbout: customization.draftShowAbout,
+  showHours: customization.draftShowHours,
+  showContact: customization.draftShowContact,
+  sectionOrder: customization.draftSectionOrder,
 })
 
 const publishedToResponse = (customization: any) => customization?.publishedAt ? {
@@ -73,6 +89,14 @@ const publishedToResponse = (customization: any) => customization?.publishedAt ?
   showCategories: customization.publishedShowCategories,
   showFeatured: customization.publishedShowFeatured,
   showServices: customization.publishedShowServices,
+  headerStyle: customization.publishedHeaderStyle,
+  bannerStyle: customization.publishedBannerStyle,
+  productCardStyle: customization.publishedProductCardStyle,
+  productColumns: customization.publishedProductColumns,
+  showAbout: customization.publishedShowAbout,
+  showHours: customization.publishedShowHours,
+  showContact: customization.publishedShowContact,
+  sectionOrder: customization.publishedSectionOrder,
 } : null
 
 const effectiveCustomization = (customization: any) => {
@@ -136,6 +160,14 @@ router.post('/:id/customization/publish', authMiddleware, requireRole(['SELLER']
       publishedShowCategories: customization.draftShowCategories,
       publishedShowFeatured: customization.draftShowFeatured,
       publishedShowServices: customization.draftShowServices,
+      publishedHeaderStyle: customization.draftHeaderStyle,
+      publishedBannerStyle: customization.draftBannerStyle,
+      publishedProductCardStyle: customization.draftProductCardStyle,
+      publishedProductColumns: customization.draftProductColumns,
+      publishedShowAbout: customization.draftShowAbout,
+      publishedShowHours: customization.draftShowHours,
+      publishedShowContact: customization.draftShowContact,
+      publishedSectionOrder: customization.draftSectionOrder,
       publishedAt: new Date(),
     },
   })
@@ -154,6 +186,9 @@ router.post('/:id/customization/reset', authMiddleware, requireRole(['SELLER']),
       draftCoverImage: null, draftProfileImage: null, draftDescription: null,
       draftAnnouncement: null, draftFeaturedProductId: null, draftShowReviews: true,
       draftShowCategories: true, draftShowFeatured: true, draftShowServices: true,
+      draftHeaderStyle: 'STANDARD', draftBannerStyle: 'COVER', draftProductCardStyle: 'SOFT', draftProductColumns: 4,
+      draftShowAbout: true, draftShowHours: true, draftShowContact: true,
+      draftSectionOrder: 'featured,products,services,reviews,about',
     },
   })
   return successResponse(res, { draft: draftToResponse(customization), published: publishedToResponse(customization) }, 200, 'Draft reset to default')
@@ -181,6 +216,14 @@ router.get('/:slug/customization', async (req: AuthenticatedRequest, res) => {
           draftShowCategories: true,
           draftShowFeatured: true,
           draftShowServices: true,
+          draftHeaderStyle: 'STANDARD',
+          draftBannerStyle: 'COVER',
+          draftProductCardStyle: 'SOFT',
+          draftProductColumns: 4,
+          draftShowAbout: true,
+          draftShowHours: true,
+          draftShowContact: true,
+          draftSectionOrder: 'featured,products,services,reviews,about',
         },
       })
     }

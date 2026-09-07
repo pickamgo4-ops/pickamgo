@@ -154,9 +154,9 @@ export default function ShopPage() {
   const primaryTextColor = theme === 'dark' ? '#171614' : readableTextColor(customization.primaryColor)
 
   return (
-    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...shopCustomizationStyle(customization), color: surfaceTextColor }}>
+    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...shopCustomizationStyle(customization), backgroundColor: customization.secondaryColor, color: surfaceTextColor }}>
       {/* Banner */}
-      <div className="relative h-40 sm:h-48 md:h-64 bg-[var(--shop-secondary)]">
+      <div className={`relative ${customization.bannerStyle === 'MINIMAL' ? 'h-20 sm:h-24' : customization.bannerStyle === 'SHORT' ? 'h-28 sm:h-36' : 'h-40 sm:h-48 md:h-64'} bg-[var(--shop-secondary)]`}>
         {(customization.coverImage || shop.banner) && (
           <img
             src={customization.coverImage || shop.banner}
@@ -177,9 +177,9 @@ export default function ShopPage() {
       </div>
 
       {/* Shop Info */}
-      <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 -mt-10 sm:-mt-12 relative z-10">
-        <div className="rounded-2xl p-4 sm:p-6 shadow-sm border border-black/10 bg-[var(--shop-secondary)]">
-          <div className="flex items-start gap-3 sm:gap-4 mb-4">
+      <div className={`max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10 ${customization.bannerStyle === 'MINIMAL' ? '-mt-4' : '-mt-10 sm:-mt-12'}`}>
+        <div className={`rounded-[var(--shop-card-radius,1rem)] p-4 sm:p-6 shadow-sm border border-[var(--shop-border)] bg-[var(--shop-surface)] ${customization.headerStyle === 'CENTERED' ? 'text-center' : ''}`}>
+          <div className={`flex items-start gap-3 sm:gap-4 mb-4 ${customization.headerStyle === 'CENTERED' ? 'flex-col items-center' : ''}`}>
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-warm-100 -mt-12 sm:-mt-16 flex-shrink-0">
               <img
                 src={customization.logo || shop.logo}
@@ -229,10 +229,10 @@ export default function ShopPage() {
           </div>}
 
           {/* Opening Hours */}
-          <div className="flex items-start gap-2 text-sm text-warm-800/60 mb-4">
+          {customization.showHours && <div className="flex items-start gap-2 text-sm text-[var(--shop-muted)] mb-4">
             <Clock size={16} />
               <span className="opacity-75">{shop.openingHours}</span>
-          </div>
+          </div>}
 
           {/* Delivery Info */}
           <div className="flex flex-wrap gap-2 mb-4">
@@ -328,7 +328,7 @@ export default function ShopPage() {
             title="Products"
             subtitle={`${visibleProducts.length} items available`}
           />
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className={`grid grid-cols-2 md:grid-cols-3 ${customization.productColumns >= 4 ? 'lg:grid-cols-4' : customization.productColumns === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-3 sm:gap-4`}>
             {visibleProducts.map((product) => (
               <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />
             ))}
@@ -392,6 +392,16 @@ export default function ShopPage() {
                 ))}
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {customization.showAbout && (
+        <section className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 mt-8 mb-10">
+          <div className="rounded-[var(--shop-card-radius,1rem)] border border-[var(--shop-border)] bg-[var(--shop-surface)] p-4 sm:p-6">
+            <h2 className="font-display text-xl font-bold mb-2">About {shop.name}</h2>
+            <p className="text-sm opacity-75">{customization.description || shop.description}</p>
+            {customization.showContact && <p className="mt-3 text-sm opacity-70">{shop.location}</p>}
           </div>
         </section>
       )}

@@ -2,6 +2,9 @@ import type { CSSProperties } from 'react'
 
 export type ShopTheme = 'CLEAN' | 'MIDNIGHT' | 'SOFT' | 'LUXURY' | 'FRESH' | 'QUICK_PICKS' | 'STREET' | 'BEAUTY'
 export type ShopLayout = 'CLASSIC' | 'GRID' | 'FEATURED' | 'BEAUTY' | 'QUICK_PICKS'
+export type ShopHeaderStyle = 'STANDARD' | 'COMPACT' | 'CENTERED'
+export type ShopBannerStyle = 'COVER' | 'SHORT' | 'MINIMAL'
+export type ProductCardStyle = 'SOFT' | 'OUTLINED' | 'EDITORIAL'
 
 export interface ShopCustomization {
   theme: ShopTheme
@@ -19,6 +22,14 @@ export interface ShopCustomization {
   showCategories: boolean
   showFeatured: boolean
   showServices: boolean
+  headerStyle: ShopHeaderStyle
+  bannerStyle: ShopBannerStyle
+  productCardStyle: ProductCardStyle
+  productColumns: number
+  showAbout: boolean
+  showHours: boolean
+  showContact: boolean
+  sectionOrder: string
 }
 
 export const themePresets: Array<{ id: ShopTheme; name: string; description: string; colors: [string, string, string] }> = [
@@ -35,6 +46,8 @@ export const themePresets: Array<{ id: ShopTheme; name: string; description: str
 export const defaultShopCustomization: ShopCustomization = {
   theme: 'CLEAN', layout: 'CLASSIC', primaryColor: '#FF6B35', secondaryColor: '#FFF5E6', accentColor: '#2C1F15',
   showReviews: true, showCategories: true, showFeatured: true, showServices: true,
+  headerStyle: 'STANDARD', bannerStyle: 'COVER', productCardStyle: 'SOFT', productColumns: 4,
+  showAbout: true, showHours: true, showContact: true, sectionOrder: 'featured,products,services,reviews,about',
 }
 
 export function shopCustomizationStyle(customization: ShopCustomization): CSSProperties {
@@ -45,6 +58,10 @@ export function shopCustomizationStyle(customization: ShopCustomization): CSSPro
     '--shop-text': readableTextColor(customization.secondaryColor),
     '--shop-primary-text': readableTextColor(customization.primaryColor),
     '--shop-border': `${customization.accentColor}33`,
+    '--shop-muted': `${customization.accentColor}99`,
+    '--shop-surface': customization.secondaryColor,
+    '--shop-button': customization.primaryColor,
+    '--shop-card-radius': customization.productCardStyle === 'EDITORIAL' ? '0.25rem' : customization.productCardStyle === 'OUTLINED' ? '0.75rem' : '1rem',
   } as CSSProperties
 }
 
