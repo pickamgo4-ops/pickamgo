@@ -10,6 +10,13 @@ import { assertModerationSafe } from '../utils/moderation'
 const router = Router()
 const imageUrl = z.string().refine(value => value.startsWith('/') || /^https?:\/\//.test(value), 'Invalid image URL')
 
+async function resolveCategoryIds(value: string): Promise<string[]> {
+  const category = await prisma.category.findFirst({ where: { OR: [{ id: value }, { slug: value }, { name: { equals: value, mode: 'insensitive' } }] }, select: { id: true } })
+  if (!category) return [value]
+  const children = await prisma.category.findMany({ where: { parentId: category.id, isActive: true }, select: { id: true } })
+  return [category.id, ...children.map(child => child.id)]
+}
+
 function generateSku(sellerId: string, productId?: string): string {
   const prefix = 'PGH'
   const sellerPrefix = sellerId.substring(0, 4).toUpperCase()
@@ -120,7 +127,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
       isDeal,
     } = req.query as z.infer<typeof listProductsQuerySchema>
 
-    const where: any = { ...publicProductVisibility, draft: false }
+    const where: any = { ...publicProductVisibility }
 
     const shopStatusOk = await prisma.shop.count({ where: { status: 'ACTIVE' } })
     if (shopStatusOk === 0) {
@@ -147,7 +154,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
     }
 
     if (category) {
-      where.categoryId = category
+      where.categoryId = { in: await resolveCategoryIds(category) }
     }
 
     if (location) {
