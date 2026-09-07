@@ -10,6 +10,7 @@ import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod 
 import { generateOrderNumber } from '../utils/orderNumber'
 import { getAppUrl } from '../utils/url'
 import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, doesPromoApplyToGroup, type PromoValidationResult } from '../services/promo'
+import { findShippingZone, getActiveProductPromotion } from './seller-store'
 
 const router = Router()
 
@@ -328,7 +329,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
   }
 
   const orderItems: any[] = []
-  const shopGroups: Map<string, { shopId: string; sellerId: string; items: any[]; deliveryFee: number; productIds: string[]; categoryIds: string[]; campus?: string | undefined }> = new Map()
+  const shopGroups: Map<string, { shopId: string; sellerId: string; shopName: string; items: any[]; deliveryFee: number; productIds: string[]; categoryIds: string[]; campus?: string | undefined }> = new Map()
 
   for (const item of items) {
     if (!item.productId && !item.serviceId) {
@@ -378,7 +379,8 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
         }
         itemPrice = Number(variant.price || product.price)
       } else {
-        itemPrice = Number(product.price)
+        const activePromotion = await getActiveProductPromotion(product.id)
+        itemPrice = activePromotion ? Number(activePromotion.finalPrice) : Number(product.price)
       }
 
       itemName = product.name
@@ -438,19 +440,35 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
     }
 
     if (!shopGroups.has(shopId)) {
-      const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { platformDeliveryFee: true, sellerDeliveryFee: true, deliveryAvailable: true, pickupAvailable: true, sellerDeliveryAvailable: true } })
+      const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { name: true, platformDeliveryFee: true, sellerDeliveryFee: true, deliveryAvailable: true, pickupAvailable: true, sellerDeliveryAvailable: true } })
       const methodError = shop && deliveryMethodError(shop, deliveryType, resolvedFulfillmentMethod)
       if (methodError) return errorResponse(res, methodError, 400)
       const serverDeliveryFee = deliveryType === 'DELIVERY'
         ? Number(shop?.platformDeliveryFee || shop?.sellerDeliveryFee || 0)
         : 0
-      shopGroups.set(shopId, { shopId, sellerId, items: [], deliveryFee: serverDeliveryFee, productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus })
+      shopGroups.set(shopId, { shopId, sellerId, shopName: shop?.name || 'This seller', items: [], deliveryFee: serverDeliveryFee, productIds: [], categoryIds: productCategoryId ? [productCategoryId] : [], campus: productCampus })
     }
     const group = shopGroups.get(shopId)!
     group.items.push(orderItem)
     if (productId) group.productIds.push(productId)
     if (productCategoryId && !group.categoryIds.includes(productCategoryId)) group.categoryIds.push(productCategoryId)
     if (productCampus && !group.campus) group.campus = productCampus
+  }
+
+  if (deliveryType === 'DELIVERY') {
+    const unsupported: Array<{ shopName: string; areas: string[] }> = []
+    for (const group of shopGroups.values()) {
+      const zone = await findShippingZone(group.shopId, deliveryAddress)
+      if (!zone) {
+        const zones = await prisma.shippingZone.findMany({ where: { shopId: group.shopId, isActive: true }, select: { name: true } })
+        unsupported.push({ shopName: group.shopName, areas: zones.map(item => item.name) })
+      }
+      else group.deliveryFee = Number(zone.freeDeliveryFrom !== null && group.items.reduce((sum, item) => sum + item.price * item.quantity, 0) >= Number(zone.freeDeliveryFrom) ? 0 : zone.deliveryFee)
+    }
+    if (unsupported.length) {
+      const details = unsupported.map(item => `${item.shopName}: ${item.areas.length ? item.areas.join(', ') : 'No delivery areas configured'}`).join(' | ')
+      return errorResponse(res, `This seller does not currently deliver to your selected location. Delivery available in: ${details}`, 400, 'DELIVERY_ZONE_UNSUPPORTED')
+    }
   }
 
   let promoValidation: PromoValidationResult | null = null
@@ -630,7 +648,10 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
           },
         })
 
-        await incrementPromoUsage(promoValidation.promo.id, pickamgoPromoExpense)
+        const promoUsageUpdated = await incrementPromoUsage(promoValidation.promo.id, pickamgoPromoExpense, tx)
+        if (!promoUsageUpdated) {
+          throw new Error('Promo usage limit or campaign budget was reached while creating the order')
+        }
       }
 
       if (resolvedFulfillmentMethod === 'FIND_IT_NEAR_ME_RIDER') {

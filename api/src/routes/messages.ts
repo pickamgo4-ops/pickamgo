@@ -5,6 +5,7 @@ import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { sendNewMessageEmail } from '../services/email'
 import { getAppUrl } from '../utils/url'
+import { containsDisallowedContactPattern, detectMessageRisk, isOrderEligibleForMessaging } from '../utils/moderation'
 
 const router = Router()
 
@@ -17,8 +18,14 @@ async function resolveAccess(currentUserId: string, otherUserId: string, orderId
   if (currentUserId === otherUserId) return null
 
   if (orderId) {
-    const order = await prisma.order.findUnique({ where: { id: orderId } })
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true },
+    })
     if (!order || !order.customerId) return null
+
+    const eligible = isOrderEligibleForMessaging(order)
+    if (!eligible) return null
 
     const participants = [order.customerId, order.sellerId, order.riderId].filter(Boolean)
     const isParticipantPair = participants.includes(currentUserId) && participants.includes(otherUserId)
@@ -226,6 +233,23 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
     const otherUserId = req.params.userId
     const { content, orderId } = req.body
 
+    const moderation = detectMessageRisk(content)
+    if (moderation.blocked) {
+      await prisma.messageModeration.create({
+        data: {
+          userId: currentUserId,
+          relatedOrderId: orderId || null,
+          content,
+          normalized: content.toLowerCase(),
+          riskLevel: moderation.riskLevel,
+          status: 'BLOCKED',
+          reason: moderation.reason,
+        },
+      })
+
+      return errorResponse(res, 'For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]', 400)
+    }
+
     await prisma.user.update({ where: { id: currentUserId }, data: { lastActiveAt: new Date() } })
 
     let conversation: any = await prisma.conversation.findFirst({
@@ -243,7 +267,7 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
       : await resolveAccess(currentUserId, otherUserId, orderId)
 
     if (!access && !existingConversationAccess) {
-      return errorResponse(res, 'You are not allowed to message this user', 403)
+      return errorResponse(res, 'You can message this seller after placing an order with this shop.', 403)
     }
     if (access?.closedAt || conversation?.closedAt) return errorResponse(res, 'This conversation is closed', 403)
 

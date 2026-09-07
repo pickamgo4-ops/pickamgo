@@ -354,4 +354,63 @@ router.get('/inventory', authMiddleware, requireRole(['SELLER']), async (req: Au
   }
 })
 
+router.get('/trust', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user!.id
+
+    const [verification, risk, freeze] = await Promise.all([
+      prisma.sellerVerification.findFirst({ where: { userId, type: 'SELLER' } }),
+      prisma.sellerRisk.findUnique({ where: { userId } }),
+      prisma.sellerPayoutFreeze.findFirst({ where: { userId, thawedAt: null } }),
+    ])
+
+    let verificationStatus: string = 'NOT_SUBMITTED'
+    let canSell = true
+    const restrictions: string[] = []
+
+    if (verification) {
+      verificationStatus = verification.status
+      if (verification.status === 'PENDING' || verification.status === 'SUSPENDED') {
+        canSell = false
+      }
+      if (verification.reviewStatus === 'UNDER_REVIEW') {
+        restrictions.push('Account under review by admin')
+      }
+    } else {
+      canSell = false
+      restrictions.push('Complete seller verification to sell')
+    }
+
+    if (freeze) {
+      canSell = false
+      restrictions.push(`Payouts frozen: ${freeze.reason || 'Security reasons'}`)
+    }
+
+    if (risk) {
+      if (risk.riskLevel === 'HIGH') {
+        restrictions.push('High risk level - some features may be limited')
+      }
+    }
+
+    const trustInfo = {
+      verificationStatus,
+      reviewStatus: verification?.reviewStatus || null,
+      verificationMethod: verification?.verificationMethod || null,
+      trustScore: risk?.trustScore || 50,
+      riskLevel: risk?.riskLevel || 'NORMAL',
+      isPayoutFrozen: !!freeze,
+      payoutFreezeReason: freeze?.reason || null,
+      canSell,
+      restrictions,
+      verificationDate: verification?.verificationDate || null,
+      verificationProvider: verification?.verificationProvider || null,
+      verificationReference: verification?.verificationReference || null,
+    }
+
+    return successResponse(res, trustInfo)
+  } catch (error) {
+    return errorResponse(res, 'Failed to fetch trust info', 500)
+  }
+})
+
 export default router

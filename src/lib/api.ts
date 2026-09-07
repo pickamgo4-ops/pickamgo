@@ -1,21 +1,24 @@
-import { Cart, CartItemWithRelations, Address, Order, RiderDelivery, RiderProfile, SellerVerification, CheckoutOrder, PayoutMethod, Payout, PayoutBalances, DeliverySettings, PlatformPromoStats } from '../types'
+import { Cart, CartItemWithRelations, Address, Order, RiderDelivery, RiderProfile, SellerVerification, SellerRisk, SellerPayoutFreeze, PayoutMethodChange, SellerTrustInfo, CheckoutOrder, PayoutMethod, Payout, PayoutBalances, DeliverySettings, PlatformPromoStats } from '../types'
 
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL
 const FALLBACK_API_URL = '/api'
 const PRODUCTION_API_URL = 'https://pickamgo-production.up.railway.app/api'
 
-function resolveApiUrl(): string {
-  if (CONFIGURED_API_URL) return CONFIGURED_API_URL
+function isLocalApiUrl(value: string | undefined): boolean {
+  return Boolean(value && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(value))
+}
 
+function resolveApiUrl(): string {
   if (typeof window === 'undefined') {
-    return process.env.NODE_ENV === 'production'
-      ? PRODUCTION_API_URL
-      : FALLBACK_API_URL
+    if (CONFIGURED_API_URL && !(process.env.NODE_ENV === 'production' && isLocalApiUrl(CONFIGURED_API_URL))) return CONFIGURED_API_URL
+    return process.env.NODE_ENV === 'production' ? PRODUCTION_API_URL : FALLBACK_API_URL
   }
 
   const hostname = window.location.hostname
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
   if (isLocalhost) return FALLBACK_API_URL
+
+  if (CONFIGURED_API_URL && !isLocalApiUrl(CONFIGURED_API_URL)) return CONFIGURED_API_URL
 
   return PRODUCTION_API_URL
 }
@@ -351,6 +354,19 @@ export const api = {
   requestWithdrawal: (data: { amount: number; payoutMethodId: string }) => api.post('/payouts/withdraw', data),
   getDeliverySettings: () => api.get<DeliverySettings>('/seller/delivery-settings'),
   updateDeliverySettings: (data: Partial<DeliverySettings>) => api.patch<DeliverySettings>('/seller/delivery-settings', data),
+  getSellerShippingZones: () => api.get<any[]>('/seller/store/zones'),
+  createSellerShippingZone: (data: any) => api.post<any>('/seller/store/zones', data),
+  updateSellerShippingZone: (id: string, data: any) => api.patch<any>(`/seller/store/zones/${id}`, data),
+  deleteSellerShippingZone: (id: string) => api.delete(`/seller/store/zones/${id}`),
+  getSellerCollections: () => api.get<any[]>('/seller/store/collections'),
+  createSellerCollection: (data: any) => api.post<any>('/seller/store/collections', data),
+  updateSellerCollection: (id: string, data: any) => api.patch<any>(`/seller/store/collections/${id}`, data),
+  deleteSellerCollection: (id: string) => api.delete(`/seller/store/collections/${id}`),
+  getSellerProductPromotions: () => api.get<any[]>('/seller/store/promotions'),
+  createSellerProductPromotion: (data: any) => api.post<any>('/seller/store/promotions', data),
+  updateSellerProductPromotionStatus: (id: string, status: string) => api.patch(`/seller/store/promotions/${id}/status`, { status }),
+  getSellerQr: () => api.get<any>('/seller/store/qr'),
+  generateSellerQr: () => api.post<any>('/seller/store/qr', {}),
   validatePromoCode: (code: string, subtotal: number, deliveryFee: number, shopId?: string, productIds?: string[], categoryIds?: string[], campus?: string) =>
     api.post<{ valid: boolean; code?: string; campaignName?: string; discountType?: string; discountValue?: number; maxDiscount?: number | null; discountAmount: number; deliveryDiscount: number; discountedSubtotal: number }>('/promos/validate', { code, subtotal, deliveryFee, shopId, productIds, categoryIds, campus }),
   getAdminPromos: (params?: { page?: number; limit?: number; status?: string; search?: string; fundingType?: string }) => {
@@ -396,4 +412,46 @@ export const api = {
     api.post<any>('/favorites', { targetType, targetId }),
   removeFavorite: (targetType: 'PRODUCT' | 'SERVICE' | 'SHOP', targetId: string) =>
     api.delete(`/favorites/${targetType}/${targetId}`),
+  submitSellerVerification: (data: any) => api.post<SellerVerification>('/seller/verification/verify', data),
+  getSellerVerificationStatus: () => api.get<{ verification?: SellerVerification; risk?: { riskLevel: string; trustScore: number; lastCheckedAt: string }; status: string }>('/seller/verification/status'),
+  getSellerTrustInfo: () => api.get<SellerTrustInfo>('/seller/trust'),
+  getAdminSellers: (params?: { page?: number; limit?: number; search?: string; verificationStatus?: string; riskLevel?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<{ sellers: any[]; pagination: any }>(`/admin/sellers${query}`)
+  },
+  getAdminSeller: (id: string) => api.get<any>(`/admin/sellers/${id}`),
+  freezeSellerPayout: (id: string, data: { reason: string }) => api.post(`/admin/sellers/${id}/freeze-payout`, data),
+  unfreezeSellerPayout: (id: string) => api.post(`/admin/sellers/${id}/unfreeze-payout`, {}),
+  getPendingModerationProducts: (params?: { page?: number; limit?: number }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<{ products: any[]; pagination: any }>(`/admin/products/pending-moderation${query}`)
+  },
+  moderateProduct: (id: string, data: { moderationStatus: 'APPROVED' | 'REJECTED'; moderationNotes?: string }) =>
+    api.patch(`/admin/products/${id}/moderate`, data),
+  getAdminReports: (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+          ) as Record<string, string>
+        ).toString()
+      : ''
+    return api.get<{ reports: any[]; pagination: any }>(`/admin/reports${query}`)
+  },
+  resolveReport: (id: string, data: { status: 'PENDING' | 'INVESTIGATING' | 'RESOLVED' | 'DISMISSED'; adminNotes?: string }) =>
+    api.patch(`/admin/reports/${id}/resolve`, data),
+  updatePayoutMethod: (id: string, data: any) => api.patch(`/payouts/methods/${id}`, data),
+  getVerificationHistory: () => api.get<any[]>('/seller/verification/history'),
 }

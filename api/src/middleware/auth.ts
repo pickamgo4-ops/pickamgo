@@ -99,6 +99,32 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
   }
 }
 
+export async function restrictedAccountAuthMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
+  const authHeader = (req as any).headers?.authorization as string | undefined
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ success: false, error: 'Authentication required' })
+    return
+  }
+
+  try {
+    const payload = verifyToken(authHeader.split(' ')[1])
+    const user = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { id: true, email: true, name: true, isSeller: true, isRider: true, isAdmin: true, authVersion: true, suspended: true, banned: true, accountStatus: true },
+    })
+    const restricted = Boolean(user?.suspended || user?.banned || user?.accountStatus !== 'ACTIVE')
+    if (!user || (payload.authVersion !== user.authVersion && !restricted)) {
+      res.status(401).json({ success: false, error: 'Invalid or expired token' })
+      return
+    }
+    req.user = user
+    if (!(await enforceAuthenticatedRateLimit(req, res, 'auth'))) return
+    next()
+  } catch {
+    res.status(401).json({ success: false, error: 'Invalid or expired token' })
+  }
+}
+
 export async function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response, next: Function) {
   const authHeader = (req as any).headers?.authorization as string | undefined
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

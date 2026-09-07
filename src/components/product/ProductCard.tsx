@@ -47,6 +47,9 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
           {product.isDeal && (
             <Badge variant="deal"><Tag size={12} /> Deal</Badge>
           )}
+          {product.promotionName && (
+            <Badge variant="deal"><Tag size={12} /> {product.promotionType === 'CLEARANCE' ? 'Clearance' : product.promotionName}</Badge>
+          )}
         </div>
 
         {/* Favorite Button */}
@@ -117,11 +120,11 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
         {/* Price */}
         <div className="flex items-baseline gap-2 mb-1.5 sm:mb-2">
           <span className="font-bold text-base sm:text-lg">
-            GH₵{product.price}
+            GH₵{Number(product.price).toFixed(2)}
           </span>
           {product.originalPrice && (
             <span className="text-xs sm:text-sm opacity-50 line-through">
-              GH₵{product.originalPrice}
+              GH₵{Number(product.originalPrice).toFixed(2)}
             </span>
           )}
         </div>

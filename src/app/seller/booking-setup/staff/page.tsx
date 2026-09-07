@@ -46,11 +46,10 @@ export default function StaffPage() {
     try {
       const [staffRes, servicesRes] = await Promise.all([
         api.get<Staff[]>('/booking-setup/staff'),
-        api.get<{ products: any[] }>('/products?limit=1'),
+        api.get<{ services: Service[] }>('/booking-setup/services'),
       ])
       if (staffRes.success && staffRes.data) setStaff(staffRes.data as any)
-      const servicesData = await api.get<{ services: Service[] }>('/services?limit=100')
-      if (servicesData.success && servicesData.data) setServices(servicesData.data.services || [])
+      if (servicesRes.success && servicesRes.data) setServices(servicesRes.data.services || [])
     } catch (err) {
       console.error(err)
     } finally {

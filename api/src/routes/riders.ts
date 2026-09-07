@@ -470,6 +470,13 @@ router.get('/deliveries/:id', authMiddleware, requireRole(['RIDER']), async (req
       return errorResponse(res, 'Delivery not found', 404)
     }
 
+    const completedStatuses = new Set(['DELIVERED', 'CANCELLED', 'FAILED'])
+    const minimizeExposure = delivery.riderId !== req.user!.id || completedStatuses.has(delivery.status)
+
+    if (minimizeExposure && delivery.order) {
+      delivery.order.deliveryAddress = delivery.order.deliveryAddress ? delivery.order.deliveryAddress.split(',').slice(-1).join(',').trim() : delivery.order.deliveryAddress
+    }
+
     return successResponse(res, delivery)
   } catch (error) {
     return errorResponse(res, 'Failed to fetch delivery', 500)

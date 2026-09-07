@@ -8,6 +8,19 @@ import { sendOrderStatusEmail, sendPaymentConfirmationEmail, sendRefundEmail, se
 import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod } from '../utils/deliveryRules'
 import { generateOrderNumber } from '../utils/orderNumber'
 import { getAppUrl } from '../utils/url'
+import { detectFakeOrderSignals } from '../utils/fakeOrderDetector'
+
+async function recordCustodyEvent(orderId: string, actorId: string | null, eventType: string, status: string, metadata?: Record<string, any>) {
+  return prisma.orderCustodyEvent.create({
+    data: {
+      orderId,
+      actorId,
+      eventType,
+      status,
+      metadata: metadata ? JSON.stringify(metadata) : null,
+    },
+  })
+}
 
 const APP_URL = getAppUrl()
 
@@ -221,6 +234,16 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(createOrder
       },
     })
 
+    await tx.orderCustodyEvent.create({
+      data: {
+        orderId: newOrder.id,
+        actorId: req.user!.id,
+        eventType: 'ORDER_CREATED',
+        status: 'PENDING_PAYMENT',
+        metadata: JSON.stringify({ fulfillmentMethod, deliveryAddress }),
+      },
+    })
+
     for (const item of orderItems) {
       await tx.orderItem.create({
         data: { ...item, orderId: newOrder.id },
@@ -307,6 +330,10 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(createOrder
     },
   })
 
+  if (fullOrder) {
+    void detectFakeOrderSignals(fullOrder.id, req.user!.id)
+  }
+
   return successResponse(res, fullOrder, 201, 'Order created successfully')
 })
 
@@ -326,6 +353,14 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
 
   if (status === 'DELIVERED' && isSeller && !isAdmin && order.fulfillmentMethod === 'FIND_IT_NEAR_ME_RIDER') {
     return errorResponse(res, 'Only the assigned PickAmGo rider can complete platform delivery orders', 403)
+  }
+
+  const openDispute = await prisma.dispute.findFirst({
+    where: { orderId: order.id, status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+    select: { id: true },
+  })
+  if (openDispute && (status === 'DELIVERED' || status === 'OUT_FOR_DELIVERY') && !isAdmin) {
+    return errorResponse(res, 'Order is locked while a dispute is open. Please contact support.', 409, 'DISPUTE_LOCK')
   }
 
   const validTransitions: Record<string, string[]> = {
@@ -361,6 +396,8 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
   if (status === 'DELIVERED') {
     updateData.payoutEligible = !order.isTestOrder
   }
+
+  await recordCustodyEvent(req.params.id, req.user!.id, 'ORDER_STATUS_CHANGED', status, { previousStatus: order.status, changedBy: req.user!.id })
 
   const updated = await prisma.order.update({
     where: { id: req.params.id },

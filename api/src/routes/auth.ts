@@ -23,6 +23,10 @@ import { compareCode, generateVerificationCode, hashCode } from "../utils/email-
 import { getAppUrl } from "../utils/url";
 import { consumeRateLimit, getRequestIp, getRateLimitConfig, hashIdentity, isRateLimited } from "../middleware/rate-limit";
 import { createAndSendOtp, normalizeGhanaPhone, OTP_PURPOSES, verifyOtp } from '../services/otpService';
+import { identitySimilarity, normalizeIdentityName } from '../utils/identitySecurity';
+import { buildSessionMeta, createUserSession, recordSessionAnomaly } from '../utils/sessions';
+import { recordAccountChange } from '../utils/accountChanges';
+import { revokeAllSessions } from '../utils/sessions';
 
 const router = Router();
 
@@ -232,6 +236,9 @@ router.post("/google", validateBody(googleAuthSchema), async (req: Authenticated
     });
 
     if (existingUser) {
+      if (existingUser.suspended || existingUser.banned || existingUser.accountStatus === 'BANNED') {
+        return errorResponse(res, 'This account is restricted. Contact support to appeal the decision.', 403, 'ACCOUNT_RESTRICTED')
+      }
       const token = generateToken(existingUser);
       const { passwordHash: _, ...userWithoutPassword } = existingUser;
       return successResponse(
@@ -268,8 +275,21 @@ router.post(
       const googleUser = await verifyGoogleToken(idToken);
       const { email: normalizedEmail, name, avatar } = googleUser;
 
+      let normalizedGooglePhone: string | undefined
+      if (phone) {
+        try { normalizedGooglePhone = normalizeGhanaPhone(phone) } catch { return errorResponse(res, 'Invalid phone number', 400) }
+        const restrictedPhoneUser = await prisma.user.findFirst({
+          where: { phone: { in: [phone, normalizedGooglePhone] }, OR: [{ banned: true }, { accountStatus: 'BANNED' }] },
+          select: { id: true },
+        })
+        if (restrictedPhoneUser) return errorResponse(res, 'This verified phone number is associated with a restricted account and cannot be used to create another account.', 403, 'BAN_EVASION_REVIEW')
+      }
+
       const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
       if (existingUser) {
+        if (existingUser.suspended || existingUser.banned || existingUser.accountStatus === 'BANNED') {
+          return errorResponse(res, 'This account is restricted. Contact support to appeal the decision.', 403, 'ACCOUNT_RESTRICTED')
+        }
         const token = generateToken(existingUser);
         const { passwordHash: _, ...userWithoutPassword } = existingUser;
         return successResponse(
@@ -290,7 +310,7 @@ router.post(
         data: {
           name,
           email: normalizedEmail,
-          phone,
+          phone: normalizedGooglePhone,
           passwordHash: bcrypt.hashSync(crypto.randomBytes(32).toString("hex"), 10),
           location: "",
           avatar: avatar || "",
@@ -343,9 +363,22 @@ router.post("/register", validateBody(registerSchema), async (req: Authenticated
     const { name, phone, password, role } = req.body;
     const email = req.body.email.trim().toLowerCase();
 
+    let normalizedRegistrationPhone: string | undefined
+    if (phone) {
+      try { normalizedRegistrationPhone = normalizeGhanaPhone(phone) } catch { return errorResponse(res, 'Invalid phone number', 400) }
+    }
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return errorResponse(res, "Email already registered", 409);
+    }
+
+    if (normalizedRegistrationPhone) {
+      const restrictedPhoneUser = await prisma.user.findFirst({
+        where: { phone: { in: [phone, normalizedRegistrationPhone] }, OR: [{ banned: true }, { accountStatus: 'BANNED' }] },
+        select: { id: true },
+      })
+      if (restrictedPhoneUser) return errorResponse(res, 'This verified phone number is associated with a restricted account and cannot be used to create another account.', 403, 'BAN_EVASION_REVIEW')
     }
 
     try {
@@ -373,7 +406,7 @@ router.post("/register", validateBody(registerSchema), async (req: Authenticated
       data: {
         name,
         email,
-        phone,
+        phone: normalizedRegistrationPhone,
         passwordHash,
         location: "",
         isSeller,
@@ -403,6 +436,27 @@ router.post("/register", validateBody(registerSchema), async (req: Authenticated
     const token = generateToken(user);
 
     const { passwordHash: _, ...userWithoutPassword } = user;
+
+    const normalizedName = normalizeIdentityName(name)
+    if (normalizedName.length >= 6) {
+      const similarAccounts = await prisma.user.findMany({
+        where: { id: { not: user.id }, OR: [{ isSeller: true }, { isRider: true }] },
+        select: { id: true, name: true },
+        take: 200,
+      })
+      const match = similarAccounts.find(candidate => identitySimilarity(name, candidate.name) >= 0.92)
+      if (match) {
+        await prisma.fraudAlert.create({
+          data: {
+            userId: user.id,
+            riskLevel: 'MEDIUM',
+            reason: 'New account name is highly similar to an existing seller or rider identity',
+            status: 'OPEN',
+            metadata: JSON.stringify({ relatedUserId: match.id, similarity: identitySimilarity(name, match.name), signal: 'ACCOUNT_NAME_SIMILARITY' }),
+          },
+        })
+      }
+    }
 
     const code = generateVerificationCode()
     const hashedCode = await hashCode(code)
@@ -648,6 +702,19 @@ router.post('/login/verification/verify', validateBody(loginVerificationSchema),
     }
     await prisma.loginChallenge.update({ where: { id: challenge.id }, data: { used: true } });
     await createLoginHistory(challenge.user.id, req, true);
+
+    const meta = buildSessionMeta(req as any);
+    const previousSessions = await prisma.userSession.findMany({
+      where: { userId: challenge.user.id, revokedAt: null },
+      select: { ipAddress: true },
+      distinct: ['ipAddress'],
+    });
+    const isNewLocation = previousSessions.length > 0 && !previousSessions.some(session => session.ipAddress === meta.ipAddress);
+    await createUserSession(challenge.user.id, meta);
+    if (isNewLocation) {
+      await recordSessionAnomaly(challenge.user.id, meta, 'New IP address during sign-in')
+    }
+
     const token = generateToken(challenge.user);
     const { passwordHash: _, ...userWithoutPassword } = challenge.user;
     void sendSignInNotificationEmail(challenge.user.email, challenge.user.name, { date: new Date().toLocaleString(), browser: (req as any).get?.('user-agent') || undefined }).catch(error => console.error('Failed to send sign-in notification email:', error));
@@ -691,6 +758,8 @@ router.post('/login/otp/verify-legacy', validateBody(phoneLoginVerifySchema), as
 
     await verifyOtp({ phoneNumber, otp: req.body.otp, purpose: 'LOGIN', userId: user.id })
     await createLoginHistory(user.id, req, true)
+    const meta = buildSessionMeta(req as any)
+    await createUserSession(user.id, meta)
     const token = generateToken(user)
     const { passwordHash: _, ...userWithoutPassword } = user
     return successResponse(res, { user: userWithoutPassword, token }, 200, 'Signed in successfully')
@@ -929,6 +998,15 @@ router.post(
           data: { used: true },
         }),
       ]);
+
+      await revokeAllSessions(resetToken.userId, undefined, 'PASSWORD_RESET');
+      await recordAccountChange({
+        userId: resetToken.userId,
+        changeType: 'PASSWORD_CHANGE',
+        ipAddress: ip,
+        userAgent: (req as any).get?.('user-agent') || null,
+        verifiedVia: 'password_reset_token',
+      });
 
       return successResponse(res, null, 200, "Password reset successfully");
     } catch (error) {

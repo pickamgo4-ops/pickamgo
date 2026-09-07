@@ -258,6 +258,20 @@ export default function ShopPage() {
             )}
           </div>
 
+          {shop.shippingZones && shop.shippingZones.length > 0 && (
+            <div className="mb-5 rounded-xl border border-[var(--shop-border)] p-4" style={{ backgroundColor: 'var(--shop-surface)' }}>
+              <h2 className="mb-3 flex items-center gap-2 font-semibold" style={{ color: surfaceTextColor }}><MapPin size={17} />Delivery Areas</h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {shop.shippingZones.map(zone => <div key={zone.id} className="rounded-lg p-3" style={{ backgroundColor: 'var(--shop-secondary)' }}><p className="font-medium" style={{ color: surfaceTextColor }}>{zone.name}</p><p className="text-xs opacity-75">GH₵{Number(zone.deliveryFee).toFixed(2)} · {zone.estimatedDelivery}{zone.freeDeliveryFrom != null ? ` · Free from GH₵${zone.freeDeliveryFrom}` : ''}</p></div>)}
+              </div>
+              <p className="mt-3 text-xs opacity-70">Delivery is available to selected locations. Availability is checked for each seller at checkout.</p>
+            </div>
+          )}
+
+          {shop.collections && shop.collections.length > 0 && <div className="mb-6 space-y-6">{shop.collections.map(collection => <section key={collection.id}><SectionHeader title={collection.name} subtitle={collection.description || undefined} /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{(collection.products || []).slice(0, 4).map(item => <ProductCard key={item.product.id} product={mapApiProductToFrontend(item.product)} />)}</div></section>)}</div>}
+
+          {shop.promotions && shop.promotions.length > 0 && <div className="mb-6 rounded-2xl border border-[var(--shop-border)] p-4" style={{ backgroundColor: 'var(--shop-surface)' }}><h2 className="mb-3 font-display text-lg font-bold" style={{ color: surfaceTextColor }}>Current promotions</h2><div className="grid gap-3 sm:grid-cols-2">{shop.promotions.map(promotion => <div key={promotion.id} className="rounded-xl p-3" style={{ backgroundColor: 'var(--shop-secondary)' }}><p className="font-semibold" style={{ color: surfaceTextColor }}>{promotion.name}</p><p className="text-xs opacity-75">{promotion.type.replace(/_/g, ' ')} · {promotion.products?.length || 0} products</p></div>)}</div></div>}
+
           {/* Actions */}
           <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-3">
             <Button

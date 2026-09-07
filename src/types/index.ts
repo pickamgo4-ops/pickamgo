@@ -4,6 +4,8 @@ export interface Product {
   price: number;
   originalPrice?: number;
   discount?: number;
+  promotionName?: string;
+  promotionType?: string;
   image: string;
   images?: string[];
   description: string;
@@ -89,6 +91,9 @@ export interface Shop {
   products: Product[];
   services: BeautyService[];
   customization?: import('../lib/shop-themes').ShopCustomization | null;
+  shippingZones?: Array<{ id: string; name: string; city?: string | null; area?: string | null; locations?: string[] | string; deliveryFee: number; freeDeliveryFrom?: number | null; estimatedDelivery: string }>
+  collections?: Array<{ id: string; name: string; description?: string | null; products?: Array<{ product: Product }> }>
+  promotions?: Array<{ id: string; name: string; type: string; products?: Array<{ product: Product }> }>
   createdAt: string;
 }
 
@@ -278,29 +283,6 @@ export interface ProductVariant {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface SellerVerification {
-  id: string
-  userId: string
-  fullName?: string
-  phoneNumber?: string
-  shopId?: string
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'
-  type?: string
-  idType?: string
-  idNumber?: string
-  idFrontUrl?: string
-  idBackUrl?: string
-  selfieUrl?: string
-  businessName?: string
-  businessType?: string
-  businessReg?: string
-  rejectionReason?: string
-  reviewedBy?: string
-  reviewedAt?: string
-  createdAt: string
-  updatedAt?: string
 }
 
 export interface RiderProfile {
@@ -552,4 +534,106 @@ export interface PlatformPromoStats {
   totalDiscount: number;
   pickamgoCost: number;
   revenueFromPromoOrders: number;
+}
+
+export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'NOT_SUBMITTED';
+
+export type ReviewStatus = 'UNDER_REVIEW' | 'NEEDS_REVIEW' | 'AUTO_APPROVED';
+
+export type SellerType = 'INDIVIDUAL' | 'BUSINESS';
+
+export type RiskLevel = 'LOW' | 'NORMAL' | 'MEDIUM' | 'HIGH';
+
+export type ModerationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface SellerVerification {
+  id: string;
+  userId: string;
+  shopId?: string;
+  fullName: string;
+  phoneNumber: string;
+  sellerType?: SellerType;
+  businessName?: string | null;
+  businessDescription?: string | null;
+  businessType?: string | null;
+  businessReg?: string | null;
+  location?: string | null;
+  intendedSell?: string | null;
+  agreedToTerms: boolean;
+  agreedAt?: string | null;
+  idNumber?: string | null;
+  idType?: string | null;
+  idFrontUrl?: string | null;
+  idBackUrl?: string | null;
+  selfieUrl?: string | null;
+  type: string;
+  status: VerificationStatus;
+  reviewStatus?: ReviewStatus | null;
+  rejectionReason?: string | null;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  verificationMethod?: string | null;
+  verificationProvider?: string | null;
+  verificationReference?: string | null;
+  verificationDate?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SellerRisk {
+  id: string;
+  userId: string;
+  riskLevel: RiskLevel;
+  trustScore: number;
+  flags?: string | null;
+  lastCheckedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SellerPayoutFreeze {
+  id: string;
+  userId: string;
+  frozenBy: string;
+  reason: string;
+  frozenAt: string;
+  thawedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayoutMethodChange {
+  id: string;
+  userId: string;
+  payoutMethodId: string;
+  changedByUserId: string;
+  changeReason?: string | null;
+  confirmedVia?: string | null;
+  changedAt: string;
+  isUnusual: boolean;
+}
+
+export interface SellerVerificationHistory {
+  id: string;
+  userId: string;
+  verificationId: string;
+  statusFrom?: string | null;
+  statusTo: string;
+  reason?: string | null;
+  changedBy?: string | null;
+  createdAt: string;
+}
+
+export interface SellerTrustInfo {
+  verificationStatus: VerificationStatus;
+  verificationMethod?: string | null;
+  verificationProvider?: string | null;
+  verificationDate?: string | null;
+  reviewStatus?: ReviewStatus | null;
+  trustScore: number;
+  riskLevel: RiskLevel;
+  isPayoutFrozen: boolean;
+  payoutFreezeReason?: string | null;
+  canSell: boolean;
+  restrictions: string[];
 }

@@ -5,6 +5,7 @@ import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 import { refundTransaction } from '../services/paystack'
 import { sendRefundEmail, sendAdminNotification } from '../services/email'
+import { recordRefundAbuseSignal, resolveRefundAbuseSignals } from '../utils/refundAbuse'
 
 const router = Router()
 
@@ -15,7 +16,7 @@ const createRefundSchema = z.object({
 })
 
 const updateRefundSchema = z.object({
-  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'PROCESSED', 'FAILED']),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'PROCESSING', 'PROCESSED', 'FAILED']),
   adminNotes: z.string().optional(),
 })
 
@@ -75,6 +76,10 @@ router.post('/', authMiddleware, validateBody(createRefundSchema), async (req: A
       return errorResponse(res, 'Refunds are only available for paid/delivered orders', 400)
     }
 
+    if (order.payment?.status !== 'PAID') {
+      return errorResponse(res, 'Refunds are only available after payment has been verified', 400)
+    }
+
     if (order.isTestOrder) {
       return errorResponse(res, 'Cannot refund test orders', 400)
     }
@@ -128,6 +133,10 @@ router.post('/', authMiddleware, validateBody(createRefundSchema), async (req: A
 
       return created
     })
+
+    if (isCustomer && order.customerId) {
+      await recordRefundAbuseSignal(order.customerId, orderId, reason || 'Customer-initiated refund')
+    }
 
     await sendAdminNotification(
       `Refund Requested — Order ${order.orderNumber}`,
@@ -203,7 +212,24 @@ router.patch('/:id/status', authMiddleware, validateBody(updateRefundSchema), as
         return errorResponse(res, 'No valid Paystack payment reference for this order', 400)
       }
 
-      const paystackRefund = await refundTransaction(Number(refund.amount), payment.transactionRef, refund.currency)
+      const claimed = await prisma.refund.updateMany({
+        where: { id, status: { in: ['PENDING', 'APPROVED'] } },
+        data: { status: 'PROCESSING', processedBy: req.user!.id },
+      })
+      if (claimed.count !== 1) {
+        return errorResponse(res, 'Refund is already being processed or has completed', 409)
+      }
+
+      let paystackRefund
+      try {
+        paystackRefund = await refundTransaction(Number(refund.amount), payment.transactionRef, refund.currency)
+      } catch (refundError) {
+        await prisma.$transaction(async tx => {
+          await tx.refund.update({ where: { id }, data: { status: 'FAILED', adminNotes: refundError instanceof Error ? refundError.message : 'Payment provider refund failed' } })
+          await tx.auditLog.create({ data: { actorId: req.user!.id, actorRole: 'ADMIN', action: 'REFUND_FAILED', targetType: 'REFUND', targetId: id, reason: refundError instanceof Error ? refundError.message : 'Payment provider refund failed' } })
+        })
+        return errorResponse(res, 'Refund processing failed. Please review and retry.', 502)
+      }
 
       updateData.processedBy = req.user!.id
       updateData.processedAt = new Date()
@@ -283,10 +309,31 @@ router.patch('/:id/status', authMiddleware, validateBody(updateRefundSchema), as
       return successResponse(res, updatedRefund, undefined, 'Refund processed and payout reversed')
     }
 
-    const updated = await prisma.refund.update({
-      where: { id },
-      data: updateData,
+    const updated = await prisma.$transaction(async tx => {
+      const claimed = await tx.refund.updateMany({
+        where: { id, status: { in: ['PENDING', 'APPROVED'] } },
+        data: updateData,
+      })
+      if (claimed.count !== 1) throw new Error('REFUND_STATE_CHANGED')
+      const next = await tx.refund.findUnique({ where: { id } })
+      await tx.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: 'ADMIN',
+          action: `REFUND_${status}`,
+          targetType: 'REFUND',
+          targetId: id,
+          reason: adminNotes || null,
+          metadata: JSON.stringify({ orderId: refund.orderId, amount: Number(refund.amount) }),
+        },
+      })
+      return next!
+    }).catch(error => {
+      if (error instanceof Error && error.message === 'REFUND_STATE_CHANGED') return null
+      throw error
     })
+
+    if (!updated) return errorResponse(res, 'Refund state changed; refresh before retrying', 409)
 
     const notifiedUserId = updated.customerId || updated.sellerId
     if (notifiedUserId) {

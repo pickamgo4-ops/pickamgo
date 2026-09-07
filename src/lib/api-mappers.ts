@@ -1,12 +1,19 @@
 import { Product, BeautyService, Shop, Category, Cart, CartItem, CartItemWithRelations, Address, Order, ShopCategory, ProductVariant, SellerVerification, RiderProfile, RiderDelivery } from '../types'
 
 export function mapApiProductToFrontend(apiProduct: any): Product {
+  const activePromotion = apiProduct.promotionItems?.[0]
+  const promotionPrice = activePromotion?.finalPrice != null ? Number(activePromotion.finalPrice) : undefined
+  const basePrice = Number(apiProduct.price)
+  const effectivePrice = promotionPrice != null && promotionPrice > 0 && promotionPrice < basePrice ? promotionPrice : apiProduct.price
+  const promotionDiscount = promotionPrice != null && basePrice > 0 ? Math.round((1 - promotionPrice / basePrice) * 100) : undefined
   return {
     id: apiProduct.id,
     name: apiProduct.name,
-    price: apiProduct.price,
-    originalPrice: apiProduct.originalPrice,
-    discount: apiProduct.discount,
+    price: effectivePrice,
+    originalPrice: promotionPrice != null ? basePrice : apiProduct.originalPrice,
+    discount: promotionDiscount ?? apiProduct.discount,
+    promotionName: activePromotion?.promotion?.name,
+    promotionType: activePromotion?.promotion?.type,
     image: apiProduct.images?.[0]?.url || apiProduct.image || '',
     images: apiProduct.images?.map((img: any) => img.url || img) || [],
     description: apiProduct.description,
@@ -137,6 +144,9 @@ export function mapApiShopToFrontend(apiShop: any): Shop {
     products: (apiShop.products || []).map(mapApiProductToFrontend),
     services: (apiShop.services || []).map(mapApiServiceToFrontend),
     customization: apiShop.customization || null,
+    shippingZones: (apiShop.shippingZones || []).map((zone: any) => ({ ...zone, locations: zone.locations ? (typeof zone.locations === 'string' ? JSON.parse(zone.locations) : zone.locations) : [] })),
+    collections: apiShop.collections || [],
+    promotions: apiShop.promotions || [],
     createdAt: apiShop.createdAt,
   }
 }
@@ -282,6 +292,16 @@ export function mapApiSellerVerificationToFrontend(apiVer: any): SellerVerificat
     businessName: apiVer.businessName,
     businessType: apiVer.businessType,
     businessReg: apiVer.businessReg,
+    businessDescription: apiVer.businessDescription,
+    sellerType: apiVer.sellerType,
+    location: apiVer.location,
+    intendedSell: apiVer.intendedSell,
+    agreedToTerms: apiVer.agreedToTerms === true,
+    agreedAt: apiVer.agreedAt,
+    verificationMethod: apiVer.verificationMethod,
+    verificationProvider: apiVer.verificationProvider,
+    verificationReference: apiVer.verificationReference,
+    verificationDate: apiVer.verificationDate,
     rejectionReason: apiVer.rejectionReason,
     reviewedBy: apiVer.reviewedBy,
     reviewedAt: apiVer.reviewedAt,

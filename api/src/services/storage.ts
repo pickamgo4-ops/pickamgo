@@ -50,7 +50,7 @@ function buildSafeImageFilename(originalName: string, mimeType: string): string 
   return `${Date.now()}-${Math.round(Math.random() * 1e9)}-${safeName}${safeExt}`
 }
 
-function hasValidImageSignature(buffer: Buffer, mimeType: string): boolean {
+export function hasValidImageSignature(buffer: Buffer, mimeType: string): boolean {
   const signatures: Record<string, ((buffer: Buffer) => boolean)> = {
     'image/jpeg': (buf) => buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xd8,
     'image/png': (buf) => buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47,

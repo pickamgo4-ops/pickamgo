@@ -839,3 +839,71 @@ export async function sendAdminNotification(subject: string, html: string, text?
     purpose: 'admin_notification',
   })
 }
+
+export async function sendSellerRiskNotification(to: string, name: string, riskInfo: {
+  riskLevel: string
+  trustScore: number
+  reason: string
+  flags?: string
+  actionTaken?: string
+}): Promise<SendEmailResult> {
+  const riskLabels = {
+    HIGH: { color: '#dc2626', bg: '#fee2e2' },
+    MEDIUM: { color: '#d97706', bg: '#fef3c7' },
+    LOW: { color: '#2563eb', bg: '#dbeafe' },
+    NORMAL: { color: '#16a34a', bg: '#d1fae5' },
+  }
+  const label = riskLabels[riskInfo.riskLevel as keyof typeof riskLabels] || riskLabels.NORMAL
+
+  const body = `
+    <h2 style="color: #111827;">Account Security Alert</h2>
+    <p>Hi ${name},</p>
+    <p>We've detected some unusual activity on your seller account and want to make sure it's secure.</p>
+    <div class="info-box">
+      <p><strong>Risk Level:</strong> <span style="background: ${label.bg}; color: ${label.color}; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600;">${riskInfo.riskLevel}</span></p>
+      <p><strong>Trust Score:</strong> ${riskInfo.trustScore}/100</p>
+      <p><strong>Reason:</strong> ${riskInfo.reason}</p>
+      ${riskInfo.flags ? `<p><strong>Flags:</strong> ${riskInfo.flags}</p>` : ''}
+      ${riskInfo.actionTaken ? `<p><strong>Action Taken:</strong> ${riskInfo.actionTaken}</p>` : ''}
+    </div>
+    ${riskInfo.actionTaken ? `<p><strong>What you need to do:</strong> No further action is needed at this time. We're looking into this and will notify you of any updates.</p>` : ''}
+    <p>If you have questions or believe this was a mistake, please contact our support team.</p>
+    <a href="${APP_URL}/support" class="button">Contact Support</a>
+  `
+
+  return sendEmail({
+    to,
+    subject: `Security Alert: Account Review Required`,
+    html: buildBaseHtml('Security Alert', body),
+    text: `We've detected unusual activity on your seller account. Risk level: ${riskInfo.riskLevel}. Trust score: ${riskInfo.trustScore}/100. Reason: ${riskInfo.reason}`,
+    purpose: 'security_notification',
+  })
+}
+
+export async function sendPayoutFreezeNotification(to: string, name: string, freezeInfo: {
+  reason: string
+  frozenAt: string
+  thawedAt?: string | null
+}): Promise<SendEmailResult> {
+  const isFrozen = !freezeInfo.thawedAt
+
+  const body = `
+    <h2 style="color: #111827;">${isFrozen ? 'Payouts Frozen' : 'Payouts Unfrozen'}</h2>
+    <p>Hi ${name},</p>
+    <p>${isFrozen ? 'Your payouts have been temporarily frozen' : 'Your payouts have been unfrozen'} due to the following reason:</p>
+    <div class="info-box">
+      <p><strong>Reason:</strong> ${freezeInfo.reason}</p>
+      <p><strong>Date:</strong> ${new Date(freezeInfo.frozenAt).toLocaleString()}</p>
+    </div>
+    ${isFrozen ? '<p>You will not be able to request new withdrawals until this freeze is lifted. We apologize for any inconvenience.</p>' : '<p>You can now request new withdrawals from your seller dashboard.</p>'}
+    <a href="${APP_URL}/seller/payouts" class="button">${isFrozen ? 'View Details' : 'Go to Payouts'}</a>
+  `
+
+  return sendEmail({
+    to,
+    subject: `Payouts ${isFrozen ? 'Frozen' : 'Unfrozen'} - PickAmGo`,
+    html: buildBaseHtml(`Payouts ${isFrozen ? 'Frozen' : 'Unfrozen'}`, body),
+    text: `${isFrozen ? 'Payouts Frozen' : 'Payouts Unfrozen'} - Reason: ${freezeInfo.reason}`,
+    purpose: 'payout_notification',
+  })
+}

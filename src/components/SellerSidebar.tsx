@@ -4,9 +4,9 @@ import React, { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { 
   Home, LayoutDashboard, Store, Package, Tag, Archive, ShoppingBag, 
-  TrendingUp, Star, MessageSquare, Bell, Settings, HelpCircle,
-   Palette, CheckCircle, ChevronLeft, LogOut, Calendar,
-  DollarSign, Truck, Ticket, Users, Sparkles
+   TrendingUp, Star, MessageSquare, Bell, Settings, HelpCircle,
+  Palette, CheckCircle, ChevronLeft, LogOut, Calendar,
+   DollarSign, Truck, Ticket, Users, Sparkles, Shield
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
@@ -23,6 +23,7 @@ const shopSections = [
     items: [
       { href: '/seller', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/seller/shop', label: 'My Shop', icon: Store },
+      { href: '/seller/shipping', label: 'Shipping & Delivery', icon: Truck },
       { href: '/seller/shop/customize', label: 'Customize Shop', icon: Palette },
     ],
   },
@@ -32,6 +33,7 @@ const shopSections = [
       { href: '/seller/products', label: 'Products', icon: Package },
       { href: '/seller/categories', label: 'Categories', icon: Tag },
       { href: '/seller/inventory', label: 'Inventory', icon: Archive },
+      { href: '/seller/collections', label: 'Collections', icon: Package },
     ],
   },
   {
@@ -60,6 +62,8 @@ const shopSections = [
       { href: '/seller/analytics', label: 'Analytics', icon: TrendingUp },
       { href: '/seller/reviews', label: 'Reviews', icon: Star },
       { href: '/seller/promo-codes', label: 'Promo Codes', icon: Ticket },
+      { href: '/seller/promotions', label: 'Clearance & Promotions', icon: Sparkles },
+      { href: '/seller/qr-code', label: 'QR Code', icon: Store },
     ],
   },
   {
@@ -75,6 +79,7 @@ const shopSections = [
       { href: '/seller/settings', label: 'Shop Settings', icon: Settings },
       { href: '/seller/delivery-settings', label: 'Delivery Settings', icon: Truck },
       { href: '/seller/verification', label: 'Verification', icon: CheckCircle },
+      { href: '/seller/trust', label: 'Trust Center', icon: Shield },
       { href: '/seller/help', label: 'Help', icon: HelpCircle },
     ],
   },

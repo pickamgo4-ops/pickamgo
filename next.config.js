@@ -7,11 +7,13 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   async rewrites() {
-    const apiTarget = process.env.API_SERVER_URL || process.env.NEXT_PUBLIC_API_URL || (
-      process.env.NODE_ENV === 'production'
+    const configuredApiTarget = process.env.API_SERVER_URL || process.env.NEXT_PUBLIC_API_URL
+    const isLocalApiTarget = Boolean(configuredApiTarget && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(configuredApiTarget))
+    const apiTarget = process.env.NODE_ENV === 'production' && isLocalApiTarget
+      ? 'https://pickamgo-production.up.railway.app/api'
+      : configuredApiTarget || (process.env.NODE_ENV === 'production'
         ? 'https://pickamgo-production.up.railway.app/api'
-        : 'http://localhost:4000/api'
-    )
+        : 'http://localhost:4000/api')
 
     return [
       {

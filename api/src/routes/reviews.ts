@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import { authMiddleware } from '../middleware/auth'
 import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
+import { assertModerationSafe } from '../utils/moderation'
 
 const router = Router()
 
@@ -65,15 +66,44 @@ const createReviewSchema = z.object({
 router.post('/', authMiddleware, validateBody(createReviewSchema), async (req: AuthenticatedRequest, res) => {
   const { targetType, targetId, rating, comment } = req.body
 
+  try {
+    assertModerationSafe(comment, 'review comment')
+  } catch (error: any) {
+    return errorResponse(res, 'For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]', 400)
+  }
+
   if (targetType === 'PRODUCT') {
     const product = await prisma.product.findUnique({ where: { id: targetId } })
     if (!product) return errorResponse(res, 'Product not found', 404)
+    const ownsProduct = product.sellerId === req.user!.id
+    const verifiedPurchase = await prisma.orderItem.findFirst({
+      where: {
+        productId: targetId,
+        order: { customerId: req.user!.id, status: 'DELIVERED' },
+      },
+      select: { id: true },
+    })
+    if (!verifiedPurchase && !req.user!.isAdmin) {
+      return errorResponse(res, 'Only customers who received this product can leave a review.', 403)
+    }
+    if (ownsProduct) return errorResponse(res, 'Sellers cannot review their own products.', 403)
   } else if (targetType === 'SERVICE') {
     const service = await prisma.service.findUnique({ where: { id: targetId } })
     if (!service) return errorResponse(res, 'Service not found', 404)
+    const ownsService = service.providerId === req.user!.id
+    const verifiedPurchase = await prisma.orderItem.findFirst({
+      where: { serviceId: targetId, order: { customerId: req.user!.id, status: 'DELIVERED' } },
+      select: { id: true },
+    })
+    if (!verifiedPurchase && !req.user!.isAdmin) {
+      return errorResponse(res, 'Only customers who completed this service can leave a review.', 403)
+    }
+    if (ownsService) return errorResponse(res, 'Providers cannot review their own services.', 403)
   } else if (targetType === 'SHOP') {
     const shop = await prisma.shop.findUnique({ where: { id: targetId } })
     if (!shop) return errorResponse(res, 'Shop not found', 404)
+
+    const ownsShop = shop.ownerId === req.user!.id
 
     const hasPurchasedFromShop = await prisma.order.findFirst({
       where: {
@@ -87,6 +117,8 @@ router.post('/', authMiddleware, validateBody(createReviewSchema), async (req: A
     if (!hasPurchasedFromShop) {
       return errorResponse(res, 'Only customers who purchased from this shop can leave a review.', 403)
     }
+
+    if (ownsShop) return errorResponse(res, 'Sellers cannot review their own shop.', 403)
   }
 
   const existingReview = await prisma.review.findFirst({

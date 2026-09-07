@@ -5,9 +5,24 @@ import { successResponse, errorResponse, validateBody } from "../types/express";
 import { testR2Connection } from "../services/storage";
 import { sendEmail, buildBaseHtml } from "../services/email";
 import { getAppUrl } from "../utils/url";
+import { normalizeEvidenceStatus } from "../utils/orderSecurity";
 import { z } from "zod";
 
 const router = Router();
+
+const platformThemeKeys = [
+  'pageBackground', 'surfaceBackground', 'surfaceSecondary', 'primaryBrand', 'primaryHover', 'secondaryBrand', 'accent', 'textColor', 'secondaryText', 'mutedText', 'border', 'inputBackground', 'inputBorder', 'buttonBackground', 'buttonText', 'linkColor', 'success', 'warning', 'error', 'info', 'badgeBackground', 'badgeText', 'headerBackground', 'footerBackground', 'sidebarBackground', 'sidebarText', 'sidebarActive', 'modalOverlay',
+] as const;
+const themeColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Theme colors must be 6- or 8-digit HEX values');
+const platformThemeSchema = z.object({
+  light: z.record(themeColorSchema),
+  dark: z.record(themeColorSchema),
+});
+
+function sanitizePlatformTheme(input: z.infer<typeof platformThemeSchema>) {
+  const sanitizeMode = (mode: Record<string, string>) => Object.fromEntries(platformThemeKeys.map(key => [key, mode[key]]).filter(([, value]) => value));
+  return { light: sanitizeMode(input.light), dark: sanitizeMode(input.dark) };
+}
 
 router.get(
   "/r2-test",
@@ -1118,14 +1133,75 @@ router.get("/settings/public", async (_req, res) => {
   try {
     const dbSettings = await prisma.setting.findMany();
     const settingMap = new Map(dbSettings.map((s) => [s.key, s.value]));
+    let theme: unknown = null;
+    const rawTheme = settingMap.get('platformTheme');
+    if (rawTheme) {
+      try { theme = JSON.parse(rawTheme); } catch { theme = null; }
+    }
     return successResponse(res, {
       maintenanceMode: settingMap.get("maintenanceMode") === "true",
       platformName: settingMap.get("platformName") || "PickAmGo",
+      theme,
     });
   } catch (error) {
     return successResponse(res, { maintenanceMode: false, platformName: "PickAmGo" });
   }
 });
+
+router.get(
+  "/settings/theme",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (_req: AuthenticatedRequest, res) => {
+    try {
+      const setting = await prisma.setting.findUnique({ where: { key: 'platformTheme' } });
+      let theme: unknown = null;
+      if (setting?.value) {
+        try { theme = JSON.parse(setting.value); } catch { theme = null; }
+      }
+      return successResponse(res, { theme });
+    } catch (error) {
+      return errorResponse(res, 'Failed to fetch platform theme', 500);
+    }
+  },
+);
+
+router.get('/seller-store-overview', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
+  try {
+    const [shippingZones, collections, promotions, qrCodes] = await Promise.all([
+      prisma.shippingZone.findMany({ include: { shop: { select: { id: true, name: true, owner: { select: { id: true, name: true, email: true } } } } }, orderBy: { createdAt: 'desc' }, take: 100 }),
+      prisma.productCollection.findMany({ include: { shop: { select: { id: true, name: true, owner: { select: { id: true, name: true } } } }, _count: { select: { products: true } } }, orderBy: { createdAt: 'desc' }, take: 100 }),
+      prisma.productPromotion.findMany({ include: { shop: { select: { id: true, name: true, owner: { select: { id: true, name: true } } } }, _count: { select: { products: true } } }, orderBy: { createdAt: 'desc' }, take: 100 }),
+      prisma.sellerQrCode.findMany({ include: { shop: { select: { id: true, name: true, owner: { select: { id: true, name: true } } } } }, orderBy: { createdAt: 'desc' }, take: 100 }),
+    ])
+    return successResponse(res, { shippingZones, collections, promotions, qrCodes })
+  } catch {
+    return errorResponse(res, 'Failed to fetch seller store overview', 500)
+  }
+})
+
+router.patch(
+  "/settings/theme",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  validateBody(z.object({ theme: platformThemeSchema })),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const theme = sanitizePlatformTheme(req.body.theme);
+      await prisma.setting.upsert({
+        where: { key: 'platformTheme' },
+        update: { value: JSON.stringify(theme), category: 'appearance', type: 'json', updatedBy: req.user!.id },
+        create: { key: 'platformTheme', value: JSON.stringify(theme), category: 'appearance', type: 'json', updatedBy: req.user!.id },
+      });
+      await prisma.auditLog.create({
+        data: { actorId: req.user!.id, actorRole: 'ADMIN', action: 'PLATFORM_THEME_UPDATED', targetType: 'SETTING', targetId: 'platformTheme', metadata: JSON.stringify({ colorCount: Object.keys(theme.light).length + Object.keys(theme.dark).length }) },
+      });
+      return successResponse(res, { theme }, 200, 'Platform theme published successfully');
+    } catch (error) {
+      return errorResponse(res, 'Failed to save platform theme', 500);
+    }
+  },
+);
 
 router.get(
   "/settings",
@@ -1506,6 +1582,111 @@ router.get(
 );
 
 router.get(
+  "/evidence",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const status = req.query.status as string | undefined;
+
+      const where: any = {};
+      if (status) where.status = normalizeEvidenceStatus(status);
+
+      const [records, total] = await Promise.all([
+        prisma.orderEvidence.findMany({
+          where,
+          include: {
+            uploader: { select: { id: true, name: true, email: true, avatar: true } },
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                status: true,
+                customerId: true,
+                sellerId: true,
+                riderId: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.orderEvidence.count({ where }),
+      ]);
+
+      return successResponse(res, {
+        evidence: records,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
+    } catch (error) {
+      return errorResponse(res, 'Failed to fetch evidence queue', 500);
+    }
+  },
+);
+
+router.patch(
+  "/evidence/:id/status",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  validateBody(z.object({ status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'NEEDS_MORE_INFO']).optional(), note: z.string().max(2000).optional() })),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const evidence = await prisma.orderEvidence.findUnique({
+        where: { id: req.params.id },
+        include: { order: { select: { id: true, orderNumber: true } } },
+      });
+
+      if (!evidence) return errorResponse(res, "Evidence not found", 404);
+
+      const status = normalizeEvidenceStatus(req.body.status || evidence.status);
+      const updated = await prisma.orderEvidence.update({
+        where: { id: evidence.id },
+        data: {
+          status,
+          note: req.body.note ? `${evidence.note || ''}\n${req.body.note}`.trim() : evidence.note,
+        },
+        include: {
+          uploader: { select: { id: true, name: true, email: true, avatar: true } },
+          order: { select: { id: true, orderNumber: true, customerId: true, sellerId: true, riderId: true } },
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: 'ADMIN',
+          action: 'ADMIN_EVIDENCE_REVIEW',
+          targetType: 'ORDER_EVIDENCE',
+          targetId: evidence.id,
+          reason: status,
+          metadata: JSON.stringify({ note: req.body.note || null, orderId: evidence.orderId }),
+        },
+      });
+
+      if (status === 'REJECTED' || status === 'NEEDS_MORE_INFO') {
+        await prisma.fraudAlert.create({
+          data: {
+            userId: evidence.uploaderId,
+            orderId: evidence.orderId,
+            riskLevel: status === 'REJECTED' ? 'HIGH' : 'MEDIUM',
+            reason: status === 'REJECTED' ? 'Evidence rejected during admin review' : 'Evidence requires more documentation',
+            status: 'OPEN',
+            metadata: JSON.stringify({ evidenceId: evidence.id, evidenceType: evidence.type, stage: evidence.stage }),
+          },
+        });
+      }
+
+      return successResponse(res, updated, undefined, 'Evidence status updated');
+    } catch (error) {
+      return errorResponse(res, 'Failed to update evidence status', 500);
+    }
+  },
+);
+
+router.get(
   "/reviews",
   authMiddleware,
   requireRole(["ADMIN"]),
@@ -1839,9 +2020,19 @@ router.patch(
       const updateData: any = {};
       if (typeof isSeller === "boolean") updateData.isSeller = isSeller;
       if (typeof isRider === "boolean") updateData.isRider = isRider;
-      if (typeof isAdmin === "boolean") updateData.isAdmin = isAdmin;
+      if (typeof isAdmin === "boolean") {
+        return errorResponse(res, "Admin role changes require the dedicated privileged-admin workflow", 403, "ADMIN_ROLE_CHANGE_RESTRICTED");
+      }
       if (typeof suspended === "boolean") updateData.suspended = suspended;
       if (typeof banned === "boolean") updateData.banned = banned;
+      if (banned === true) updateData.accountStatus = "BANNED";
+      else if (suspended === true) updateData.accountStatus = "SUSPENDED";
+      else if (suspended === false && banned === false) updateData.accountStatus = "ACTIVE";
+      if (typeof suspended === "boolean" || typeof banned === "boolean") {
+        updateData.restrictionReason = reason || null;
+        updateData.statusChangedAt = new Date();
+        updateData.authVersion = { increment: 1 };
+      }
 
       const updated = await prisma.user.update({
         where: { id },
@@ -2230,6 +2421,470 @@ router.get(
       });
     } catch (error) {
       return errorResponse(res, "Failed to fetch conversation messages", 500);
+    }
+  },
+);
+
+router.get(
+  "/sellers",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string | undefined;
+      const verificationStatus = req.query.verificationStatus as string | undefined;
+      const riskLevel = req.query.riskLevel as string | undefined;
+
+      const where: any = { isSeller: true };
+
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      if (verificationStatus) {
+        where.sellerVerificationStatus = { status: verificationStatus };
+      }
+
+      if (riskLevel) {
+        where.sellerRiskLevel = { riskLevel: riskLevel };
+      }
+
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatar: true,
+            location: true,
+            isSeller: true,
+            suspended: true,
+            banned: true,
+            createdAt: true,
+            verification: {
+              select: {
+                id: true,
+                status: true,
+                reviewStatus: true,
+                createdAt: true,
+                verificationMethod: true,
+              },
+            },
+            risk: {
+              select: {
+                id: true,
+                riskLevel: true,
+                trustScore: true,
+                lastCheckedAt: true,
+              },
+            },
+            payoutFreeze: {
+              select: {
+                id: true,
+                reason: true,
+                frozenAt: true,
+                thawedAt: true,
+              },
+            },
+            _count: {
+              select: {
+                products: true,
+                sellerOrders: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.user.count({ where: { isSeller: true } }),
+      ]);
+
+      const sellers = users.map((user) => ({
+        ...user,
+        verificationStatus: user.verification?.status || "NOT_SUBMITTED",
+        verificationMethod: user.verification?.verificationMethod || null,
+        riskLevel: user.risk?.riskLevel || "NORMAL",
+        trustScore: user.risk?.trustScore || 50,
+        isPayoutFrozen: user.payoutFreeze !== null,
+        payoutFreezeReason: user.payoutFreeze?.reason || null,
+        productCount: user._count.products,
+        orderCount: user._count.sellerOrders,
+      }));
+
+      return successResponse(res, {
+        sellers,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
+    } catch (error) {
+      console.error("Failed to fetch sellers:", error);
+      return errorResponse(res, "Failed to fetch sellers", 500);
+    }
+  },
+);
+
+router.get(
+  "/sellers/:id",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.params.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          avatar: true,
+          location: true,
+          isSeller: true,
+          suspended: true,
+          banned: true,
+          createdAt: true,
+          updatedAt: true,
+          verification: true,
+          risk: true,
+          payoutFreeze: true,
+        },
+      });
+
+      if (!user) return errorResponse(res, "Seller not found", 404);
+
+      const [products, verificationHistory, payoutMethodChanges] = await Promise.all([
+        prisma.product.findMany({
+          where: { sellerId: req.params.id },
+          include: {
+            shop: { select: { id: true, name: true, status: true, isVerified: true } },
+            category: { select: { id: true, name: true } },
+            images: { orderBy: { sortOrder: "asc" }, take: 1 },
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.sellerVerificationHistory.findMany({
+          where: { userId: req.params.id },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.payoutMethodChange.findMany({
+          where: { userId: req.params.id },
+          orderBy: { changedAt: "desc" },
+          take: 20,
+        }),
+      ]);
+
+      return successResponse(res, {
+        user,
+        products,
+        verificationHistory,
+        payoutMethodChanges,
+      });
+    } catch (error) {
+      console.error("Failed to fetch seller details:", error);
+      return errorResponse(res, "Failed to fetch seller", 500);
+    }
+  },
+);
+
+router.post(
+  "/sellers/:id/freeze-payout",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      if (!reason) return errorResponse(res, "Reason is required for payout freeze", 400);
+
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) return errorResponse(res, "User not found", 404);
+
+      const existingFreeze = await prisma.sellerPayoutFreeze.findFirst({
+        where: { userId: id, thawedAt: null },
+      });
+      if (existingFreeze) return errorResponse(res, "Payouts are already frozen for this user", 400);
+
+      const freeze = await prisma.sellerPayoutFreeze.create({
+        data: {
+          userId: id,
+          frozenBy: req.user!.id,
+          reason,
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: "ADMIN",
+          action: "PAYOUT_FREEZE",
+          targetType: "SellerPayoutFreeze",
+          targetId: freeze.id,
+          reason,
+          metadata: JSON.stringify({ userId: id }),
+        },
+      });
+
+      return successResponse(res, freeze, 201, "Payouts frozen successfully");
+    } catch (error) {
+      console.error("Failed to freeze payouts:", error);
+      return errorResponse(res, "Failed to freeze payouts", 500);
+    }
+  },
+);
+
+router.post(
+  "/sellers/:id/unfreeze-payout",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+
+      const freeze = await prisma.sellerPayoutFreeze.findFirst({
+        where: { userId: id, thawedAt: null },
+      });
+      if (!freeze) return errorResponse(res, "No active payout freeze found for this user", 404);
+
+      const updated = await prisma.sellerPayoutFreeze.update({
+        where: { id: freeze.id },
+        data: { thawedAt: new Date() },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: "ADMIN",
+          action: "PAYOUT_THAW",
+          targetType: "SellerPayoutFreeze",
+          targetId: freeze.id,
+        },
+      });
+
+      return successResponse(res, updated, undefined, "Payouts unfrozen successfully");
+    } catch (error) {
+      console.error("Failed to unfreeze payouts:", error);
+      return errorResponse(res, "Failed to unfreeze payouts", 500);
+    }
+  },
+);
+
+router.get(
+  "/products/pending-moderation",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      const where = { moderationStatus: "PENDING" as const };
+
+      const [products, total] = await Promise.all([
+        prisma.product.findMany({
+          where,
+          include: {
+            seller: { select: { id: true, name: true, email: true } },
+            shop: { select: { id: true, name: true, isVerified: true } },
+            category: { select: { id: true, name: true, emoji: true, color: true } },
+            images: { orderBy: { sortOrder: "asc" }, take: 1 },
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.product.count({ where }),
+      ]);
+
+      return successResponse(res, {
+        products,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
+    } catch (error) {
+      console.error("Failed to fetch products pending moderation:", error);
+      return errorResponse(res, "Failed to fetch pending moderation products", 500);
+    }
+  },
+);
+
+router.patch(
+  "/products/:id/moderate",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { moderationStatus, moderationNotes } = req.body;
+
+      if (!["APPROVED", "REJECTED"].includes(moderationStatus)) {
+        return errorResponse(res, "moderationStatus must be APPROVED or REJECTED", 400);
+      }
+
+      const product = await prisma.product.findUnique({
+        where: { id },
+        include: { seller: { select: { id: true, name: true, email: true } } },
+      });
+      if (!product) return errorResponse(res, "Product not found", 404);
+
+      const updated = await prisma.product.update({
+        where: { id },
+        data: {
+          moderationStatus,
+          moderationNotes: moderationNotes || null,
+          moderatedBy: req.user!.id,
+          moderatedAt: new Date(),
+          status: moderationStatus === "APPROVED" ? "ACTIVE" : product.status,
+        },
+        include: {
+          seller: { select: { id: true, name: true, email: true } },
+          shop: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true, emoji: true, color: true } },
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: "ADMIN",
+          action: `PRODUCT_${moderationStatus}`,
+          targetType: "Product",
+          targetId: product.id,
+          reason: moderationNotes || null,
+          metadata: JSON.stringify({ moderationStatus }),
+        },
+      });
+
+      if (moderationStatus === "REJECTED" && product.seller) {
+        await prisma.notification.create({
+          data: {
+            userId: product.sellerId,
+            type: "PRODUCT_REJECTED",
+            title: "Product Rejected",
+            message: moderationNotes
+              ? `Your product "${product.name}" was rejected. ${moderationNotes}`
+              : `Your product "${product.name}" was rejected.`,
+            data: JSON.stringify({ productId: product.id, moderationNotes }),
+          },
+        });
+      }
+
+      return successResponse(res, updated, undefined, `Product ${moderationStatus.toLowerCase()}`);
+    } catch (error) {
+      console.error("Failed to moderate product:", error);
+      return errorResponse(res, "Failed to moderate product", 500);
+    }
+  },
+);
+
+router.get(
+  "/reports",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const status = req.query.status as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      const where: any = {};
+      if (status) where.status = status;
+      if (search) {
+        where.OR = [
+          { reason: { contains: search, mode: "insensitive" } },
+          { reporter: { name: { contains: search, mode: "insensitive" } } },
+          { targetId: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const [reports, total] = await Promise.all([
+        prisma.report.findMany({
+          where,
+          include: {
+            reporter: { select: { id: true, name: true, email: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.report.count({ where }),
+      ]);
+
+      return successResponse(res, {
+        reports,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
+    } catch (error) {
+      console.error("Failed to fetch reports:", error);
+      return errorResponse(res, "Failed to fetch reports", 500);
+    }
+  },
+);
+
+router.patch(
+  "/reports/:id/resolve",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { status, adminNotes } = req.body;
+
+      if (!["PENDING", "INVESTIGATING", "RESOLVED", "DISMISSED"].includes(status)) {
+        return errorResponse(res, "Invalid status", 400);
+      }
+
+      const report = await prisma.report.findUnique({ where: { id } });
+      if (!report) return errorResponse(res, "Report not found", 404);
+
+      const updated = await prisma.report.update({
+        where: { id },
+        data: {
+          status,
+          adminNotes: adminNotes || null,
+          resolvedAt: status === "RESOLVED" || status === "DISMISSED" ? new Date() : null,
+          resolvedBy: status === "RESOLVED" || status === "DISMISSED" ? req.user!.id : null,
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: "ADMIN",
+          action: "REPORT_STATUS_CHANGED",
+          targetType: "Report",
+          targetId: id,
+          metadata: JSON.stringify({ status, adminNotes }),
+        },
+      });
+
+      const reportedUserId = ['USER', 'SELLER', 'RIDER', 'CUSTOMER'].includes(report.targetType) ? report.targetId : null;
+      if (status === "RESOLVED" && reportedUserId) {
+        const risk = await prisma.sellerRisk.findUnique({ where: { userId: reportedUserId } });
+        if (risk) {
+          const currentFlags = risk.flags ? JSON.parse(risk.flags) : {};
+          currentFlags.resolvedReports = (currentFlags.resolvedReports || 0) + 1;
+          await prisma.sellerRisk.update({
+            where: { userId: reportedUserId },
+            data: {
+              flags: JSON.stringify(currentFlags),
+              lastCheckedAt: new Date(),
+              trustScore: Math.max(0, risk.trustScore - 5),
+            },
+          });
+        }
+      }
+
+      return successResponse(res, updated, undefined, "Report status updated");
+    } catch (error) {
+      console.error("Failed to update report:", error);
+      return errorResponse(res, "Failed to update report", 500);
     }
   },
 );

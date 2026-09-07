@@ -35,6 +35,7 @@ import followRoutes from './routes/follows'
 import messageRoutes from './routes/messages'
 import reportRoutes from './routes/reports'
 import disputeRoutes from './routes/disputes'
+import evidenceRoutes from './routes/evidence'
 import refundRoutes from './routes/refunds'
 import recommendationRoutes from './routes/recommendations'
 import payoutRoutes from './routes/payouts'
@@ -46,13 +47,23 @@ import emailTestRoutes from './routes/email-test'
 import emailVerificationRoutes from './routes/email-verification'
 import publicNoticeRoutes from './routes/public-notices'
 import bookingSetupRoutes from './routes/booking-setup'
+import accountSecurityRoutes from './routes/account-security'
+import sellerStoreRoutes from './routes/seller-store'
 import testOrderRoutes from './routes/test-orders'
+import sessionRoutes from './routes/sessions'
+import trustSafetyRoutes from './routes/trust-safety'
 import prisma from './utils/prisma'
 
 const app = express()
 
 app.set('trust proxy', 1)
-app.use(helmet())
+app.disable('x-powered-by')
+app.use(helmet({
+  contentSecurityPolicy: false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  crossOriginEmbedderPolicy: false,
+  frameguard: { action: 'deny' },
+}))
 import { getAppUrl } from './utils/url'
 
 const marketplaceDomain = process.env.MARKETPLACE_DOMAIN || 'pickamgo.com'
@@ -71,17 +82,17 @@ console.log('Allowed CORS origins:', allowedOrigins)
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true)
-    
+
     if (allowedOrigins.some(allowed => {
       const originNormalized = origin.toLowerCase()
       const allowedNormalized = allowed.toLowerCase()
-      return originNormalized === allowedNormalized || 
-             originNormalized === `${allowedNormalized}/` || 
+      return originNormalized === allowedNormalized ||
+             originNormalized === `${allowedNormalized}/` ||
              allowedNormalized === `${originNormalized}/`
     })) {
       return callback(null, true)
     }
-    
+
     if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
       return callback(null, true)
     }
@@ -92,13 +103,14 @@ app.use(cors({
     } catch {
       // Reject malformed origins below.
     }
-    
+
     console.warn(`CORS rejection for origin: ${origin}`)
     return callback(new Error('Origin not allowed'))
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'idempotency-key'],
+  exposedHeaders: ['Retry-After'],
 }))
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: false, limit: '100kb' }))
@@ -190,6 +202,7 @@ app.use('/api/follows', followRoutes)
 app.use('/api/messages', messageRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/disputes', disputeRoutes)
+app.use('/api/evidence', evidenceRoutes)
 app.use('/api/refunds', refundRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/promos', promoRoutes)
@@ -199,6 +212,10 @@ app.use('/api/seller/delivery-settings', deliverySettingsRoutes)
 app.use('/api/public-notices', publicNoticeRoutes)
 app.use('/api/email-verification', emailVerificationRoutes)
 app.use('/api/booking-setup', bookingSetupRoutes)
+app.use('/api/account-security', accountSecurityRoutes)
+app.use('/api/seller/store', sellerStoreRoutes)
+app.use('/api/sessions', sessionRoutes)
+app.use('/api/admin/trust-safety', trustSafetyRoutes)
 
 if (process.env.NODE_ENV !== 'production') {
   app.use('/api/dev/test-orders', testOrderRoutes)

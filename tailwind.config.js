@@ -10,13 +10,13 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#FF6B35',
-          dark: '#E85D2E',
-          light: '#FF8C5A',
+          DEFAULT: 'var(--primary)',
+          dark: 'var(--primary-dark)',
+          light: 'var(--primary-light)',
         },
         secondary: {
-          DEFAULT: '#FFB347',
-          light: '#FFD699',
+          DEFAULT: 'var(--secondary)',
+          light: 'var(--color-secondary-brand)',
         },
         accent: {
           pink: '#FFB6C1',
@@ -25,11 +25,11 @@ module.exports = {
           red: '#EF4444',
         },
         warm: {
-          50: '#FFFBF5',
-          100: '#FFF5E6',
-          200: '#FFE8CC',
-          800: '#4A3728',
-          900: '#2C1F15',
+          50: 'var(--warm-50)',
+          100: 'var(--warm-100)',
+          200: 'var(--warm-200)',
+          800: 'var(--warm-800)',
+          900: 'var(--warm-900)',
         },
       },
       fontFamily: {

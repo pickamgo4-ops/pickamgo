@@ -30,6 +30,7 @@ import {
   Ticket,
   Megaphone,
   FlaskConical,
+  Sparkles,
 } from "lucide-react";
 import { useRole } from "@/contexts/RoleContext";
 import { api } from "@/lib/api";
@@ -38,8 +39,10 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/shops", label: "Sellers", icon: Store },
+  { href: "/admin/verifications", label: "Seller Verification", icon: Shield },
   { href: "/admin/riders", label: "Riders / Deliverers", icon: Bike },
   { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/admin/product-moderation", label: "Product Moderation", icon: ClipboardList },
   { href: "/admin/categories", label: "Categories", icon: Tag },
   { href: "/admin/orders", label: "Orders", icon: ClipboardList },
   { href: "/admin/deliveries", label: "Deliveries", icon: Truck },
@@ -51,6 +54,7 @@ const navItems = [
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin/settings/appearance", label: "Appearance / Theme", icon: Sparkles },
   { href: "/admin/emails", label: "Emails", icon: Mail },
   { href: "/admin/promo-codes", label: "Promo Codes", icon: Ticket },
   { href: "/admin/public-notices", label: "Public Notices", icon: Megaphone },
@@ -74,7 +78,7 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   const isActive = (href: string) => {
-    if (href === "/admin") return pathname === "/admin";
+    if (href === "/admin" || href === "/admin/settings") return pathname === href;
     return pathname.startsWith(href);
   };
 

@@ -5,6 +5,8 @@ import { AuthenticatedRequest, successResponse, errorResponse, validateBody } fr
 import { z } from 'zod'
 import { distanceInKm } from '../utils/geo'
 import { publicProductVisibility, publicServiceVisibility } from '../utils/visibility'
+import { assertModerationSafe } from '../utils/moderation'
+import { identitySimilarity, isPlatformImpersonationName, normalizeIdentityName } from '../utils/identitySecurity'
 
 const router = Router()
 
@@ -314,6 +316,12 @@ router.get('/:slug', async (req, res) => {
         include: {
           category: { select: { id: true, name: true, emoji: true, color: true } },
           images: { orderBy: { sortOrder: 'asc' }, take: 4 },
+          promotionItems: {
+            where: { promotion: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } } },
+            include: { promotion: { select: { id: true, name: true, type: true } } },
+            orderBy: { promotion: { endsAt: 'asc' } },
+            take: 1,
+          },
         },
         orderBy: { createdAt: 'desc' },
         take: 20,
@@ -331,6 +339,30 @@ router.get('/:slug', async (req, res) => {
       followers: true,
       shopCategories: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
       customization: true,
+      shippingZones: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
+      collections: {
+        where: { isVisible: true },
+        include: {
+          products: {
+            include: {
+              product: {
+                include: {
+                  images: true,
+                  promotionItems: {
+                    where: { promotion: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } } },
+                    include: { promotion: { select: { id: true, name: true, type: true } } },
+                    orderBy: { promotion: { endsAt: 'asc' } },
+                    take: 1,
+                  },
+                },
+              },
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
+        orderBy: { sortOrder: 'asc' },
+      },
+      promotions: { where: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } }, include: { products: { include: { product: true } } } },
     },
   })
 
@@ -387,6 +419,17 @@ const createShopSchema = z.object({
 router.post('/', authMiddleware, requireRole(['SELLER']), validateBody(createShopSchema), async (req: AuthenticatedRequest, res) => {
   const { name, description, logo, banner, location, area, campus, latitude, longitude, openingHours, category } = req.body
 
+  try {
+    assertModerationSafe(name, 'shop name')
+    assertModerationSafe(description, 'shop description')
+  } catch (error: any) {
+    return errorResponse(res, 'For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]', 400)
+  }
+
+  if (isPlatformImpersonationName(name)) {
+    return errorResponse(res, 'This shop name cannot impersonate PickAmGo. Legitimate brand ownership can be reviewed by support.', 409, 'SHOP_IMPERSONATION_REVIEW')
+  }
+
   const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
   if (reservedShopSlugs.has(baseSlug)) {
     return errorResponse(res, 'That shop name is reserved. Please choose another name.', 409)
@@ -396,6 +439,13 @@ router.post('/', authMiddleware, requireRole(['SELLER']), validateBody(createSho
     return errorResponse(res, 'That shop name is already taken. Please choose another name.', 409)
   }
   const shopData = { name, description, logo, banner, location, area, campus, latitude, longitude, openingHours, ownerId: req.user!.id }
+  const normalizedShopName = normalizeIdentityName(name)
+  const [verifiedShops, sellerNames] = await Promise.all([
+    prisma.shop.findMany({ where: { isVerified: true, status: 'ACTIVE' }, select: { id: true, name: true, ownerId: true }, take: 200 }),
+    prisma.user.findMany({ where: { isSeller: true, id: { not: req.user!.id } }, select: { id: true, name: true }, take: 200 }),
+  ])
+  const similarShop = verifiedShops.find(existing => identitySimilarity(name, existing.name) >= 0.9)
+  const officialNameMatch = sellerNames.find(existing => normalizedShopName.includes('official') && identitySimilarity(name, existing.name) >= 0.8)
 
   try {
     const shop = await prisma.shop.create({
@@ -416,6 +466,17 @@ router.post('/', authMiddleware, requireRole(['SELLER']), validateBody(createSho
         draftShowServices: true,
       },
     })
+    if (similarShop || officialNameMatch) {
+      await prisma.fraudAlert.create({
+        data: {
+          userId: req.user!.id,
+          riskLevel: 'MEDIUM',
+          reason: 'New shop name may impersonate an existing seller or verified shop',
+          status: 'OPEN',
+          metadata: JSON.stringify({ shopId: shop.id, relatedShopId: similarShop?.id || null, relatedUserId: officialNameMatch?.id || null, signal: 'SHOP_NAME_SIMILARITY' }),
+        },
+      })
+    }
     return successResponse(res, shop, 201, 'Shop created successfully')
   } catch (error: any) {
     if (error?.code === 'P2002') return errorResponse(res, 'That shop name is already taken. Please choose another name.', 409)
@@ -449,6 +510,20 @@ router.patch('/:id', authMiddleware, validateBody(updateShopSchema), async (req:
   }
 
   const data: any = { ...req.body }
+  if (data.name) {
+    try {
+      assertModerationSafe(data.name, 'shop name')
+    } catch (error: any) {
+      return errorResponse(res, 'For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]', 400)
+    }
+  }
+  if (data.description) {
+    try {
+      assertModerationSafe(data.description, 'shop description')
+    } catch (error: any) {
+      return errorResponse(res, 'For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]', 400)
+    }
+  }
   if (data.name && (!shop.slug || shop.slug === '')) {
     const baseSlug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
     let slug = baseSlug

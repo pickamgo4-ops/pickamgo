@@ -5,6 +5,7 @@ import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware
 import { successResponse, errorResponse, validateBody, validateQuery } from '../types/express'
 import { distanceInKm } from '../utils/geo'
 import { publicProductVisibility } from '../utils/visibility'
+import { assertModerationSafe } from '../utils/moderation'
 
 const router = Router()
 const imageUrl = z.string().refine(value => value.startsWith('/') || /^https?:\/\//.test(value), 'Invalid image URL')
@@ -309,6 +310,14 @@ router.post(
 
       const userId = (req.user as any)?.userId || req.user?.id
 
+      try {
+        assertModerationSafe(name, 'product title')
+        assertModerationSafe(description, 'product description')
+        assertModerationSafe(shortDescription, 'product summary')
+      } catch (error: any) {
+        return errorResponse(res, 'For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]', 400)
+      }
+
       const shop = await prisma.shop.findFirst({ where: { ownerId: userId } })
 
       if (!shop) {
@@ -316,6 +325,14 @@ router.post(
       }
 
       if (shopId !== shop.id) return errorResponse(res, 'Invalid shop for authenticated seller', 403)
+
+      const sellerVerification = await prisma.sellerVerification.findFirst({
+        where: { userId, type: 'SELLER' },
+      })
+
+      const isSellerVerified = sellerVerification?.status === 'APPROVED'
+
+      const isAutoApproved = sellerVerification?.verificationMethod === 'KYC_PROVIDER' && !!sellerVerification?.verificationReference
 
       const category = await prisma.category.findUnique({
         where: { id: categoryId },
@@ -372,6 +389,10 @@ router.post(
           sellerId: userId,
           categoryId,
           shopCategoryId: shopCategoryId || null,
+          moderationStatus: isSellerVerified ? 'APPROVED' : 'PENDING',
+          moderatedBy: isSellerVerified ? 'system' : null,
+          moderatedAt: isSellerVerified ? new Date() : null,
+          status: isSellerVerified ? 'ACTIVE' : 'PENDING',
           images: {
             create: images.map((url: string, index: number) => ({
               url,
@@ -437,6 +458,16 @@ router.patch(
       if (updateData.categoryId) {
         const category = await prisma.category.findUnique({ where: { id: updateData.categoryId } })
         if (!category) return errorResponse(res, 'Category not found', 404)
+      }
+
+      if (updateData.name || updateData.description || updateData.shortDescription) {
+        try {
+          assertModerationSafe(updateData.name || existingProduct.name, 'product title')
+          assertModerationSafe(updateData.description || existingProduct.description, 'product description')
+          assertModerationSafe(updateData.shortDescription || existingProduct.shortDescription || undefined, 'product summary')
+        } catch (error: any) {
+          return errorResponse(res, 'For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]', 400)
+        }
       }
 
       if (updateData.sku) {

@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
+import { createAuditEntry } from '../utils/auditLog'
 
 const router = Router()
 
@@ -30,14 +31,52 @@ router.post('/', authMiddleware, validateBody(disputeSchema), async (req: Authen
       return errorResponse(res, 'Cannot create dispute for guest order', 400)
     }
 
-    const dispute = await prisma.dispute.create({
-      data: {
-        orderId,
-        customerId: order.customerId,
-        sellerId: order.sellerId,
-        type,
-        description,
+    let dispute
+    try {
+      dispute = await prisma.$transaction(async tx => {
+        const activeDispute = await tx.dispute.findFirst({
+          where: { orderId, status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+          select: { id: true },
+        })
+        if (activeDispute) throw new Error('ACTIVE_DISPUTE_EXISTS')
+
+        return tx.dispute.create({
+          data: { orderId, customerId: order.customerId, sellerId: order.sellerId, type, description },
+        })
+      }, { isolationLevel: 'Serializable' })
+    } catch (error) {
+      if (error instanceof Error && error.message === 'ACTIVE_DISPUTE_EXISTS') {
+        return errorResponse(res, 'This order already has an active dispute', 409)
+      }
+      throw error
+    }
+
+    const recentDisputes = await prisma.dispute.count({
+      where: {
+        customerId: req.user!.id,
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
       },
+    })
+    if (recentDisputes >= 3) {
+      await prisma.fraudAlert.create({
+        data: {
+          userId: req.user!.id,
+          orderId,
+          riskLevel: 'MEDIUM',
+          reason: 'Repeated dispute creation in a short period',
+          status: 'OPEN',
+          metadata: JSON.stringify({ recentDisputes }),
+        },
+      })
+    }
+
+    await createAuditEntry({
+      actorId: req.user!.id,
+      actorRole: isCustomer ? 'CUSTOMER' : 'SELLER',
+      action: 'DISPUTE_CREATED',
+      targetType: 'DISPUTE',
+      targetId: dispute.id,
+      metadata: JSON.stringify({ orderId, type }),
     })
 
     await prisma.notification.create({
@@ -102,10 +141,39 @@ router.patch('/:id/status', authMiddleware, async (req: AuthenticatedRequest, re
     const dispute = await prisma.dispute.findUnique({ where: { id } })
     if (!dispute) return errorResponse(res, 'Dispute not found', 404)
 
-    const updated = await prisma.dispute.update({
-      where: { id },
-      data: { status, updatedAt: new Date() },
+    const allowedTransitions: Record<string, string[]> = {
+      OPEN: ['UNDER_REVIEW', 'RESOLVED', 'REJECTED', 'CANCELLED'],
+      UNDER_REVIEW: ['RESOLVED', 'REJECTED'],
+      RESOLVED: [],
+      REJECTED: [],
+      CANCELLED: [],
+    }
+    if (!(allowedTransitions[dispute.status] || []).includes(status)) {
+      return errorResponse(res, `Cannot change dispute from ${dispute.status} to ${status}`, 409)
+    }
+
+    const updated = await prisma.$transaction(async tx => {
+      const changed = await tx.dispute.updateMany({ where: { id, status: dispute.status }, data: { status, updatedAt: new Date() } })
+      if (changed.count !== 1) throw new Error('DISPUTE_STATE_CHANGED')
+      const next = await tx.dispute.findUnique({ where: { id } })
+      await tx.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: 'ADMIN',
+          action: 'DISPUTE_STATUS_CHANGED',
+          targetType: 'DISPUTE',
+          targetId: id,
+          reason: status,
+          metadata: JSON.stringify({ orderId: dispute.orderId, previousStatus: dispute.status }),
+        },
+      })
+      return next!
+    }).catch(error => {
+      if (error instanceof Error && error.message === 'DISPUTE_STATE_CHANGED') return null
+      throw error
     })
+
+    if (!updated) return errorResponse(res, 'Dispute state changed; refresh before retrying', 409)
 
     return successResponse(res, updated, undefined, 'Dispute status updated')
   } catch (error) {

@@ -297,21 +297,24 @@ export async function createPromoRedemption(params: {
   })
 }
 
-export async function incrementPromoUsage(promoCodeId: string, amount: number): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    const promo = await tx.promoCode.findUnique({
-      where: { id: promoCodeId },
-    })
-    if (!promo) return
+export async function incrementPromoUsage(promoCodeId: string, amount: number, client: any = prisma): Promise<boolean> {
+  const promo = await client.promoCode.findUnique({ where: { id: promoCodeId } })
+  if (!promo || !isPromoActive(promo)) return false
+  if (promo.usageLimit !== null && promo.usageCount >= promo.usageLimit) return false
+  if (promo.campaignBudget !== null && Number(promo.campaignSpent) + amount > Number(promo.campaignBudget)) return false
 
-    await tx.promoCode.update({
-      where: { id: promoCodeId },
-      data: {
-        usageCount: { increment: 1 },
-        campaignSpent: { increment: amount },
-      },
-    })
+  const updated = await client.promoCode.updateMany({
+    where: {
+      id: promoCodeId,
+      usageCount: promo.usageCount,
+      campaignSpent: promo.campaignSpent,
+    },
+    data: {
+      usageCount: { increment: 1 },
+      campaignSpent: { increment: amount },
+    },
   })
+  return updated.count === 1
 }
 
 export async function getPromoStats(promoId: string) {
