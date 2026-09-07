@@ -19,7 +19,7 @@
     --foreground: #2C1F15;
     --card: #ffffff;
     --muted: #6B5C52;
-    --border: #E5E7EB;
+    --border: #CBD5E1;
     --color-page-background: #FFFFFF;
     --color-surface-background: #FFFFFF;
     --color-surface-secondary: #FFFFFF;
@@ -31,7 +31,7 @@
     --color-secondary-text: #4A3728;
     --color-muted-text: #6B5C52;
     --color-input-background: #FFFFFF;
-    --color-input-border: #D1D5DB;
+    --color-input-border: #94A3B8;
     --color-button-background: #FF6B35;
     --color-button-text: #FFFFFF;
     --color-link-color: #D94E22;
@@ -48,7 +48,7 @@
       --color-sidebar-active: #FFFFFF;
     --color-modal-overlay: #2C1F1570;
     --input-background: #FFFFFF;
-    --input-border: #D1D5DB;
+    --input-border: #94A3B8;
     --button-background: #FF6B35;
     --button-text: #FFFFFF;
     --link-color: #D94E22;
@@ -240,8 +240,8 @@
 
 /* Keep white surfaces while giving cards and dividers a visible edge. */
 .border-warm-100 { border-color: #F3F4F6 !important; }
-.border-warm-200 { border-color: #E5E7EB !important; }
-.border-warm-200\/50 { border-color: rgba(229, 231, 235, 0.5) !important; }
+.border-warm-200 { border-color: #CBD5E1 !important; }
+.border-warm-200\/50 { border-color: rgba(203, 213, 225, 0.75) !important; }
 .dark .border-warm-100,
 .dark .border-warm-200,
 .dark .border-warm-200\/50 { border-color: var(--border) !important; }

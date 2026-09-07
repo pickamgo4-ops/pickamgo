@@ -72,7 +72,7 @@ export const themeColorLabels: Record<ThemeColorKey, string> = {
 
 export const defaultPlatformTheme: PlatformTheme = {
   light: {
-    pageBackground: '#FFFFFF', surfaceBackground: '#FFFFFF', surfaceSecondary: '#FFFFFF', primaryBrand: '#FF6B35', primaryHover: '#E85D2E', secondaryBrand: '#FFB347', accent: '#FF8C5A', textColor: '#2C1F15', secondaryText: '#4A3728', mutedText: '#6B5C52', border: '#E5E7EB', inputBackground: '#FFFFFF', inputBorder: '#D1D5DB', buttonBackground: '#FF6B35', buttonText: '#FFFFFF', linkColor: '#D94E22', success: '#2E8B57', warning: '#B7791F', error: '#C53030', info: '#2B6CB0', badgeBackground: '#FFFFFF', badgeText: '#B83E1A', headerBackground: '#FFFFFF', footerBackground: '#2C1F15', sidebarBackground: '#FFFFFF', sidebarText: '#4A3728', sidebarActive: '#FFFFFF', modalOverlay: '#2C1F1570',
+    pageBackground: '#FFFFFF', surfaceBackground: '#FFFFFF', surfaceSecondary: '#FFFFFF', primaryBrand: '#FF6B35', primaryHover: '#E85D2E', secondaryBrand: '#FFB347', accent: '#FF8C5A', textColor: '#2C1F15', secondaryText: '#4A3728', mutedText: '#6B5C52', border: '#CBD5E1', inputBackground: '#FFFFFF', inputBorder: '#94A3B8', buttonBackground: '#FF6B35', buttonText: '#FFFFFF', linkColor: '#D94E22', success: '#2E8B57', warning: '#B7791F', error: '#C53030', info: '#2B6CB0', badgeBackground: '#FFFFFF', badgeText: '#B83E1A', headerBackground: '#FFFFFF', footerBackground: '#2C1F15', sidebarBackground: '#FFFFFF', sidebarText: '#4A3728', sidebarActive: '#FFFFFF', modalOverlay: '#2C1F1570',
   },
   dark: {
     pageBackground: '#121217', surfaceBackground: '#1A1A1F', surfaceSecondary: '#242229', primaryBrand: '#FF7B4F', primaryHover: '#FF9668', secondaryBrand: '#F7B35A', accent: '#FFC19F', textColor: '#F5F1EA', secondaryText: '#E3D3C5', mutedText: '#C9B9AE', border: '#3B343D', inputBackground: '#211F25', inputBorder: '#4A414B', buttonBackground: '#FF7B4F', buttonText: '#171217', linkColor: '#FFC19F', success: '#68D391', warning: '#F6C453', error: '#FC8181', info: '#63B3ED', badgeBackground: '#3A2525', badgeText: '#FED7D7', headerBackground: '#17151A', footerBackground: '#0D0C0F', sidebarBackground: '#17151A', sidebarText: '#E3D3C5', sidebarActive: '#3B2925', modalOverlay: '#000000A6',
@@ -83,8 +83,8 @@ export function normalizeLightPlatformTheme(theme: PlatformTheme): PlatformTheme
   const light = { ...theme.light }
   const whiteSurfaceKeys: ThemeColorKey[] = ['pageBackground', 'surfaceBackground', 'surfaceSecondary', 'inputBackground', 'headerBackground', 'sidebarBackground', 'badgeBackground', 'sidebarActive']
   whiteSurfaceKeys.forEach(key => { light[key] = '#FFFFFF' })
-  light.border = '#E5E7EB'
-  light.inputBorder = '#D1D5DB'
+  light.border = '#CBD5E1'
+  light.inputBorder = '#94A3B8'
   return { ...theme, light }
 }
 
