@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Package } from 'lucide-react'
+import { Search, Package, Mail } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { BottomNav } from '../../components/layout/BottomNav'
 import { Button } from '../../components/ui/Button'
@@ -47,13 +47,13 @@ export default function TrackPage() {
             Enter the email used for the order and your order number to see real-time delivery updates.
           </p>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-3">
             <Input
               type="email"
               placeholder="Email used for the order"
               value={email}
               onValueChange={setEmail}
-              className="mb-4"
+              icon={<Mail size={20} />}
               required
             />
             <Input
@@ -61,7 +61,8 @@ export default function TrackPage() {
               value={orderNumber}
               onValueChange={setOrderNumber}
               icon={<Search size={20} />}
-              className="mb-4"
+              centerIcon
+              required
             />
             <Button
               fullWidth

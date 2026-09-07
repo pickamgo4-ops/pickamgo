@@ -553,6 +553,113 @@ router.delete(
 );
 
 router.get(
+  "/products/pending-moderation",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      const where = { moderationStatus: "PENDING" as const };
+
+      const [products, total] = await Promise.all([
+        prisma.product.findMany({
+          where,
+          include: {
+            seller: { select: { id: true, name: true, email: true } },
+            shop: { select: { id: true, name: true, isVerified: true } },
+            category: { select: { id: true, name: true, emoji: true, color: true } },
+            images: { orderBy: { sortOrder: "asc" }, take: 1 },
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.product.count({ where }),
+      ]);
+
+      return successResponse(res, {
+        products,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
+    } catch (error) {
+      console.error("Failed to fetch products pending moderation:", error);
+      return errorResponse(res, "Failed to fetch pending moderation products", 500);
+    }
+  },
+);
+
+router.patch(
+  "/products/:id/moderate",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { moderationStatus, moderationNotes } = req.body;
+
+      if (!["APPROVED", "REJECTED"].includes(moderationStatus)) {
+        return errorResponse(res, "moderationStatus must be APPROVED or REJECTED", 400);
+      }
+
+      const product = await prisma.product.findUnique({
+        where: { id },
+        include: { seller: { select: { id: true, name: true, email: true } } },
+      });
+      if (!product) return errorResponse(res, "Product not found", 404);
+
+      const updated = await prisma.product.update({
+        where: { id },
+        data: {
+          moderationStatus,
+          moderationNotes: moderationNotes || null,
+          moderatedBy: req.user!.id,
+          moderatedAt: new Date(),
+          status: moderationStatus === "APPROVED" ? "ACTIVE" : product.status,
+        },
+        include: {
+          seller: { select: { id: true, name: true, email: true } },
+          shop: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true, emoji: true, color: true } },
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: req.user!.id,
+          actorRole: "ADMIN",
+          action: `PRODUCT_${moderationStatus}`,
+          targetType: "Product",
+          targetId: product.id,
+          reason: moderationNotes || null,
+          metadata: JSON.stringify({ moderationStatus }),
+        },
+      });
+
+      if (moderationStatus === "REJECTED" && product.seller) {
+        await prisma.notification.create({
+          data: {
+            userId: product.sellerId,
+            type: "PRODUCT_REJECTED",
+            title: "Product Rejected",
+            message: moderationNotes
+              ? `Your product "${product.name}" was rejected. ${moderationNotes}`
+              : `Your product "${product.name}" was rejected.`,
+            data: JSON.stringify({ productId: product.id, moderationNotes }),
+          },
+        });
+      }
+
+      return successResponse(res, updated, undefined, `Product ${moderationStatus.toLowerCase()}`);
+    } catch (error) {
+      console.error("Failed to moderate product:", error);
+      return errorResponse(res, "Failed to moderate product", 500);
+    }
+  },
+);
+
+router.get(
   "/products/:id",
   authMiddleware,
   requireRole(["ADMIN"]),
@@ -2682,113 +2789,6 @@ router.post(
     } catch (error) {
       console.error("Failed to unfreeze payouts:", error);
       return errorResponse(res, "Failed to unfreeze payouts", 500);
-    }
-  },
-);
-
-router.get(
-  "/products/pending-moderation",
-  authMiddleware,
-  requireRole(["ADMIN"]),
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-
-      const where = { moderationStatus: "PENDING" as const };
-
-      const [products, total] = await Promise.all([
-        prisma.product.findMany({
-          where,
-          include: {
-            seller: { select: { id: true, name: true, email: true } },
-            shop: { select: { id: true, name: true, isVerified: true } },
-            category: { select: { id: true, name: true, emoji: true, color: true } },
-            images: { orderBy: { sortOrder: "asc" }, take: 1 },
-          },
-          orderBy: { createdAt: "desc" },
-          skip: (page - 1) * limit,
-          take: limit,
-        }),
-        prisma.product.count({ where }),
-      ]);
-
-      return successResponse(res, {
-        products,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      });
-    } catch (error) {
-      console.error("Failed to fetch products pending moderation:", error);
-      return errorResponse(res, "Failed to fetch pending moderation products", 500);
-    }
-  },
-);
-
-router.patch(
-  "/products/:id/moderate",
-  authMiddleware,
-  requireRole(["ADMIN"]),
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      const { id } = req.params;
-      const { moderationStatus, moderationNotes } = req.body;
-
-      if (!["APPROVED", "REJECTED"].includes(moderationStatus)) {
-        return errorResponse(res, "moderationStatus must be APPROVED or REJECTED", 400);
-      }
-
-      const product = await prisma.product.findUnique({
-        where: { id },
-        include: { seller: { select: { id: true, name: true, email: true } } },
-      });
-      if (!product) return errorResponse(res, "Product not found", 404);
-
-      const updated = await prisma.product.update({
-        where: { id },
-        data: {
-          moderationStatus,
-          moderationNotes: moderationNotes || null,
-          moderatedBy: req.user!.id,
-          moderatedAt: new Date(),
-          status: moderationStatus === "APPROVED" ? "ACTIVE" : product.status,
-        },
-        include: {
-          seller: { select: { id: true, name: true, email: true } },
-          shop: { select: { id: true, name: true } },
-          category: { select: { id: true, name: true, emoji: true, color: true } },
-        },
-      });
-
-      await prisma.auditLog.create({
-        data: {
-          actorId: req.user!.id,
-          actorRole: "ADMIN",
-          action: `PRODUCT_${moderationStatus}`,
-          targetType: "Product",
-          targetId: product.id,
-          reason: moderationNotes || null,
-          metadata: JSON.stringify({ moderationStatus }),
-        },
-      });
-
-      if (moderationStatus === "REJECTED" && product.seller) {
-        await prisma.notification.create({
-          data: {
-            userId: product.sellerId,
-            type: "PRODUCT_REJECTED",
-            title: "Product Rejected",
-            message: moderationNotes
-              ? `Your product "${product.name}" was rejected. ${moderationNotes}`
-              : `Your product "${product.name}" was rejected.`,
-            data: JSON.stringify({ productId: product.id, moderationNotes }),
-          },
-        });
-      }
-
-      return successResponse(res, updated, undefined, `Product ${moderationStatus.toLowerCase()}`);
-    } catch (error) {
-      console.error("Failed to moderate product:", error);
-      return errorResponse(res, "Failed to moderate product", 500);
     }
   },
 );
