@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS "Setting" (
+  "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+  "key" TEXT NOT NULL,
+  "value" TEXT NOT NULL,
+  "category" TEXT,
+  "description" TEXT,
+  "type" TEXT DEFAULT 'string',
+  "updatedBy" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "Setting_pkey" PRIMARY KEY ("id")
+);
+
+ALTER TABLE "Setting" ADD COLUMN IF NOT EXISTS "category" TEXT;
+ALTER TABLE "Setting" ADD COLUMN IF NOT EXISTS "description" TEXT;
+ALTER TABLE "Setting" ADD COLUMN IF NOT EXISTS "type" TEXT DEFAULT 'string';
+ALTER TABLE "Setting" ADD COLUMN IF NOT EXISTS "updatedBy" TEXT;
+ALTER TABLE "Setting" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "Setting" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Setting_key_key" ON "Setting"("key");
+CREATE INDEX IF NOT EXISTS "Setting_category_idx" ON "Setting"("category");
+CREATE INDEX IF NOT EXISTS "Setting_key_idx" ON "Setting"("key");
