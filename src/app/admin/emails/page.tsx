@@ -224,7 +224,7 @@ export default function AdminEmailsPage() {
 <body>
   <div class="container">
     <div class="header">
-      <img src="/logo.png" alt="PickAmGo" />
+      <img src="/logo.png" alt="PickAmGo" style="height: 80px; width: auto;" />
       <h1>PickAmGo</h1>
     </div>
     <div class="body">

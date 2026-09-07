@@ -226,7 +226,7 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
           reviewsCount: true,
           createdAt: true,
           seller: { select: { id: true, name: true, email: true, avatar: true, location: true } },
-          shop: { select: { id: true, name: true, slug: true, logo: true, location: true, latitude: true, longitude: true, status: true } },
+          shop: { select: { id: true, name: true, slug: true, logo: true, location: true, latitude: true, longitude: true, status: true, allowGuestCheckout: true } },
           category: { select: { id: true, name: true, emoji: true, color: true } },
           images: { select: { id: true, url: true, sortOrder: true }, orderBy: { sortOrder: 'asc' } },
         },

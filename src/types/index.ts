@@ -19,6 +19,7 @@ export interface Product {
     logo?: string;
     campus?: string;
     customization?: import('../lib/shop-themes').ShopCustomization | null;
+    allowGuestCheckout?: boolean;
   };
   location: string;
   distance: string;
@@ -51,7 +52,7 @@ export interface BeautyService {
   category: string;
   subcategory: string;
   provider: Seller;
-  shop?: { id: string; name: string; slug: string; logo?: string; customization?: import('../lib/shop-themes').ShopCustomization | null };
+  shop?: { id: string; name: string; slug: string; logo?: string; customization?: import('../lib/shop-themes').ShopCustomization | null; allowGuestCheckout?: boolean };
   location: string;
   distance: string;
   rating: number;

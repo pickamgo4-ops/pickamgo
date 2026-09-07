@@ -40,6 +40,8 @@ export default function ProductPage() {
   const isOutOfStock = selectedVariantStock <= 0
   const variantRequiredButNotSelected = hasVariants && !selectedVariantId
   const canPurchase = !isOutOfStock && !variantRequiredButNotSelected
+  const isGuest = typeof window !== 'undefined' && !localStorage.getItem('token')
+  const shopDisallowsGuestCheckout = isGuest && product?.shop?.allowGuestCheckout === false
 
   useEffect(() => {
     if (!productId) return
@@ -123,6 +125,10 @@ export default function ProductPage() {
 
   const addToCart = useCallback(async (buyNow = false): Promise<boolean | 'blocked'> => {
     if (!product) return false
+    if (shopDisallowsGuestCheckout) {
+      setShowGuestCheckoutNotice(true)
+      return 'blocked'
+    }
     setAddingToCart(true)
     try {
       const response = await api.post<CartItemWithRelations>('/cart/items', {
@@ -147,7 +153,7 @@ export default function ProductPage() {
     } finally {
       setAddingToCart(false)
     }
-  }, [product, quantity, selectedVariantId])
+  }, [product, quantity, selectedVariantId, shopDisallowsGuestCheckout])
 
   const handleBuyNow = async () => {
     const success = await addToCart(true)
@@ -661,7 +667,9 @@ export default function ProductPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="font-display text-xl font-bold text-warm-900">Sign in required</h2>
-            <p className="mt-2 text-sm text-warm-800/70">This shop requires you to sign in before placing an order.</p>
+            <p className="mt-2 text-sm text-warm-800/70">
+              This seller does not allow guest checkout. Please sign in or create an account to complete your purchase.
+            </p>
             <div className="mt-6 flex gap-3">
               <Button fullWidth onClick={() => router.push(`/auth/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`)}>Sign In</Button>
               <Button variant="ghost" fullWidth onClick={() => setShowGuestCheckoutNotice(false)}>Cancel</Button>

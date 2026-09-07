@@ -17,6 +17,7 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [showGuestCheckoutNotice, setShowGuestCheckoutNotice] = useState(false)
 
   useEffect(() => {
     loadCart()
@@ -96,6 +97,10 @@ export default function CartPage() {
   const subtotal = cart?.items.reduce((sum, item) => sum + getItemPrice(item) * item.quantity, 0) || 0
   const deliveryFee = subtotal > 0 ? (subtotal > 100 ? 0 : 15) : 0
   const total = subtotal + deliveryFee
+  const isGuest = typeof window !== 'undefined' && !localStorage.getItem('token')
+  const restrictedGuestShops = isGuest
+    ? cart?.items.filter(item => (item.product?.shop?.allowGuestCheckout ?? true) === false) || []
+    : []
 
   if (loading) {
     return (
@@ -257,11 +262,32 @@ export default function CartPage() {
               <Button
                 fullWidth
                 className="mt-6"
-                onClick={() => router.push('/checkout')}
+                onClick={() => {
+                  if (restrictedGuestShops.length > 0) {
+                    setShowGuestCheckoutNotice(true)
+                  } else {
+                    router.push('/checkout')
+                  }
+                }}
                 icon={<ArrowRight size={18} />}
               >
                 Proceed to Checkout
               </Button>
+
+              {showGuestCheckoutNotice && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                  <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                    <h2 className="font-display text-xl font-bold text-warm-900">Sign in required</h2>
+                    <p className="mt-2 text-sm text-warm-800/70">
+                      One or more sellers in your cart do not allow guest checkout. Please sign in or create an account to complete your purchase.
+                    </p>
+                    <div className="mt-6 flex gap-3">
+                      <Button fullWidth onClick={() => router.push('/auth/login?returnTo=/cart')}>Sign In</Button>
+                      <Button variant="ghost" fullWidth onClick={() => setShowGuestCheckoutNotice(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

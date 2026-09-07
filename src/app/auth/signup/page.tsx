@@ -324,11 +324,11 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/">
-              <img
-                src="/logo.png"
-                alt="PickAmGo logo"
-                className="h-28 w-40 object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
-              />
+            <img
+              src="/logo.png"
+              alt="PickAmGo logo"
+              className="h-32 w-32 object-contain mx-auto mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+            />
           </Link>
           <Link
             href="/"

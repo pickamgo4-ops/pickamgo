@@ -456,7 +456,13 @@ function CheckoutContent() {
     ),
   );
   const restrictedGuestShops = mode === "guest"
-    ? getCartShopGroups().filter((group) => shopSettings[group.shopId]?.allowGuestCheckout === false)
+    ? getCartShopGroups().filter((group) => {
+        const fromSettings = shopSettings[group.shopId]?.allowGuestCheckout === false
+        const firstItem = group.items[0]
+        const fromProduct = (firstItem?.product?.shop?.allowGuestCheckout ?? true) === false
+        const fromService = (firstItem?.service?.shop?.allowGuestCheckout ?? true) === false
+        return fromSettings || fromProduct || fromService
+      })
     : [];
   const canPickup =
     cartShopIds.length > 0 &&
