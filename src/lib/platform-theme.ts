@@ -79,6 +79,13 @@ export const defaultPlatformTheme: PlatformTheme = {
   },
 }
 
+export function normalizeLightPlatformTheme(theme: PlatformTheme): PlatformTheme {
+  const light = { ...theme.light }
+  const whiteSurfaceKeys: ThemeColorKey[] = ['pageBackground', 'surfaceBackground', 'surfaceSecondary', 'inputBackground', 'headerBackground', 'sidebarBackground', 'badgeBackground', 'sidebarActive']
+  whiteSurfaceKeys.forEach(key => { light[key] = '#FFFFFF' })
+  return { ...theme, light }
+}
+
 export const themePresets: Array<{ name: string; theme: PlatformTheme }> = [
   { name: 'PickAmGo Default', theme: defaultPlatformTheme },
   { name: 'Ocean', theme: { light: { ...defaultPlatformTheme.light, primaryBrand: '#087E8B', primaryHover: '#05636D', secondaryBrand: '#5BC0BE', accent: '#0B4F6C', buttonBackground: '#087E8B', linkColor: '#05636D' }, dark: { ...defaultPlatformTheme.dark, primaryBrand: '#4FD1C5', primaryHover: '#81E6D9', secondaryBrand: '#63B3ED', accent: '#90CDF4', buttonBackground: '#319795', buttonText: '#102A43', linkColor: '#90CDF4' } } },

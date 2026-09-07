@@ -10,19 +10,19 @@
     --primary-dark: #E85D2E;
     --primary-light: #FF8C5A;
     --secondary: #FFB347;
-    --warm-50: #FFFBF5;
-    --warm-100: #FFF5E6;
-    --warm-200: #FFE8CC;
+      --warm-50: #FFFFFF;
+      --warm-100: #FFFFFF;
+      --warm-200: #FFFFFF;
     --warm-800: #4A3728;
     --warm-900: #2C1F15;
-    --background: #FFFBF5;
+    --background: #FFFFFF;
     --foreground: #2C1F15;
     --card: #ffffff;
     --muted: #6B5C52;
     --border: rgba(74, 55, 40, 0.12);
-    --color-page-background: #FFFBF5;
+    --color-page-background: #FFFFFF;
     --color-surface-background: #FFFFFF;
-    --color-surface-secondary: #FFF5E6;
+    --color-surface-secondary: #FFFFFF;
     --color-primary-brand: #FF6B35;
     --color-primary-hover: #E85D2E;
     --color-secondary-brand: #FFB347;
@@ -39,13 +39,13 @@
     --color-warning: #B7791F;
     --color-danger: #C53030;
     --color-info: #2B6CB0;
-    --color-badge-background: #FFF0E8;
+      --color-badge-background: #FFFFFF;
     --color-badge-text: #B83E1A;
     --color-header-background: #FFFFFF;
     --color-footer-background: #2C1F15;
     --color-sidebar-background: #FFFFFF;
     --color-sidebar-text: #4A3728;
-    --color-sidebar-active: #FFF0E8;
+      --color-sidebar-active: #FFFFFF;
     --color-modal-overlay: #2C1F1570;
     --input-background: #FFFFFF;
     --input-border: #D9C9BA;
@@ -56,13 +56,13 @@
     --warning: #B7791F;
     --danger: #C53030;
     --info: #2B6CB0;
-    --badge-background: #FFF0E8;
+      --badge-background: #FFFFFF;
     --badge-text: #B83E1A;
     --header-background: #FFFFFF;
     --footer-background: #2C1F15;
     --sidebar-background: #FFFFFF;
     --sidebar-text: #4A3728;
-    --sidebar-active: #FFF0E8;
+      --sidebar-active: #FFFFFF;
     --modal-overlay: #2C1F1570;
   }
 

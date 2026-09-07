@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { applyPlatformTheme, defaultPlatformTheme, PlatformTheme } from '@/lib/platform-theme'
+import { applyPlatformTheme, defaultPlatformTheme, normalizeLightPlatformTheme, PlatformTheme } from '@/lib/platform-theme'
 
 export type ThemeMode = 'light' | 'dark'
 
@@ -37,7 +37,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       .then(payload => {
         const nextPlatformTheme = payload?.data?.theme
         if (nextPlatformTheme?.light && nextPlatformTheme?.dark) {
-          setPlatformTheme({ light: { ...defaultPlatformTheme.light, ...nextPlatformTheme.light }, dark: { ...defaultPlatformTheme.dark, ...nextPlatformTheme.dark } })
+          setPlatformTheme(normalizeLightPlatformTheme({ light: { ...defaultPlatformTheme.light, ...nextPlatformTheme.light }, dark: { ...defaultPlatformTheme.dark, ...nextPlatformTheme.dark } }))
         }
       })
       .catch(() => {})
