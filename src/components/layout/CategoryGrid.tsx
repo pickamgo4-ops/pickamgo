@@ -41,7 +41,7 @@ export function CategoryGrid({ categories: categoriesProp, onSelect }: CategoryG
         <button
           key={category.id}
           onClick={() => onSelect?.(category.name)}
-          className="flex flex-col items-center gap-2 min-w-[72px] md:min-w-0 group"
+          className="flex w-[104px] shrink-0 flex-col items-center gap-2 text-center group md:w-auto md:min-w-0"
         >
           <div
             className={`
@@ -53,7 +53,7 @@ export function CategoryGrid({ categories: categoriesProp, onSelect }: CategoryG
           >
             {(() => { const Icon = getCategoryIcon(category); return <Icon size={22} strokeWidth={1.8} /> })()}
           </div>
-          <span className="text-xs font-medium text-warm-900 whitespace-nowrap">
+          <span className="min-h-8 text-xs font-medium leading-4 text-warm-900 whitespace-normal">
             {category.name}
           </span>
           <span className="text-[10px] text-warm-800/50">

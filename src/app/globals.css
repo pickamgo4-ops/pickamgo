@@ -238,6 +238,14 @@
   scrollbar-width: none;
 }
 
+/* Keep white surfaces while giving cards and dividers a visible edge. */
+.border-warm-100 { border-color: #F3F4F6 !important; }
+.border-warm-200 { border-color: #E5E7EB !important; }
+.border-warm-200\/50 { border-color: rgba(229, 231, 235, 0.5) !important; }
+.dark .border-warm-100,
+.dark .border-warm-200,
+.dark .border-warm-200\/50 { border-color: var(--border) !important; }
+
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
