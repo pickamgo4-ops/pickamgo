@@ -32,12 +32,9 @@ export const metadata: Metadata = {
     canonical: "https://pickamgo.com/",
   },
   icons: {
-    icon: [
-      { url: "/favicon.svg?v=2", type: "image/svg+xml" },
-      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
-    ],
-    shortcut: ["/favicon.svg?v=2"],
-    apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
+    icon: [{ url: "/logo.png", type: "image/png" }],
+    shortcut: ["/logo.png"],
+    apple: [{ url: "/logo.png", type: "image/png" }],
   },
   openGraph: {
     type: "website",
@@ -65,7 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "@type": "Organization",
     name: "PickAmGo",
     url: "https://pickamgo.com",
-    logo: "https://pickamgo.com/icon-512.png",
+    logo: "https://pickamgo.com/logo.png",
     description:
       "PickAmGo is a general online marketplace where people can discover products, shops, services, and more.",
     sameAs: [
