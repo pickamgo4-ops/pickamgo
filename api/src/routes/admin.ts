@@ -1158,13 +1158,14 @@ router.get(
   requireRole(["ADMIN"]),
   async (_req: AuthenticatedRequest, res) => {
     try {
-      const setting = await prisma.setting.findUnique({ where: { key: 'platformTheme' } });
+      const setting = await prisma.setting.findUnique({ where: { key: 'platformTheme' }, select: { value: true } });
       let theme: unknown = null;
       if (setting?.value) {
         try { theme = JSON.parse(setting.value); } catch { theme = null; }
       }
       return successResponse(res, { theme });
     } catch (error) {
+      console.error('Failed to fetch platform theme:', error);
       return errorResponse(res, 'Failed to fetch platform theme', 500);
     }
   },
@@ -1194,14 +1195,19 @@ router.patch(
       const theme = sanitizePlatformTheme(req.body.theme);
       await prisma.setting.upsert({
         where: { key: 'platformTheme' },
-        update: { value: JSON.stringify(theme), category: 'appearance', type: 'json', updatedBy: req.user!.id },
-        create: { key: 'platformTheme', value: JSON.stringify(theme), category: 'appearance', type: 'json', updatedBy: req.user!.id },
+        update: { value: JSON.stringify(theme) },
+        create: { key: 'platformTheme', value: JSON.stringify(theme) },
       });
-      await prisma.auditLog.create({
-        data: { actorId: req.user!.id, actorRole: 'ADMIN', action: 'PLATFORM_THEME_UPDATED', targetType: 'SETTING', targetId: 'platformTheme', metadata: JSON.stringify({ colorCount: Object.keys(theme.light).length + Object.keys(theme.dark).length }) },
-      });
+      try {
+        await prisma.auditLog.create({
+          data: { actorId: req.user!.id, actorRole: 'ADMIN', action: 'PLATFORM_THEME_UPDATED', targetType: 'SETTING', targetId: 'platformTheme', metadata: JSON.stringify({ colorCount: Object.keys(theme.light).length + Object.keys(theme.dark).length }) },
+        });
+      } catch (auditError) {
+        console.error('Failed to record platform theme audit log:', auditError);
+      }
       return successResponse(res, { theme }, 200, 'Platform theme published successfully');
     } catch (error) {
+      console.error('Failed to save platform theme:', error);
       return errorResponse(res, 'Failed to save platform theme', 500);
     }
   },
