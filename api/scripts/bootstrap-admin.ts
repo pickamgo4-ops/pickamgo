@@ -10,6 +10,7 @@ async function main() {
   const positional = args.filter(arg => !arg.startsWith('--'))
 
   const email = positional[0] ?? process.env.ADMIN_EMAIL
+  const password = process.env.ADMIN_BOOTSTRAP_PASSWORD
   const allowCreate = flags.has('invite') || flags.has('create') || process.env.NODE_ENV !== 'production'
 
   if (!email) {
@@ -18,7 +19,7 @@ async function main() {
   }
 
   try {
-    const result = await bootstrapAdministrator({ email, allowCreate })
+    const result = await bootstrapAdministrator({ email, password, allowCreate })
     console.log(JSON.stringify({ ok: true, ...result }, null, 2))
   } catch (error) {
     console.error(JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }))

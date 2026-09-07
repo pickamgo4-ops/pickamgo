@@ -1,12 +1,15 @@
 import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcrypt'
 import { createAuditEntry } from './auditLog'
 import prisma from './prisma'
+import { validatePasswordOrThrow } from './password-validation'
 
 interface BootstrapOptions {
   email?: string
   actorId?: string | null
   actorRole?: string
   allowCreate?: boolean
+  password?: string
 }
 
 interface BootstrapResult {
@@ -42,6 +45,8 @@ export async function bootstrapAdministrator(options: BootstrapOptions = {}): Pr
     throw new Error('ADMIN_EMAIL is not configured. Set the server-side ADMIN_EMAIL environment variable.')
   }
   const email = normalizeEmail(configured)
+  const password = options.password?.trim()
+  if (password) validatePasswordOrThrow(password)
 
   await prisma.role.upsert({
     where: { name: 'ADMIN' },
@@ -69,7 +74,9 @@ export async function bootstrapAdministrator(options: BootstrapOptions = {}): Pr
         email,
         name: 'PickAmGo Administrator',
         location: '',
-        passwordHash: '__PENDING_BOOTSTRAP__',
+        passwordHash: password ? await bcrypt.hash(password, 12) : '__PENDING_BOOTSTRAP__',
+        emailVerified: Boolean(password),
+        isAdmin: true,
       },
     })
     createdAt = true
@@ -95,7 +102,7 @@ export async function bootstrapAdministrator(options: BootstrapOptions = {}): Pr
       metadata: JSON.stringify({ email, bootstrap: true }),
     })
 
-    return { status: 'INVITED', userId: user.id, email, createdAt: true }
+    return { status: password ? 'PROMOTED' : 'INVITED', userId: user.id, email, createdAt: true }
   }
 
   const wasAdmin = user.isAdmin
@@ -103,14 +110,17 @@ export async function bootstrapAdministrator(options: BootstrapOptions = {}): Pr
     where: { userId_roleId: { userId: user.id, roleId: adminRole.id } },
   })
 
-  if (wasAdmin && existingAdminLink) {
+  if (wasAdmin && existingAdminLink && !password) {
     return { status: 'ALREADY_ADMIN', userId: user.id, email, createdAt: false }
   }
 
   await prisma.$transaction(async tx => {
     await tx.user.update({
       where: { id: user!.id },
-      data: { isAdmin: true },
+      data: {
+        isAdmin: true,
+        ...(password ? { passwordHash: await bcrypt.hash(password, 12), emailVerified: true, authVersion: { increment: 1 } } : {}),
+      },
     })
     await tx.userRole.upsert({
       where: { userId_roleId: { userId: user!.id, roleId: adminRole.id } },
