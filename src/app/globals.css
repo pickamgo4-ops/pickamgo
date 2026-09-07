@@ -12,14 +12,14 @@
     --secondary: #FFB347;
       --warm-50: #FFFFFF;
       --warm-100: #FFFFFF;
-      --warm-200: #FFFFFF;
+      --warm-200: #E5E7EB;
     --warm-800: #4A3728;
     --warm-900: #2C1F15;
     --background: #FFFFFF;
     --foreground: #2C1F15;
     --card: #ffffff;
     --muted: #6B5C52;
-    --border: rgba(74, 55, 40, 0.12);
+    --border: #E5E7EB;
     --color-page-background: #FFFFFF;
     --color-surface-background: #FFFFFF;
     --color-surface-secondary: #FFFFFF;
@@ -31,7 +31,7 @@
     --color-secondary-text: #4A3728;
     --color-muted-text: #6B5C52;
     --color-input-background: #FFFFFF;
-    --color-input-border: #D9C9BA;
+    --color-input-border: #D1D5DB;
     --color-button-background: #FF6B35;
     --color-button-text: #FFFFFF;
     --color-link-color: #D94E22;
@@ -48,7 +48,7 @@
       --color-sidebar-active: #FFFFFF;
     --color-modal-overlay: #2C1F1570;
     --input-background: #FFFFFF;
-    --input-border: #D9C9BA;
+    --input-border: #D1D5DB;
     --button-background: #FF6B35;
     --button-text: #FFFFFF;
     --link-color: #D94E22;
