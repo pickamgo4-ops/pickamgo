@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Heart, Share2, MapPin, Star, Clock, Flame, Sparkles, Tag, CheckCircle2 } from 'lucide-react'
 import { Product } from '../../types'
 import { Badge } from '../../components/ui/Badge'
 import { shareLink } from '../../lib/share'
 import { shopCustomizationStyle } from '../../lib/shop-themes'
+import { api } from '../../lib/api'
 
 interface ProductCardProps {
   product: Product
@@ -12,6 +13,8 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) {
+  const [isFavorite, setIsFavorite] = useState(Boolean(product.isFavorite))
+  const [favoriteLoading, setFavoriteLoading] = useState(false)
   const customization = product.shop?.customization
   const cardStyle = customization
     ? shopCustomizationStyle(customization)
@@ -21,18 +24,45 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
         '--shop-text': 'var(--foreground)',
         '--shop-border': 'var(--border)',
       } as React.CSSProperties
+
+  useEffect(() => {
+    setIsFavorite(Boolean(product.isFavorite))
+  }, [product.isFavorite])
+
+  const handleFavorite = async () => {
+    if (onFavorite) {
+      onFavorite()
+      return
+    }
+    if (typeof window === 'undefined') return
+    if (!localStorage.getItem('token')) {
+      window.location.assign(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`)
+      return
+    }
+
+    setFavoriteLoading(true)
+    try {
+      const response = isFavorite
+        ? await api.removeFavorite('PRODUCT', product.id)
+        : await api.addFavorite('PRODUCT', product.id)
+      if (response.success) setIsFavorite(!isFavorite)
+    } finally {
+      setFavoriteLoading(false)
+    }
+  }
+
   return (
     <div
       onClick={onClick}
       style={cardStyle}
-      className="group cursor-pointer bg-[var(--shop-surface,var(--shop-secondary))] rounded-[var(--shop-card-radius,1rem)] overflow-hidden border border-[var(--shop-border)] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+      className="group cursor-pointer bg-[var(--shop-surface,var(--shop-secondary))] rounded-[var(--shop-card-radius,1rem)] overflow-hidden border border-[var(--shop-border)] transition-all duration-300 hover:shadow-lg hover:-translate-y-1 motion-safe-only"
     >
       {/* Image Container */}
       <div className="relative aspect-[4/5] sm:aspect-square overflow-hidden" style={{ backgroundColor: 'var(--shop-secondary)' }}>
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
         
@@ -56,14 +86,17 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
         <button
           onClick={(e) => {
             e.stopPropagation()
-            onFavorite?.()
+            void handleFavorite()
           }}
+          disabled={favoriteLoading}
+          aria-label={isFavorite ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
+          aria-pressed={isFavorite}
           style={{ backgroundColor: 'var(--shop-surface)', color: 'var(--shop-text)', borderColor: 'var(--shop-border)' }}
           className="absolute top-2 right-2 w-8 h-8 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform border"
         >
           <Heart
             size={16}
-            className={product.isFavorite ? 'fill-red-500 text-red-500' : ''}
+            className={isFavorite ? 'fill-red-500 text-red-500' : ''}
           />
         </button>
 
