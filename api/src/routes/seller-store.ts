@@ -16,6 +16,14 @@ const promotionSchema = z.object({ name: z.string().min(2).max(100), type: z.enu
 async function sellerShop(userId: string) { return prisma.shop.findFirst({ where: { ownerId: userId }, select: { id: true, slug: true, name: true, logo: true } }) }
 function slugify(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70) || `collection-${Date.now()}` }
 function activePromotionWhere(now = new Date()) { return { status: 'ACTIVE', startsAt: { lte: now }, endsAt: { gte: now } } }
+function qrEndpointUrl(token: string) {
+  const apiUrl = process.env.API_PUBLIC_URL?.split(',')[0]?.trim() || 'https://pickamgo-production.up.railway.app'
+  return `${apiUrl.replace(/\/$/, '')}/api/seller/store/qr/${encodeURIComponent(token)}`
+}
+function shopPublicUrl(slug: string) {
+  const domain = process.env.MARKETPLACE_DOMAIN || 'pickamgo.com'
+  return `https://${encodeURIComponent(slug)}.${domain}`
+}
 
 router.get('/zones', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
   const shop = await sellerShop(req.user!.id); if (!shop) return errorResponse(res, 'Shop not found', 404)
@@ -83,13 +91,13 @@ router.patch('/promotions/:id/status', authMiddleware, requireRole(['SELLER']), 
 router.post('/qr', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
   const shop = await sellerShop(req.user!.id); if (!shop) return errorResponse(res, 'Shop not found', 404)
   const qr = await prisma.sellerQrCode.upsert({ where: { shopId: shop.id }, update: {}, create: { shopId: shop.id } })
-  const url = `${process.env.API_PUBLIC_URL || process.env.FRONTEND_URL || 'https://pickamgo.com'}/api/seller/store/qr/${qr.publicToken}`
-  return successResponse(res, { ...qr, url }, 201, 'Shop QR link generated')
+  const url = shopPublicUrl(shop.slug)
+  return successResponse(res, { ...qr, url, scanUrl: qrEndpointUrl(qr.publicToken) }, 201, 'Shop QR link generated')
 })
 router.get('/qr', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
   const shop = await sellerShop(req.user!.id); if (!shop) return errorResponse(res, 'Shop not found', 404)
   const qr = await prisma.sellerQrCode.findUnique({ where: { shopId: shop.id } }); if (!qr) return successResponse(res, null)
-  return successResponse(res, { ...qr, url: `${process.env.API_PUBLIC_URL || process.env.FRONTEND_URL || 'https://pickamgo.com'}/api/seller/store/qr/${qr.publicToken}` })
+  return successResponse(res, { ...qr, url: shopPublicUrl(shop.slug), scanUrl: qrEndpointUrl(qr.publicToken) })
 })
 
 router.get('/public/:slug', async (req, res) => {
@@ -102,8 +110,7 @@ router.get('/qr/:token', async (req, res) => {
   const qr = await prisma.sellerQrCode.findUnique({ where: { publicToken: req.params.token }, include: { shop: { select: { slug: true } } } })
   if (!qr) return errorResponse(res, 'QR code not found', 404)
   await prisma.$transaction([prisma.sellerQrCode.update({ where: { id: qr.id }, data: { scanCount: { increment: 1 } } }), prisma.sellerQrScan.create({ data: { qrCodeId: qr.id, referrer: req.get('referer') || null } })])
-  const frontendUrl = process.env.FRONTEND_URL?.split(',')[0]?.trim() || 'https://pickamgo.com'
-  return res.redirect(`${frontendUrl.replace(/\/$/, '')}/shop/${encodeURIComponent(qr.shop.slug)}`)
+  return res.redirect(shopPublicUrl(qr.shop.slug))
 })
 
 export function zoneMatchesAddress(zone: { name: string; region: string | null; city: string | null; area: string | null; locations: string | null }, address: string): boolean {

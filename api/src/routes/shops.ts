@@ -105,8 +105,12 @@ const publishedToResponse = (customization: any) => customization?.publishedAt ?
 const effectiveCustomization = (customization: any) => {
   if (!customization) return null
   const published = publishedToResponse(customization)
-  if (published) return published
-  return draftToResponse(customization)
+  const draft = draftToResponse(customization)
+  if (!published) return draft
+  return Object.fromEntries(Object.entries(draft).map(([key, value]) => [
+    key,
+    published[key] !== null && published[key] !== undefined ? published[key] : value,
+  ]))
 }
 
 const draftData = (data: any) => Object.fromEntries(Object.entries(data).map(([key, value]) => [`draft${key[0].toUpperCase()}${key.slice(1)}`, value]))
