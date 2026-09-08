@@ -6,7 +6,7 @@ import { Heart, Share2, MapPin, Star, Truck, ChevronLeft, Store, Clock, MessageC
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
 import { api } from '../../../lib/api'
-import { Product, CartItemWithRelations } from '../../../types'
+import { Product } from '../../../types'
 import { mapApiProductToFrontend } from '../../../lib/api-mappers'
 import { getShopUrl } from '../../../lib/shop-url'
 import { shareLink } from '../../../lib/share'
@@ -32,6 +32,7 @@ export default function ProductPage() {
   const [addingToCart, setAddingToCart] = useState(false)
   const [showGuestCheckoutNotice, setShowGuestCheckoutNotice] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [cartError, setCartError] = useState<string | null>(null)
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
 
   const activeVariant = product?.variants?.find(v => v.id === selectedVariantId) || null
@@ -123,15 +124,16 @@ export default function ProductPage() {
     }
   }
 
-  const addToCart = useCallback(async (buyNow = false): Promise<boolean | 'blocked'> => {
+  const addToCart = useCallback(async (buyNow = false): Promise<boolean | 'blocked' | string> => {
     if (!product) return false
     if (shopDisallowsGuestCheckout) {
       setShowGuestCheckoutNotice(true)
       return 'blocked'
     }
     setAddingToCart(true)
+    setCartError(null)
     try {
-      const response = await api.post<CartItemWithRelations>('/cart/items', {
+      const response = await api.addToCart({
         productId: product.id,
         variantId: selectedVariantId || undefined,
         quantity,
@@ -146,10 +148,12 @@ export default function ProductPage() {
         setShowGuestCheckoutNotice(true)
         return 'blocked'
       }
-      return false
+      setCartError(response.error || response.message || 'Unable to add this item to your cart.')
+      return response.error || response.message || 'Unable to add this item to your cart.'
     } catch (err) {
       console.error('Failed to add to cart:', err)
-      return false
+      setCartError('Unable to reach the cart service. Please try again.')
+      return 'Unable to reach the cart service. Please try again.'
     } finally {
       setAddingToCart(false)
     }
@@ -160,7 +164,7 @@ export default function ProductPage() {
     if (success === true) {
       router.push('/checkout')
     } else if (success !== 'blocked') {
-      alert('Failed to add to cart. Please try again.')
+      alert(typeof success === 'string' ? success : cartError || 'Unable to add this item to your cart. Please try again.')
     }
   }
 
@@ -668,7 +672,7 @@ export default function ProductPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="font-display text-xl font-bold text-warm-900">Sign in required</h2>
             <p className="mt-2 text-sm text-warm-800/70">
-              This seller does not allow guest checkout. Please sign in or create an account to complete your purchase.
+              This shop does not allow guest checkout, so you need to sign in before adding this item to your cart and completing your purchase.
             </p>
             <div className="mt-6 flex gap-3">
               <Button fullWidth onClick={() => router.push(`/auth/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`)}>Sign In</Button>

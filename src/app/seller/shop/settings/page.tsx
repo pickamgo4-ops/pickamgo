@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Store, Upload, MapPin, Truck, Settings, Copy, ExternalLink, UserRoundCheck } from 'lucide-react'
+import { Store, Upload, MapPin, Truck, Settings, Copy, ExternalLink, UserRoundCheck, CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -12,6 +12,11 @@ import { getShopUrl } from '@/lib/shop-url'
 import dynamic from 'next/dynamic'
 
 const GoogleLocationPicker = dynamic(() => import('@/components/map/GoogleLocationPicker'), { ssr: false })
+const marketplaceDomain = process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'
+
+function shopSlugFromName(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
+}
 
 export default function ShopSettingsPage() {
   const router = useRouter()
@@ -21,8 +26,11 @@ export default function ShopSettingsPage() {
   const [success, setSuccess] = useState('')
   const [shop, setShop] = useState<any>(null)
   const [uploading, setUploading] = useState<string | null>(null)
+  const [slugStatus, setSlugStatus] = useState<{ slug: string; available: boolean; reason: string | null } | null>(null)
+  const [checkingSlug, setCheckingSlug] = useState(false)
 
   const [form, setForm] = useState({
+    name: '',
     logo: '',
     banner: '',
     location: '',
@@ -47,6 +55,7 @@ export default function ShopSettingsPage() {
         const shopData = response.data.shop
         setShop(shopData)
         setForm({
+          name: shopData.name || '',
           logo: shopData.logo || '',
           banner: shopData.banner || '',
           location: shopData.location || '',
@@ -72,6 +81,25 @@ export default function ShopSettingsPage() {
   const updateField = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }
+
+  const previewSlug = shopSlugFromName(form.name.trim())
+
+  useEffect(() => {
+    if (!shop || !form.name.trim()) {
+      setSlugStatus(null)
+      setCheckingSlug(false)
+      return
+    }
+    const timer = window.setTimeout(async () => {
+      setCheckingSlug(true)
+      const slug = shopSlugFromName(form.name.trim())
+      const response = await api.get<{ available: boolean; slug: string; reason: string | null }>(`/shops/slug-availability?name=${encodeURIComponent(form.name.trim())}&shopId=${encodeURIComponent(shop.id)}`)
+      if (response.success && response.data) setSlugStatus(response.data)
+      else setSlugStatus({ slug, available: false, reason: response.error || 'Could not check this store URL.' })
+      setCheckingSlug(false)
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [form.name, shop])
 
   const uploadImage = useCallback(async (field: 'logo' | 'banner') => {
     const input = document.createElement('input')
@@ -113,6 +141,10 @@ export default function ShopSettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!shop) return
+    if (checkingSlug || !slugStatus?.available) {
+      setError('Choose an available store URL before saving your shop name.')
+      return
+    }
 
     setSaving(true)
     setError('')
@@ -128,6 +160,7 @@ export default function ShopSettingsPage() {
 
       if (response.success && response.data) {
         setShop(response.data)
+        setSlugStatus({ slug: response.data.slug, available: true, reason: null })
         setSuccess('Settings saved successfully!')
         setTimeout(() => router.push('/seller/onboarding'), 1000)
       } else {
@@ -215,6 +248,29 @@ export default function ShopSettingsPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Store size={18} className="text-primary" />
+              <h3 className="font-semibold text-warm-900">Shop Name and URL</h3>
+            </div>
+            <Input
+              label="Shop Name"
+              placeholder="e.g., Glow Beauty"
+              value={form.name}
+              onChange={(e) => updateField('name', e.target.value)}
+              required
+            />
+            {form.name.trim() && (
+              <div className={`mt-2 rounded-xl border px-3 py-2.5 text-sm ${checkingSlug || !slugStatus ? 'border-warm-200 bg-warm-50 text-warm-800/70' : slugStatus.available ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                <div className="flex items-center gap-2 font-medium">
+                  {checkingSlug || !slugStatus ? <Loader2 size={16} className="animate-spin" /> : slugStatus.available ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                  <span>{checkingSlug || !slugStatus ? 'Checking store URL...' : slugStatus.available ? 'Store URL is available' : slugStatus.reason}</span>
+                </div>
+                <p className="mt-1 break-all text-xs opacity-80">Your store URL: https://{previewSlug}.{marketplaceDomain}</p>
+              </div>
+            )}
+          </Card>
+
           {/* Photo Section */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">

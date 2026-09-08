@@ -307,10 +307,11 @@ router.get('/', async (req, res) => {
 
 router.get('/slug-availability', async (req, res) => {
   const name = typeof req.query.name === 'string' ? req.query.name.trim() : ''
+  const shopId = typeof req.query.shopId === 'string' ? req.query.shopId : undefined
   const slug = shopSlugFromName(name)
   if (!name || name.length < 2) return successResponse(res, { available: false, slug, reason: 'Enter at least 2 characters.' })
   if (reservedShopSlugs.has(slug)) return successResponse(res, { available: false, slug, reason: 'This store URL is reserved.' })
-  const existing = await prisma.shop.findUnique({ where: { slug }, select: { id: true, name: true } })
+  const existing = await prisma.shop.findFirst({ where: { slug, ...(shopId ? { id: { not: shopId } } : {}) }, select: { id: true, name: true } })
   return successResponse(res, { available: !existing, slug, reason: existing ? 'This store URL is already taken.' : null })
 })
 
@@ -491,8 +492,11 @@ router.patch('/:id', authMiddleware, validateBody(updateShopSchema), async (req:
       return errorResponse(res, 'For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]', 400)
     }
   }
-  if (data.name && (!shop.slug || shop.slug === '')) {
+  if (data.name && data.name !== shop.name) {
     const baseSlug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
+    if (reservedShopSlugs.has(baseSlug)) {
+      return errorResponse(res, 'That shop name is reserved. Please choose another name.', 409)
+    }
     let slug = baseSlug
     let attempt = 1
     while (attempt < 10) {
