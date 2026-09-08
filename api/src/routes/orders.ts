@@ -344,7 +344,27 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
   const order = await prisma.order.findUnique({ where: { id: req.params.id } })
   if (!order) return errorResponse(res, 'Order not found', 404)
 
-  const isSeller = order.sellerId === req.user!.id
+  const sellerShops = req.user!.isSeller
+    ? await prisma.shop.findMany({ where: { ownerId: req.user!.id }, select: { id: true } })
+    : []
+  const sellerShopIds = sellerShops.map(shop => shop.id)
+  const ownsOrderItem = req.user!.isSeller && sellerShopIds.length > 0
+    ? await prisma.orderItem.findFirst({
+        where: {
+          orderId: order.id,
+          OR: [
+            { product: { shopId: { in: sellerShopIds } } },
+            { service: { shopId: { in: sellerShopIds } } },
+          ],
+        },
+        select: { id: true },
+      })
+    : null
+  const isSeller = req.user!.isSeller && (
+    order.sellerId === req.user!.id
+    || (order.shopId ? sellerShopIds.includes(order.shopId) : false)
+    || Boolean(ownsOrderItem)
+  )
   const isAdmin = req.user!.isAdmin
   const isRider = order.riderId === req.user!.id && order.fulfillmentMethod === 'FIND_IT_NEAR_ME_RIDER'
 

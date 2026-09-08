@@ -152,7 +152,7 @@ export default function CreateProductPage() {
         ...form,
         shopId,
         price: parseFloat(form.price),
-        originalPrice: form.originalPrice ? parseFloat(form.originalPrice) : null,
+        originalPrice: form.originalPrice ? parseFloat(form.originalPrice) : undefined,
         stock: parseInt(form.stock) || 0,
         images: parseImages(form.images),
         isActive: !isDraft,
