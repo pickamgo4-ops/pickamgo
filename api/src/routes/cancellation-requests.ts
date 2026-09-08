@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma'
-import { authMiddleware, AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
+import { authMiddleware } from '../middleware/auth'
+import { AuthenticatedRequest, successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
 
 const router = Router()
@@ -47,7 +48,7 @@ router.post('/', authMiddleware, validateBody(cancellationSchema), async (req: A
 
   await prisma.notification.create({
     data: {
-      userId: order.sellerId,
+      userId: order.sellerId || '',
       type: 'ORDER_CANCELLATION_REQUEST',
       title: 'Cancellation Request',
       message: `Customer requested to cancel order ${order.orderNumber}`,

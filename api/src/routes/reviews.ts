@@ -278,7 +278,7 @@ router.post('/:id/images', authMiddleware, async (req: AuthenticatedRequest, res
   if (review.userId !== req.user!.id) return errorResponse(res, 'Not authorized', 403)
 
   const { urls } = req.body as { urls?: string[] }
-  const imageUrls = Array.isArray(urls) ? urls : [urls].filter(Boolean)
+  const imageUrls = (Array.isArray(urls) ? urls : [urls]).filter((url): url is string => Boolean(url))
 
   const images = await prisma.$transaction(
     imageUrls.map((url, index) =>

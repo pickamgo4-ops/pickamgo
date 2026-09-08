@@ -365,6 +365,7 @@ model Cart {
   updatedAt DateTime   @updatedAt
   user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   items     CartItem[]
+  abandonedCart AbandonedCart?
 
   @@index([userId])
   @@index([sessionId])
@@ -1896,6 +1897,7 @@ model AbandonedCart {
   expiresAt       DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  cart            Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([sessionId])
