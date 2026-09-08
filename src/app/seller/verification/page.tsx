@@ -55,6 +55,7 @@ interface HistoryEntry {
 export default function SellerVerificationPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [verification, setVerification] = useState<VerificationData | null>(null)
@@ -81,6 +82,8 @@ export default function SellerVerificationPage() {
   }, [])
 
   const loadVerification = async () => {
+    setInitialLoading(true)
+    setError('')
     try {
       const response = await api.get<any>('/seller/verification/status')
       if (response.success && response.data) {
@@ -114,6 +117,9 @@ export default function SellerVerificationPage() {
       }
     } catch (err) {
       console.error('Failed to load verification:', err)
+      setError('Failed to load verification data. Please try again.')
+    } finally {
+      setInitialLoading(false)
     }
   }
 
@@ -183,6 +189,19 @@ export default function SellerVerificationPage() {
     if (score >= 70) return 'text-green-600'
     if (score >= 40) return 'text-orange-600'
     return 'text-red-600'
+  }
+
+  if (initialLoading) {
+    return (
+      <SellerSidebar>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-warm-800/60">Loading verification...</p>
+          </div>
+        </div>
+      </SellerSidebar>
+    )
   }
 
   return (

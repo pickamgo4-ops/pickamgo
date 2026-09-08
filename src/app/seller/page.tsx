@@ -56,6 +56,7 @@ export default function SellerDashboard() {
   const [checks, setChecks] = useState<CheckItem[]>([]);
   const [progress, setProgress] = useState({ completed: 0, total: 7 });
   const [verification, setVerification] = useState<SellerVerification | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -63,6 +64,7 @@ export default function SellerDashboard() {
 
   const loadDashboardData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [onboardingRes, ordersRes, productsRes, verificationRes] = await Promise.all([
         api.get<any>("/seller/onboarding"),
@@ -107,12 +109,14 @@ export default function SellerDashboard() {
       }
 
       if (verificationRes.success && verificationRes.data) {
-        setVerification(
-          (verificationRes.data as any).status !== "NOT_SUBMITTED" ? verificationRes.data : null,
-        );
+        const v = (verificationRes.data as any).verification || (verificationRes.data as any)
+        if (v && v.status !== "NOT_SUBMITTED") {
+          setVerification(v)
+        }
       }
     } catch (err) {
       console.error("Failed to load dashboard:", err);
+      setError("Failed to load dashboard data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -171,6 +175,12 @@ export default function SellerDashboard() {
   return (
     <SellerSidebar>
       <div className="space-y-6">
+        {error && (
+          <Card className="border-red-200 bg-red-50 p-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-red-700">{error}</p>
+            <Button variant="outline" size="sm" onClick={loadDashboardData}>Retry</Button>
+          </Card>
+        )}
         {/* Welcome Header */}
         <div className="animate-slide-up motion-safe-only">
           <div className="flex items-baseline gap-3 mb-2">
@@ -310,22 +320,22 @@ export default function SellerDashboard() {
             <div className="flex items-center gap-2">
               <Badge
                 variant={
-                  (verification as any).status === "APPROVED"
+                  verification.status === "APPROVED"
                     ? "verified"
-                    : (verification as any).status === "REJECTED"
+                    : verification.status === "REJECTED"
                       ? "deal"
                       : "default"
                 }
               >
-                {(verification as any).status === "APPROVED"
+                {verification.status === "APPROVED"
                   ? "Verified"
-                  : (verification as any).status === "REJECTED"
+                  : verification.status === "REJECTED"
                     ? "Rejected"
                     : "Pending Review"}
               </Badge>
             </div>
-            {verification.rejectionReason && (
-              <p className="text-sm text-red-600 mt-2">{verification.rejectionReason}</p>
+            {(verification as any).rejectionReason && (
+              <p className="text-sm text-red-600 mt-2">{(verification as any).rejectionReason}</p>
             )}
           </Card>
         )}

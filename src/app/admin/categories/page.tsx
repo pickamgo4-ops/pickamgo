@@ -1,41 +1,52 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Tag, Plus, Edit2, Trash2, Loader2, X, Save, XCircle } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { Card } from '@/components/ui/Card'
-import { api } from '@/lib/api'
-import { useRole } from '@/contexts/RoleContext'
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Tag,
+  Plus,
+  Edit2,
+  Trash2,
+  Loader2,
+  X,
+  Save,
+  XCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { api } from "@/lib/api";
+import { useRole } from "@/contexts/RoleContext";
 
 interface AdminCategory {
-  id: string
-  name: string
-  slug: string
-  description: string
-  image: string
-  emoji: string
-  color: string
-  productsCount: number
-  servicesCount: number
-  isActive: boolean
-  displayOrder: number
-  createdAt: string
-  parent?: { id: string; name: string }
-  children?: AdminCategory[]
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image: string;
+  emoji: string;
+  color: string;
+  productsCount: number;
+  servicesCount: number;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt: string;
+  parent?: { id: string; name: string };
+  children?: AdminCategory[];
 }
 
 function mapCategory(c: any): AdminCategory {
   return {
     id: c.id,
     name: c.name,
-    slug: c.slug || '',
-    description: c.description || '',
-    image: c.image || '',
-    emoji: c.emoji || c.icon || '',
-    color: c.color || '#1769D1',
+    slug: c.slug || "",
+    description: c.description || "",
+    image: c.image || "",
+    emoji: c.emoji || c.icon || "",
+    color: c.color || "#1769D1",
     productsCount: c._count?.products ?? c.productsCount ?? 0,
     servicesCount: c._count?.services ?? c.servicesCount ?? 0,
     isActive: c.isActive !== undefined ? c.isActive : true,
@@ -43,84 +54,84 @@ function mapCategory(c: any): AdminCategory {
     createdAt: c.createdAt,
     parent: c.parent || undefined,
     children: c.children || undefined,
-  }
+  };
 }
 
 interface CategoryFormData {
-  name: string
-  slug: string
-  description: string
-  image: string
-  icon: string
-  color: string
-  parentId: string
-  displayOrder: number
-  isActive: boolean
+  name: string;
+  slug: string;
+  description: string;
+  image: string;
+  icon: string;
+  color: string;
+  parentId: string;
+  displayOrder: number;
+  isActive: boolean;
 }
 
 const initialForm: CategoryFormData = {
-  name: '',
-  slug: '',
-  description: '',
-  image: '',
-  icon: '',
-  color: '#1769D1',
-  parentId: '',
+  name: "",
+  slug: "",
+  description: "",
+  image: "",
+  icon: "",
+  color: "#1769D1",
+  parentId: "",
   displayOrder: 0,
   isActive: true,
-}
+};
 
 export default function AdminCategoriesPage() {
-  const router = useRouter()
-  const { user, loading, authInitialized } = useRole()
-  const [dataLoading, setDataLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [categories, setCategories] = useState<AdminCategory[]>([])
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [isCreating, setIsCreating] = useState(false)
-  const [form, setForm] = useState<CategoryFormData>(initialForm)
-  const [saving, setSaving] = useState(false)
-  const loadingRef = useRef(false)
+  const router = useRouter();
+  const { user, loading, authInitialized } = useRole();
+  const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [form, setForm] = useState<CategoryFormData>(initialForm);
+  const [saving, setSaving] = useState(false);
+  const loadingRef = useRef(false);
 
   const loadCategories = useCallback(async () => {
-    if (loadingRef.current) return
-    loadingRef.current = true
-    setDataLoading(true)
-    setError('')
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    setDataLoading(true);
+    setError("");
     try {
-      const response = await api.get<any>('/admin/categories')
+      const response = await api.get<any>("/admin/categories");
       if (response.success && response.data) {
-        const raw = Array.isArray(response.data) ? response.data : []
-        setCategories(raw.map(mapCategory))
+        const raw = Array.isArray(response.data) ? response.data : [];
+        setCategories(raw.map(mapCategory));
       } else {
-        setError(response.error || 'Failed to load categories')
+        setError(response.error || "Failed to load categories");
       }
     } catch {
-      setError('Network error. Please try again.')
+      setError("Network error. Please try again.");
     } finally {
-      setDataLoading(false)
-      loadingRef.current = false
+      setDataLoading(false);
+      loadingRef.current = false;
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    if (!authInitialized) return
+    if (!authInitialized) return;
     if (!user || !user.isAdmin) {
-      router.push('/')
-      return
+      router.push("/");
+      return;
     }
-    loadCategories()
-  }, [authInitialized, user, loadCategories, router])
+    loadCategories();
+  }, [authInitialized, user, loadCategories, router]);
 
   const handleCreate = () => {
-    setIsCreating(true)
-    setEditingId(null)
-    setForm(initialForm)
-  }
+    setIsCreating(true);
+    setEditingId(null);
+    setForm(initialForm);
+  };
 
   const handleEdit = (cat: AdminCategory) => {
-    setEditingId(cat.id)
-    setIsCreating(false)
+    setEditingId(cat.id);
+    setIsCreating(false);
     setForm({
       name: cat.name,
       slug: cat.slug,
@@ -128,15 +139,15 @@ export default function AdminCategoriesPage() {
       image: cat.image,
       icon: cat.emoji,
       color: cat.color,
-      parentId: cat.parent?.id || '',
+      parentId: cat.parent?.id || "",
       displayOrder: cat.displayOrder,
       isActive: cat.isActive,
-    })
-  }
+    });
+  };
 
   const handleSave = async () => {
-    if (!form.name.trim()) return
-    setSaving(true)
+    if (!form.name.trim()) return;
+    setSaving(true);
     try {
       const payload: any = {
         name: form.name,
@@ -147,47 +158,47 @@ export default function AdminCategoriesPage() {
         color: form.color,
         displayOrder: form.displayOrder,
         isActive: form.isActive,
-      }
-      if (form.parentId) payload.parentId = form.parentId
+      };
+      if (form.parentId) payload.parentId = form.parentId;
 
-      let response
+      let response;
       if (editingId) {
-        response = await api.patch(`/admin/categories/${editingId}`, payload)
+        response = await api.patch(`/admin/categories/${editingId}`, payload);
       } else {
-        response = await api.post('/admin/categories', payload)
+        response = await api.post("/admin/categories", payload);
       }
 
       if (response.success) {
-        setEditingId(null)
-        setIsCreating(false)
-        setForm(initialForm)
-        loadCategories()
+        setEditingId(null);
+        setIsCreating(false);
+        setForm(initialForm);
+        loadCategories();
       }
     } catch {
-      console.error('Failed to save category')
+      console.error("Failed to save category");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleDelete = async (cat: AdminCategory) => {
     if (cat.productsCount > 0) {
-      alert('Cannot delete this category because it has products associated with it.')
-      return
+      alert("Cannot delete this category because it has products associated with it.");
+      return;
     }
-    if (!window.confirm(`Are you sure you want to delete "${cat.name}"?`)) return
+    if (!window.confirm(`Are you sure you want to delete "${cat.name}"?`)) return;
 
     try {
-      const response = await api.delete(`/admin/categories/${cat.id}`)
+      const response = await api.delete(`/admin/categories/${cat.id}`);
       if (response.success) {
-        setCategories(prev => prev.filter(c => c.id !== cat.id))
+        setCategories((prev) => prev.filter((c) => c.id !== cat.id));
       } else {
-        setError(response.error || 'Failed to delete category')
+        setError(response.error || "Failed to delete category");
       }
     } catch {
-      setError('Failed to delete category. Please try again.')
+      setError("Failed to delete category. Please try again.");
     }
-  }
+  };
 
   if (loading || !authInitialized) {
     return (
@@ -196,7 +207,7 @@ export default function AdminCategoriesPage() {
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -223,7 +234,7 @@ export default function AdminCategoriesPage() {
       {(isCreating || editingId) && (
         <Card className="p-6">
           <h3 className="font-semibold text-warm-900 mb-4">
-            {editingId ? 'Edit Category' : 'New Category'}
+            {editingId ? "Edit Category" : "New Category"}
           </h3>
           <div className="space-y-4">
             <div>
@@ -231,7 +242,7 @@ export default function AdminCategoriesPage() {
               <Input
                 placeholder="Category name"
                 value={form.name}
-                onValueChange={(v) => setForm(prev => ({ ...prev, name: v }))}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, name: v }))}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -240,16 +251,20 @@ export default function AdminCategoriesPage() {
                 <Input
                   placeholder="e.g. phones-tablets"
                   value={form.slug}
-                  onValueChange={(v) => setForm(prev => ({ ...prev, slug: v }))}
+                  onValueChange={(v) => setForm((prev) => ({ ...prev, slug: v }))}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-warm-900 mb-1.5 block">Display Order</label>
+                <label className="text-sm font-medium text-warm-900 mb-1.5 block">
+                  Display Order
+                </label>
                 <Input
                   type="number"
                   placeholder="0"
                   value={String(form.displayOrder)}
-                  onChange={(e) => setForm(prev => ({ ...prev, displayOrder: parseInt(e.target.value) || 0 }))}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, displayOrder: parseInt(e.target.value) || 0 }))
+                  }
                 />
               </div>
             </div>
@@ -258,7 +273,7 @@ export default function AdminCategoriesPage() {
               <Input
                 placeholder="Short description"
                 value={form.description}
-                onValueChange={(v) => setForm(prev => ({ ...prev, description: v }))}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, description: v }))}
               />
             </div>
             <div>
@@ -266,16 +281,18 @@ export default function AdminCategoriesPage() {
               <Input
                 placeholder="https://..."
                 value={form.image}
-                onValueChange={(v) => setForm(prev => ({ ...prev, image: v }))}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, image: v }))}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-warm-900 mb-1.5 block">Icon / Emoji</label>
+                <label className="text-sm font-medium text-warm-900 mb-1.5 block">
+                  Icon / Emoji
+                </label>
                 <Input
                   placeholder="e.g. 📱"
                   value={form.icon}
-                  onValueChange={(v) => setForm(prev => ({ ...prev, icon: v }))}
+                  onValueChange={(v) => setForm((prev) => ({ ...prev, icon: v }))}
                 />
               </div>
               <div>
@@ -283,17 +300,19 @@ export default function AdminCategoriesPage() {
                 <Input
                   type="color"
                   value={form.color}
-                  onChange={(e) => setForm(prev => ({ ...prev, color: e.target.value }))}
+                  onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))}
                   className="h-12 p-2"
                 />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-warm-900 mb-1.5 block">Parent Category ID (optional)</label>
+              <label className="text-sm font-medium text-warm-900 mb-1.5 block">
+                Parent Category ID (optional)
+              </label>
               <Input
                 placeholder="Leave empty for top-level"
                 value={form.parentId}
-                onValueChange={(v) => setForm(prev => ({ ...prev, parentId: v }))}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, parentId: v }))}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -301,16 +320,29 @@ export default function AdminCategoriesPage() {
                 type="checkbox"
                 id="isActive"
                 checked={form.isActive}
-                onChange={(e) => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))}
                 className="rounded border-warm-200"
               />
-              <label htmlFor="isActive" className="text-sm text-warm-900">Active</label>
+              <label htmlFor="isActive" className="text-sm text-warm-900">
+                Active
+              </label>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={saving || !form.name.trim()} icon={<Save size={16} />}>
-                {saving ? 'Saving...' : 'Save'}
+              <Button
+                onClick={handleSave}
+                disabled={saving || !form.name.trim()}
+                icon={<Save size={16} />}
+              >
+                {saving ? "Saving..." : "Save"}
               </Button>
-              <Button variant="outline" onClick={() => { setEditingId(null); setIsCreating(false); setForm(initialForm) }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditingId(null);
+                  setIsCreating(false);
+                  setForm(initialForm);
+                }}
+              >
                 Cancel
               </Button>
             </div>
@@ -329,7 +361,9 @@ export default function AdminCategoriesPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadCategories()} className="mt-4">Retry</Button>
+          <Button onClick={() => loadCategories()} className="mt-4">
+            Retry
+          </Button>
         </Card>
       ) : categories.length === 0 ? (
         <Card className="p-12 text-center">
@@ -356,9 +390,11 @@ export default function AdminCategoriesPage() {
                 {categories.map((cat) => (
                   <tr key={cat.id} className="hover:bg-warm-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-warm-900">{cat.name}</td>
-                    <td className="px-4 py-3 text-warm-800/70 text-xs">{cat.slug || '-'}</td>
-                    <td className="px-4 py-3 text-warm-800/70 text-xs max-w-xs truncate">{cat.description || '-'}</td>
-                    <td className="px-4 py-3 text-warm-800/70 text-lg">{cat.emoji || '-'}</td>
+                    <td className="px-4 py-3 text-warm-800/70 text-xs">{cat.slug || "-"}</td>
+                    <td className="px-4 py-3 text-warm-800/70 text-xs max-w-xs truncate">
+                      {cat.description || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-warm-800/70 text-lg">{cat.emoji || "-"}</td>
                     <td className="px-4 py-3 text-warm-800/70">{cat.productsCount}</td>
                     <td className="px-4 py-3 text-warm-800/70">{cat.servicesCount}</td>
                     <td className="px-4 py-3">
@@ -392,5 +428,5 @@ export default function AdminCategoriesPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

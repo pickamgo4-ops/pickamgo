@@ -1,112 +1,133 @@
-import { Router } from 'express'
-import prisma from '../utils/prisma'
-import { authMiddleware, AuthenticatedRequest } from '../middleware/auth'
-import { successResponse, errorResponse, validateBody } from '../types/express'
-import { z } from 'zod'
-import { sendNewMessageEmail } from '../services/email'
-import { getAppUrl } from '../utils/url'
-import { containsDisallowedContactPattern, detectMessageRisk, isOrderEligibleForMessaging } from '../utils/moderation'
+import { Router } from "express";
+import prisma from "../utils/prisma";
+import { authMiddleware, AuthenticatedRequest } from "../middleware/auth";
+import { successResponse, errorResponse, validateBody } from "../types/express";
+import { z } from "zod";
+import { sendNewMessageEmail } from "../services/email";
+import { getAppUrl } from "../utils/url";
+import {
+  containsDisallowedContactPattern,
+  detectMessageRisk,
+  isOrderEligibleForMessaging,
+} from "../utils/moderation";
 
-const router = Router()
+const router = Router();
 
 const messageSchema = z.object({
   content: z.string().min(1),
   orderId: z.string().min(1).optional(),
-})
+});
 
 async function resolveAccess(currentUserId: string, otherUserId: string, orderId?: string) {
-  if (currentUserId === otherUserId) return null
+  if (currentUserId === otherUserId) return null;
 
   if (orderId) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: { payment: true },
-    })
-    if (!order || !order.customerId) return null
+    });
+    if (!order || !order.customerId) return null;
 
-    const eligible = isOrderEligibleForMessaging(order)
-    if (!eligible) return null
+    const eligible = isOrderEligibleForMessaging(order);
+    if (!eligible) return null;
 
-    const participants = [order.customerId, order.sellerId, order.riderId].filter(Boolean)
-    const isParticipantPair = participants.includes(currentUserId) && participants.includes(otherUserId)
-    const riderPair = order.riderId && (currentUserId === order.riderId || otherUserId === order.riderId)
-    if (!isParticipantPair || (riderPair && order.riderId === null)) return null
+    const participants = [order.customerId, order.sellerId, order.riderId].filter(Boolean);
+    const isParticipantPair =
+      participants.includes(currentUserId) && participants.includes(otherUserId);
+    const riderPair =
+      order.riderId && (currentUserId === order.riderId || otherUserId === order.riderId);
+    if (!isParticipantPair || (riderPair && order.riderId === null)) return null;
 
     return {
       shopId: order.shopId,
       orderId: order.id,
-      closedAt: ['CANCELLED', 'DELIVERED', 'FAILED'].includes(order.status) ? new Date() : undefined,
-    }
+      closedAt: ["CANCELLED", "DELIVERED", "FAILED"].includes(order.status)
+        ? new Date()
+        : undefined,
+    };
   }
 
   const purchasedOrder = await prisma.order.findFirst({
     where: {
       customerId: currentUserId,
       shopId: { not: null },
-      OR: [
-        { sellerId: otherUserId },
-        { shop: { ownerId: otherUserId } },
-      ],
+      OR: [{ sellerId: otherUserId }, { shop: { ownerId: otherUserId } }],
     },
     include: { payment: true },
-  })
+  });
 
   if (purchasedOrder && isOrderEligibleForMessaging(purchasedOrder)) {
     return {
       shopId: purchasedOrder.shopId,
       orderId: purchasedOrder.id,
-      closedAt: ['CANCELLED', 'DELIVERED', 'FAILED'].includes(purchasedOrder.status) ? new Date() : undefined,
-    }
+      closedAt: ["CANCELLED", "DELIVERED", "FAILED"].includes(purchasedOrder.status)
+        ? new Date()
+        : undefined,
+    };
   }
 
-  return null
+  return null;
 }
 
-async function resolvePurchasedShopAccess(currentUserId: string, otherUserId: string, shopId?: string | null) {
+async function resolvePurchasedShopAccess(
+  currentUserId: string,
+  otherUserId: string,
+  shopId?: string | null,
+) {
   const order = await prisma.order.findFirst({
     where: {
       customerId: currentUserId,
       ...(shopId ? { shopId } : {}),
-      OR: [
-        { sellerId: otherUserId },
-        { shop: { ownerId: otherUserId } },
-      ],
+      OR: [{ sellerId: otherUserId }, { shop: { ownerId: otherUserId } }],
     },
     include: { payment: true },
-  })
+  });
 
-  if (!order || !isOrderEligibleForMessaging(order)) return null
+  if (!order || !isOrderEligibleForMessaging(order)) return null;
 
   return {
     shopId: order.shopId,
     orderId: order.id,
-    closedAt: ['CANCELLED', 'DELIVERED', 'FAILED'].includes(order.status) ? new Date() : undefined,
-  }
+    closedAt: ["CANCELLED", "DELIVERED", "FAILED"].includes(order.status) ? new Date() : undefined,
+  };
 }
 
-async function canAccessExistingConversation(currentUserId: string, otherUserId: string, conversation: any) {
-  if (!conversation || (conversation.participant1Id !== currentUserId && conversation.participant2Id !== currentUserId)) return false
-  if (conversation.participant1Id !== otherUserId && conversation.participant2Id !== otherUserId) return false
+async function canAccessExistingConversation(
+  currentUserId: string,
+  otherUserId: string,
+  conversation: any,
+) {
+  if (
+    !conversation ||
+    (conversation.participant1Id !== currentUserId && conversation.participant2Id !== currentUserId)
+  )
+    return false;
+  if (conversation.participant1Id !== otherUserId && conversation.participant2Id !== otherUserId)
+    return false;
 
   if (conversation.orderId) {
-    const access = await resolveAccess(currentUserId, otherUserId, conversation.orderId)
-    return !!access
+    const access = await resolveAccess(currentUserId, otherUserId, conversation.orderId);
+    return !!access;
   }
 
-  return !!(await resolvePurchasedShopAccess(currentUserId, otherUserId, conversation.shopId))
+  return !!(await resolvePurchasedShopAccess(currentUserId, otherUserId, conversation.shopId));
 }
 
-async function resolveConversationShop(currentUserId: string, otherUserId: string, shopId?: string | null) {
+async function resolveConversationShop(
+  currentUserId: string,
+  otherUserId: string,
+  shopId?: string | null,
+) {
   if (shopId) {
     return prisma.shop.findUnique({
       where: { id: shopId },
       select: { id: true, name: true, logo: true, ownerId: true },
-    })
+    });
   }
 
   return prisma.shop.findFirst({
     where: {
-      status: 'ACTIVE',
+      status: "ACTIVE",
       OR: [
         { ownerId: currentUserId },
         { ownerId: otherUserId },
@@ -117,11 +138,13 @@ async function resolveConversationShop(currentUserId: string, otherUserId: strin
       ],
     },
     select: { id: true, name: true, logo: true, ownerId: true },
-  })
+  });
 }
 
 function otherParticipant(conversation: any, userId: string) {
-  return conversation.participant1Id === userId ? conversation.participant2 : conversation.participant1
+  return conversation.participant1Id === userId
+    ? conversation.participant2
+    : conversation.participant1;
 }
 
 function mapMessage(message: any, receiverId: string) {
@@ -133,25 +156,22 @@ function mapMessage(message: any, receiverId: string) {
     read: message.isRead || false,
     isRead: message.isRead || false,
     createdAt: message.createdAt,
-  }
+  };
 }
 
-router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.get("/conversations", authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user!.id
+    const userId = req.user!.id;
 
     const conversations = await prisma.conversation.findMany({
       where: {
-        OR: [
-          { participant1Id: userId },
-          { participant2Id: userId },
-        ],
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
       },
       include: {
         participant1: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
         participant2: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
         messages: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           take: 1,
           include: { sender: { select: { id: true, name: true } } },
         },
@@ -159,49 +179,55 @@ router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, r
         shop: { select: { id: true, name: true, logo: true, ownerId: true } },
         _count: { select: { messages: { where: { isRead: false, senderId: { not: userId } } } } },
       },
-      orderBy: { updatedAt: 'desc' },
-    })
+      orderBy: { updatedAt: "desc" },
+    });
 
-    return successResponse(res, conversations.map((conversation) => {
-      const other = otherParticipant(conversation, userId)
-      return {
-        ...conversation,
-        otherParticipant: other,
-        lastMessage: conversation.messages[0] || null,
-        unreadCount: conversation._count.messages,
-      }
-    }))
+    return successResponse(
+      res,
+      conversations.map((conversation) => {
+        const other = otherParticipant(conversation, userId);
+        return {
+          ...conversation,
+          otherParticipant: other,
+          lastMessage: conversation.messages[0] || null,
+          unreadCount: conversation._count.messages,
+        };
+      }),
+    );
   } catch (error) {
-    return errorResponse(res, 'Failed to fetch conversations', 500)
+    return errorResponse(res, "Failed to fetch conversations", 500);
   }
-})
+});
 
-router.get('/access/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.get("/access/:userId", authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const shopId = typeof req.query.shopId === 'string' ? req.query.shopId : undefined
-    const access = await resolvePurchasedShopAccess(req.user!.id, req.params.userId, shopId)
+    const shopId = typeof req.query.shopId === "string" ? req.query.shopId : undefined;
+    const access = await resolvePurchasedShopAccess(req.user!.id, req.params.userId, shopId);
     if (!access) {
-      return errorResponse(res, 'You must have an active order with this seller first.', 403)
+      return errorResponse(res, "You must have an active order with this seller first.", 403);
     }
-    return successResponse(res, { allowed: true, shopId: access.shopId, orderId: access.orderId })
+    return successResponse(res, { allowed: true, shopId: access.shopId, orderId: access.orderId });
   } catch (error) {
-    console.error('Failed to check message access:', error)
-    return errorResponse(res, 'Unable to check messaging access', 500)
+    console.error("Failed to check message access:", error);
+    return errorResponse(res, "Unable to check messaging access", 500);
   }
-})
+});
 
-router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.get("/conversations/:userId", authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const currentUserId = req.user!.id
-    const otherUserId = req.params.userId
+    const currentUserId = req.user!.id;
+    const otherUserId = req.params.userId;
 
-    await prisma.user.update({ where: { id: currentUserId }, data: { lastActiveAt: new Date() } })
+    await prisma.user.update({ where: { id: currentUserId }, data: { lastActiveAt: new Date() } });
 
-    const orderId = typeof req.query.orderId === 'string' ? req.query.orderId : undefined
+    const orderId = typeof req.query.orderId === "string" ? req.query.orderId : undefined;
     let conversation = await prisma.conversation.findFirst({
       where: {
         ...(orderId ? { orderId } : {}),
-        OR: [{ participant1Id: currentUserId, participant2Id: otherUserId }, { participant1Id: otherUserId, participant2Id: currentUserId }],
+        OR: [
+          { participant1Id: currentUserId, participant2Id: otherUserId },
+          { participant1Id: otherUserId, participant2Id: currentUserId },
+        ],
       },
       include: {
         participant1: { select: { id: true, name: true, avatar: true, lastActiveAt: true } },
@@ -209,18 +235,24 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
         order: { select: { orderNumber: true, status: true } },
         shop: { select: { id: true, name: true, logo: true, ownerId: true } },
       },
-    })
+    });
 
     const existingConversationAccess = conversation
       ? await canAccessExistingConversation(currentUserId, otherUserId, conversation)
-      : false
-    const access = conversation && existingConversationAccess
-      ? { shopId: conversation.shopId, orderId: conversation.orderId, closedAt: conversation.closedAt }
-      : await resolveAccess(currentUserId, otherUserId, orderId)
+      : false;
+    const access =
+      conversation && existingConversationAccess
+        ? {
+            shopId: conversation.shopId,
+            orderId: conversation.orderId,
+            closedAt: conversation.closedAt,
+          }
+        : await resolveAccess(currentUserId, otherUserId, orderId);
     if (conversation && !existingConversationAccess && !access) {
-      return errorResponse(res, 'You are not allowed to access this conversation', 403)
+      return errorResponse(res, "You are not allowed to access this conversation", 403);
     }
-    if (!conversation && !access) return errorResponse(res, 'You are not allowed to access this conversation', 403)
+    if (!conversation && !access)
+      return errorResponse(res, "You are not allowed to access this conversation", 403);
 
     if (!conversation) {
       conversation = await prisma.conversation.create({
@@ -237,153 +269,188 @@ router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRe
           order: { select: { orderNumber: true, status: true } },
           shop: { select: { id: true, name: true, logo: true, ownerId: true } },
         },
-      })
+      });
     }
 
-    if (!conversation) return errorResponse(res, 'Conversation could not be loaded', 500)
+    if (!conversation) return errorResponse(res, "Conversation could not be loaded", 500);
 
     if (!conversation.shop) {
       conversation = {
         ...conversation,
         shop: await resolveConversationShop(currentUserId, otherUserId, conversation.shopId),
-      }
+      };
     }
 
     await prisma.message.updateMany({
       where: { conversationId: conversation.id, senderId: { not: currentUserId }, isRead: false },
       data: { isRead: true },
-    })
+    });
 
     const messages = await prisma.message.findMany({
       where: { conversationId: conversation.id },
       include: { sender: { select: { id: true, name: true, avatar: true } } },
-      orderBy: { createdAt: 'asc' },
-    })
+      orderBy: { createdAt: "asc" },
+    });
 
     return successResponse(res, {
       conversation,
       messages: messages.map((msg) => mapMessage(msg, otherUserId)),
       canSend: !conversation.closedAt && !access?.closedAt,
-    })
+    });
   } catch (error) {
-    return errorResponse(res, 'Failed to fetch messages', 500)
+    return errorResponse(res, "Failed to fetch messages", 500);
   }
-})
+});
 
-router.post('/conversations/:userId/messages', authMiddleware, validateBody(messageSchema), async (req: AuthenticatedRequest, res) => {
-  try {
-    const currentUserId = req.user!.id
-    const otherUserId = req.params.userId
-    const { content, orderId } = req.body
-
-    const moderation = detectMessageRisk(content)
-    if (moderation.blocked) {
-      await prisma.messageModeration.create({
-        data: {
-          userId: currentUserId,
-          relatedOrderId: orderId || null,
-          content,
-          normalized: content.toLowerCase(),
-          riskLevel: moderation.riskLevel,
-          status: 'BLOCKED',
-          reason: moderation.reason,
-        },
-      })
-
-      return errorResponse(res, 'For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]', 400)
-    }
-
-    await prisma.user.update({ where: { id: currentUserId }, data: { lastActiveAt: new Date() } })
-
-    const participantPair = {
-      OR: [{ participant1Id: currentUserId, participant2Id: otherUserId }, { participant1Id: otherUserId, participant2Id: currentUserId }],
-    }
-    let conversation: any = await prisma.conversation.findFirst({
-      where: {
-        ...(orderId ? { orderId } : {}),
-        ...participantPair,
-      },
-      orderBy: { updatedAt: 'desc' },
-    })
-    if (!conversation && orderId) {
-      conversation = await prisma.conversation.findFirst({ where: participantPair, orderBy: { updatedAt: 'desc' } })
-    }
-
-    const existingConversationAccess = conversation
-      ? await canAccessExistingConversation(currentUserId, otherUserId, conversation)
-      : false
-    const access = conversation && existingConversationAccess
-      ? { shopId: conversation.shopId, orderId: conversation.orderId, closedAt: conversation.closedAt }
-      : await resolveAccess(currentUserId, otherUserId, orderId)
-
-    if (!access && !existingConversationAccess) {
-      return errorResponse(res, 'You can message this seller after placing an order with this shop.', 403)
-    }
-    if (access?.closedAt || conversation?.closedAt) return errorResponse(res, 'This conversation is closed', 403)
-
-    if (!conversation) {
-      conversation = await prisma.conversation.create({
-        data: {
-          participant1Id: currentUserId,
-          participant2Id: otherUserId,
-          shopId: access?.shopId,
-          orderId: access?.orderId,
-          closedAt: access?.closedAt,
-        },
-      })
-    }
-
-    if (conversation.closedAt) return errorResponse(res, 'This conversation is closed', 403)
-
-    const message = await prisma.$transaction(async (transaction) => {
-      const savedMessage = await transaction.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderId: currentUserId,
-          content,
-        },
-        include: { sender: { select: { id: true, name: true, avatar: true } } },
-      })
-
-      await transaction.conversation.update({
-        where: { id: conversation.id },
-        data: { updatedAt: new Date() },
-      })
-
-      return savedMessage
-    })
-
+router.post(
+  "/conversations/:userId/messages",
+  authMiddleware,
+  validateBody(messageSchema),
+  async (req: AuthenticatedRequest, res) => {
     try {
-      await prisma.notification.create({
-        data: {
-          userId: otherUserId,
-          type: 'NEW_MESSAGE',
-          title: 'New message',
-          message: `${req.user!.name} sent you a message`,
-          data: JSON.stringify({ conversationId: conversation.id, orderId: conversation.orderId }),
-        },
-      })
-    } catch (error) {
-      console.error('Failed to create message notification:', error)
-    }
+      const currentUserId = req.user!.id;
+      const otherUserId = req.params.userId;
+      const { content, orderId } = req.body;
 
-    try {
-      const recipient = await prisma.user.findUnique({ where: { id: otherUserId }, select: { email: true } })
-      if (recipient?.email) {
-        const appUrl = getAppUrl()
-        const conversationUrl = `${appUrl}/messages/${otherUserId}${conversation.orderId ? `?orderId=${encodeURIComponent(conversation.orderId)}` : ''}`
-        sendNewMessageEmail(recipient.email, req.user!.name, conversationUrl, content)
-          .catch(err => console.error('Failed to send message email:', err))
+      const moderation = detectMessageRisk(content);
+      if (moderation.blocked) {
+        await prisma.messageModeration.create({
+          data: {
+            userId: currentUserId,
+            relatedOrderId: orderId || null,
+            content,
+            normalized: content.toLowerCase(),
+            riskLevel: moderation.riskLevel,
+            status: "BLOCKED",
+            reason: moderation.reason,
+          },
+        });
+
+        return errorResponse(
+          res,
+          "For your safety, PickAmGo does not allow users to exchange personal contact or payment information for transactions outside the platform. [Edit Message]",
+          400,
+        );
       }
+
+      await prisma.user.update({
+        where: { id: currentUserId },
+        data: { lastActiveAt: new Date() },
+      });
+
+      const participantPair = {
+        OR: [
+          { participant1Id: currentUserId, participant2Id: otherUserId },
+          { participant1Id: otherUserId, participant2Id: currentUserId },
+        ],
+      };
+      let conversation: any = await prisma.conversation.findFirst({
+        where: {
+          ...(orderId ? { orderId } : {}),
+          ...participantPair,
+        },
+        orderBy: { updatedAt: "desc" },
+      });
+      if (!conversation && orderId) {
+        conversation = await prisma.conversation.findFirst({
+          where: participantPair,
+          orderBy: { updatedAt: "desc" },
+        });
+      }
+
+      const existingConversationAccess = conversation
+        ? await canAccessExistingConversation(currentUserId, otherUserId, conversation)
+        : false;
+      const access =
+        conversation && existingConversationAccess
+          ? {
+              shopId: conversation.shopId,
+              orderId: conversation.orderId,
+              closedAt: conversation.closedAt,
+            }
+          : await resolveAccess(currentUserId, otherUserId, orderId);
+
+      if (!access && !existingConversationAccess) {
+        return errorResponse(
+          res,
+          "You can message this seller after placing an order with this shop.",
+          403,
+        );
+      }
+      if (access?.closedAt || conversation?.closedAt)
+        return errorResponse(res, "This conversation is closed", 403);
+
+      if (!conversation) {
+        conversation = await prisma.conversation.create({
+          data: {
+            participant1Id: currentUserId,
+            participant2Id: otherUserId,
+            shopId: access?.shopId,
+            orderId: access?.orderId,
+            closedAt: access?.closedAt,
+          },
+        });
+      }
+
+      if (conversation.closedAt) return errorResponse(res, "This conversation is closed", 403);
+
+      const message = await prisma.$transaction(async (transaction) => {
+        const savedMessage = await transaction.message.create({
+          data: {
+            conversationId: conversation.id,
+            senderId: currentUserId,
+            content,
+          },
+          include: { sender: { select: { id: true, name: true, avatar: true } } },
+        });
+
+        await transaction.conversation.update({
+          where: { id: conversation.id },
+          data: { updatedAt: new Date() },
+        });
+
+        return savedMessage;
+      });
+
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: otherUserId,
+            type: "NEW_MESSAGE",
+            title: "New message",
+            message: `${req.user!.name} sent you a message`,
+            data: JSON.stringify({
+              conversationId: conversation.id,
+              orderId: conversation.orderId,
+            }),
+          },
+        });
+      } catch (error) {
+        console.error("Failed to create message notification:", error);
+      }
+
+      try {
+        const recipient = await prisma.user.findUnique({
+          where: { id: otherUserId },
+          select: { email: true },
+        });
+        if (recipient?.email) {
+          const appUrl = getAppUrl();
+          const conversationUrl = `${appUrl}/messages/${otherUserId}${conversation.orderId ? `?orderId=${encodeURIComponent(conversation.orderId)}` : ""}`;
+          sendNewMessageEmail(recipient.email, req.user!.name, conversationUrl, content).catch(
+            (err) => console.error("Failed to send message email:", err),
+          );
+        }
+      } catch (error) {
+        console.error("Failed to prepare message email:", error);
+      }
+
+      return successResponse(res, mapMessage(message, otherUserId), 201, "Message sent");
     } catch (error) {
-      console.error('Failed to prepare message email:', error)
+      console.error("Failed to send message:", error);
+      return errorResponse(res, "Failed to send message", 500);
     }
+  },
+);
 
-    return successResponse(res, mapMessage(message, otherUserId), 201, 'Message sent')
-  } catch (error) {
-    console.error('Failed to send message:', error)
-    return errorResponse(res, 'Failed to send message', 500)
-  }
-})
-
-export default router
+export default router;

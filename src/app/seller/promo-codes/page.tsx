@@ -29,6 +29,7 @@ export default function SellerPromoCodesPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -36,11 +37,14 @@ export default function SellerPromoCodesPage() {
 
   const loadData = async () => {
     setLoading(true)
+    setError(null)
     try {
       const res = await api.getSellerPromos({ page, limit: 20, search: search || undefined, status: statusFilter || undefined })
       if (res.success && res.data) {
         setPromos(res.data.promos)
         setTotalPages(res.data.pagination.totalPages)
+      } else {
+        setError(res.error || 'Failed to load promo codes')
       }
 
       let totalUses = 0
@@ -69,6 +73,7 @@ export default function SellerPromoCodesPage() {
       })
     } catch (err) {
       console.error('Failed to load promos:', err)
+      setError('Failed to load promo codes. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -96,6 +101,12 @@ export default function SellerPromoCodesPage() {
   return (
     <SellerSidebar>
       <div className="mb-6">
+        {error && (
+          <Card className="border-red-200 bg-red-50 p-4 flex items-center justify-between gap-3 mb-4">
+            <p className="text-sm text-red-700">{error}</p>
+            <Button variant="outline" size="sm" onClick={loadData}>Retry</Button>
+          </Card>
+        )}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Promo Codes</h1>

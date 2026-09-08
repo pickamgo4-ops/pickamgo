@@ -1,96 +1,96 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, DollarSign, Loader2, XCircle, X } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { Card } from '@/components/ui/Card'
-import { api } from '@/lib/api'
-import { useRole } from '@/contexts/RoleContext'
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { Search, ChevronLeft, ChevronRight, DollarSign, Loader2, XCircle, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { api } from "@/lib/api";
+import { useRole } from "@/contexts/RoleContext";
 
 interface AdminPayout {
-  id: string
-  amount: number
-  currency: string
-  status: string
-  reference: string
-  processedAt?: string
-  failureReason?: string
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  reference: string;
+  processedAt?: string;
+  failureReason?: string;
   payoutMethod: {
-    provider: string
-    phoneNumber: string
-    accountName?: string
-    type: string
-  }
-  user: { id: string; name: string; email: string }
-  createdAt: string
+    provider: string;
+    phoneNumber: string;
+    accountName?: string;
+    type: string;
+  };
+  user: { id: string; name: string; email: string };
+  createdAt: string;
 }
 
 export default function AdminPayoutsPage() {
-  const router = useRouter()
-  const { user, loading, authInitialized } = useRole()
-  const [dataLoading, setDataLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [payouts, setPayouts] = useState<AdminPayout[]>([])
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [selectedPayout, setSelectedPayout] = useState<AdminPayout | null>(null)
-  const loadingRef = useRef(false)
+  const router = useRouter();
+  const { user, loading, authInitialized } = useRole();
+  const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [payouts, setPayouts] = useState<AdminPayout[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [selectedPayout, setSelectedPayout] = useState<AdminPayout | null>(null);
+  const loadingRef = useRef(false);
 
   const loadPayouts = useCallback(async (pageNum: number, search: string, status: string) => {
-    if (loadingRef.current) return
-    loadingRef.current = true
-    setDataLoading(true)
-    setError('')
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    setDataLoading(true);
+    setError("");
     try {
-      const params = new URLSearchParams()
-      params.set('page', String(pageNum))
-      params.set('limit', '20')
-      if (search) params.set('search', search)
-      if (status) params.set('status', status)
+      const params = new URLSearchParams();
+      params.set("page", String(pageNum));
+      params.set("limit", "20");
+      if (search) params.set("search", search);
+      if (status) params.set("status", status);
 
-      const response = await api.get<any>(`/admin/payouts?${params.toString()}`)
+      const response = await api.get<any>(`/admin/payouts?${params.toString()}`);
       if (response.success && response.data) {
-        setPayouts(response.data.payouts || [])
-        setTotalPages(response.data.pagination?.totalPages || 1)
-        setTotal(response.data.pagination?.total || 0)
+        setPayouts(response.data.payouts || []);
+        setTotalPages(response.data.pagination?.totalPages || 1);
+        setTotal(response.data.pagination?.total || 0);
       } else {
-        setError(response.error || 'Failed to load payouts')
+        setError(response.error || "Failed to load payouts");
       }
     } catch {
-      setError('Network error. Please try again.')
+      setError("Network error. Please try again.");
     } finally {
-      setDataLoading(false)
-      loadingRef.current = false
+      setDataLoading(false);
+      loadingRef.current = false;
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    if (!authInitialized) return
+    if (!authInitialized) return;
     if (!user || !user.isAdmin) {
-      router.push('/')
-      return
+      router.push("/");
+      return;
     }
-    loadPayouts(page, searchQuery, statusFilter)
-  }, [authInitialized, user, page, searchQuery, statusFilter, loadPayouts, router])
+    loadPayouts(page, searchQuery, statusFilter);
+  }, [authInitialized, user, page, searchQuery, statusFilter, loadPayouts, router]);
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
-      PENDING: { variant: 'default', label: 'Pending' },
-      PROCESSING: { variant: 'delivery', label: 'Processing' },
-      SUCCESS: { variant: 'verified', label: 'Success' },
-      FAILED: { variant: 'default', label: 'Failed' },
-      REVERSED: { variant: 'default', label: 'Reversed' },
-      CANCELLED: { variant: 'default', label: 'Cancelled' },
-    }
-    const c = config[status] || { variant: 'default', label: status }
-    return <Badge variant={c.variant}>{c.label}</Badge>
-  }
+      PENDING: { variant: "default", label: "Pending" },
+      PROCESSING: { variant: "delivery", label: "Processing" },
+      SUCCESS: { variant: "verified", label: "Success" },
+      FAILED: { variant: "default", label: "Failed" },
+      REVERSED: { variant: "default", label: "Reversed" },
+      CANCELLED: { variant: "default", label: "Cancelled" },
+    };
+    const c = config[status] || { variant: "default", label: status };
+    return <Badge variant={c.variant}>{c.label}</Badge>;
+  };
 
   if (loading || !authInitialized) {
     return (
@@ -99,7 +99,7 @@ export default function AdminPayoutsPage() {
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -109,9 +109,7 @@ export default function AdminPayoutsPage() {
           <DollarSign size={20} className="text-primary" />
         </div>
         <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-            Payouts
-          </h1>
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Payouts</h1>
           <p className="text-warm-800/60 text-sm">Manage payout requests</p>
         </div>
       </div>
@@ -128,7 +126,10 @@ export default function AdminPayoutsPage() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-xl border border-warm-200 px-3 py-3 bg-white text-sm text-warm-900"
         >
           <option value="">All statuses</option>
@@ -152,7 +153,9 @@ export default function AdminPayoutsPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadPayouts(page, searchQuery, statusFilter)} className="mt-4">Retry</Button>
+          <Button onClick={() => loadPayouts(page, searchQuery, statusFilter)} className="mt-4">
+            Retry
+          </Button>
         </Card>
       ) : payouts.length === 0 ? (
         <Card className="p-12 text-center">
@@ -168,10 +171,16 @@ export default function AdminPayoutsPage() {
                   <tr>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">User</th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Amount</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">Provider</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">Phone</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">
+                      Provider
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">
+                      Phone
+                    </th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Status</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">Date</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">
+                      Date
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-warm-200">
@@ -187,9 +196,15 @@ export default function AdminPayoutsPage() {
                           <p className="text-xs text-warm-800/50">{p.user.email}</p>
                         </div>
                       </td>
-                       <td className="px-4 py-3 font-medium text-warm-900">GH₵{Number(p.amount).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-warm-800/70 hidden sm:table-cell">{p.payoutMethod.provider}</td>
-                      <td className="px-4 py-3 text-warm-800/70 hidden md:table-cell">{p.payoutMethod.phoneNumber}</td>
+                      <td className="px-4 py-3 font-medium text-warm-900">
+                        GH₵{Number(p.amount).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-warm-800/70 hidden sm:table-cell">
+                        {p.payoutMethod.provider}
+                      </td>
+                      <td className="px-4 py-3 text-warm-800/70 hidden md:table-cell">
+                        {p.payoutMethod.phoneNumber}
+                      </td>
                       <td className="px-4 py-3">{getStatusBadge(p.status)}</td>
                       <td className="px-4 py-3 text-warm-800/60 hidden lg:table-cell">
                         {new Date(p.createdAt).toLocaleDateString()}
@@ -203,11 +218,23 @@ export default function AdminPayoutsPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
                 <ChevronLeft size={16} />
               </Button>
-              <span className="text-sm text-warm-800/60">Page {page} of {totalPages}</span>
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              <span className="text-sm text-warm-800/60">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
                 <ChevronRight size={16} />
               </Button>
             </div>
@@ -216,12 +243,18 @@ export default function AdminPayoutsPage() {
       )}
 
       {selectedPayout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setSelectedPayout(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setSelectedPayout(null)}
+        >
           <div onClick={(e) => e.stopPropagation()}>
             <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-display text-xl font-bold text-warm-900">Payout Details</h2>
-                <button onClick={() => setSelectedPayout(null)} className="p-2 rounded-xl hover:bg-warm-100">
+                <button
+                  onClick={() => setSelectedPayout(null)}
+                  className="p-2 rounded-xl hover:bg-warm-100"
+                >
                   <X size={20} className="text-warm-800" />
                 </button>
               </div>
@@ -230,16 +263,24 @@ export default function AdminPayoutsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-medium text-warm-800/50 uppercase">User</label>
-                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedPayout.user.name}</p>
+                    <p className="text-sm font-medium text-warm-900 mt-1">
+                      {selectedPayout.user.name}
+                    </p>
                     <p className="text-xs text-warm-800/60">{selectedPayout.user.email}</p>
                   </div>
-                    <div>
-                      <label className="text-xs font-medium text-warm-800/50 uppercase">Amount</label>
-                      <p className="text-sm font-medium text-warm-900 mt-1">GH₵{Number(selectedPayout.amount).toFixed(2)}</p>
-                    </div>
                   <div>
-                    <label className="text-xs font-medium text-warm-800/50 uppercase">Reference</label>
-                    <p className="text-sm font-medium text-warm-900 mt-1">{selectedPayout.reference}</p>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">Amount</label>
+                    <p className="text-sm font-medium text-warm-900 mt-1">
+                      GH₵{Number(selectedPayout.amount).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">
+                      Reference
+                    </label>
+                    <p className="text-sm font-medium text-warm-900 mt-1">
+                      {selectedPayout.reference}
+                    </p>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-warm-800/50 uppercase">Status</label>
@@ -248,9 +289,13 @@ export default function AdminPayoutsPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-warm-800/50 uppercase">Payout Method</label>
+                  <label className="text-xs font-medium text-warm-800/50 uppercase">
+                    Payout Method
+                  </label>
                   <div className="mt-1 p-3 bg-warm-50 rounded-xl text-sm space-y-1">
-                    <p className="text-warm-900">{selectedPayout.payoutMethod.type} · {selectedPayout.payoutMethod.provider}</p>
+                    <p className="text-warm-900">
+                      {selectedPayout.payoutMethod.type} · {selectedPayout.payoutMethod.provider}
+                    </p>
                     <p className="text-warm-800/70">{selectedPayout.payoutMethod.phoneNumber}</p>
                     {selectedPayout.payoutMethod.accountName && (
                       <p className="text-warm-800/70">{selectedPayout.payoutMethod.accountName}</p>
@@ -260,7 +305,9 @@ export default function AdminPayoutsPage() {
 
                 {selectedPayout.failureReason && (
                   <div>
-                    <label className="text-xs font-medium text-warm-800/50 uppercase">Failure Reason</label>
+                    <label className="text-xs font-medium text-warm-800/50 uppercase">
+                      Failure Reason
+                    </label>
                     <p className="text-sm text-red-600 mt-1">{selectedPayout.failureReason}</p>
                   </div>
                 )}
@@ -277,5 +324,5 @@ export default function AdminPayoutsPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -1,98 +1,98 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, Truck, Loader2, XCircle, X } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { Card } from '@/components/ui/Card'
-import { api } from '@/lib/api'
-import { useRole } from '@/contexts/RoleContext'
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { Search, ChevronLeft, ChevronRight, Truck, Loader2, XCircle, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { api } from "@/lib/api";
+import { useRole } from "@/contexts/RoleContext";
 
 interface AdminDelivery {
-  id: string
-  status: string
-  distance?: string
-  fee: number
-  riderEarnings: number
-  acceptedAt?: string
-  pickedUpAt?: string
-  deliveredAt?: string
-  createdAt: string
+  id: string;
+  status: string;
+  distance?: string;
+  fee: number;
+  riderEarnings: number;
+  acceptedAt?: string;
+  pickedUpAt?: string;
+  deliveredAt?: string;
+  createdAt: string;
   order: {
-    id: string
-    orderNumber: string
-    total: number
-    status: string
-    customer: { name: string; email: string }
-    shop: { name: string }
-  }
-  rider: { name: string; email: string; phone?: string }
+    id: string;
+    orderNumber: string;
+    total: number;
+    status: string;
+    customer: { name: string; email: string };
+    shop: { name: string };
+  };
+  rider: { name: string; email: string; phone?: string };
 }
 
 export default function AdminDeliveriesPage() {
-  const router = useRouter()
-  const { user, loading, authInitialized } = useRole()
-  const [dataLoading, setDataLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [deliveries, setDeliveries] = useState<AdminDelivery[]>([])
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [selectedDelivery, setSelectedDelivery] = useState<AdminDelivery | null>(null)
-  const loadingRef = useRef(false)
+  const router = useRouter();
+  const { user, loading, authInitialized } = useRole();
+  const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [deliveries, setDeliveries] = useState<AdminDelivery[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [selectedDelivery, setSelectedDelivery] = useState<AdminDelivery | null>(null);
+  const loadingRef = useRef(false);
 
   const loadDeliveries = useCallback(async (pageNum: number, search: string, status: string) => {
-    if (loadingRef.current) return
-    loadingRef.current = true
-    setDataLoading(true)
-    setError('')
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    setDataLoading(true);
+    setError("");
     try {
-      const params = new URLSearchParams()
-      params.set('page', String(pageNum))
-      params.set('limit', '20')
-      if (search) params.set('search', search)
-      if (status) params.set('status', status)
+      const params = new URLSearchParams();
+      params.set("page", String(pageNum));
+      params.set("limit", "20");
+      if (search) params.set("search", search);
+      if (status) params.set("status", status);
 
-      const response = await api.get<any>(`/admin/deliveries?${params.toString()}`)
+      const response = await api.get<any>(`/admin/deliveries?${params.toString()}`);
       if (response.success && response.data) {
-        setDeliveries(response.data.deliveries || [])
-        setTotalPages(response.data.pagination?.totalPages || 1)
-        setTotal(response.data.pagination?.total || 0)
+        setDeliveries(response.data.deliveries || []);
+        setTotalPages(response.data.pagination?.totalPages || 1);
+        setTotal(response.data.pagination?.total || 0);
       } else {
-        setError(response.error || 'Failed to load deliveries')
+        setError(response.error || "Failed to load deliveries");
       }
     } catch {
-      setError('Network error. Please try again.')
+      setError("Network error. Please try again.");
     } finally {
-      setDataLoading(false)
-      loadingRef.current = false
+      setDataLoading(false);
+      loadingRef.current = false;
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    if (!authInitialized) return
+    if (!authInitialized) return;
     if (!user || !user.isAdmin) {
-      router.push('/')
-      return
+      router.push("/");
+      return;
     }
-    loadDeliveries(page, searchQuery, statusFilter)
-  }, [authInitialized, user, page, searchQuery, statusFilter, loadDeliveries, router])
+    loadDeliveries(page, searchQuery, statusFilter);
+  }, [authInitialized, user, page, searchQuery, statusFilter, loadDeliveries, router]);
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
-      PENDING: { variant: 'default', label: 'Pending' },
-      ACCEPTED: { variant: 'deal', label: 'Accepted' },
-      PICKED_UP: { variant: 'delivery', label: 'Picked Up' },
-      DELIVERED: { variant: 'verified', label: 'Delivered' },
-      CANCELLED: { variant: 'default', label: 'Cancelled' },
-    }
-    const c = config[status] || { variant: 'default', label: status }
-    return <Badge variant={c.variant}>{c.label}</Badge>
-  }
+      PENDING: { variant: "default", label: "Pending" },
+      ACCEPTED: { variant: "deal", label: "Accepted" },
+      PICKED_UP: { variant: "delivery", label: "Picked Up" },
+      DELIVERED: { variant: "verified", label: "Delivered" },
+      CANCELLED: { variant: "default", label: "Cancelled" },
+    };
+    const c = config[status] || { variant: "default", label: status };
+    return <Badge variant={c.variant}>{c.label}</Badge>;
+  };
 
   if (loading || !authInitialized) {
     return (
@@ -101,7 +101,7 @@ export default function AdminDeliveriesPage() {
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -111,9 +111,7 @@ export default function AdminDeliveriesPage() {
           <Truck size={20} className="text-primary" />
         </div>
         <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-            Deliveries
-          </h1>
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Deliveries</h1>
           <p className="text-warm-800/60 text-sm">Track and manage deliveries</p>
         </div>
       </div>
@@ -130,7 +128,10 @@ export default function AdminDeliveriesPage() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-xl border border-warm-200 px-3 py-3 bg-white text-sm text-warm-900"
         >
           <option value="">All statuses</option>
@@ -153,7 +154,9 @@ export default function AdminDeliveriesPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadDeliveries(page, searchQuery, statusFilter)} className="mt-4">Retry</Button>
+          <Button onClick={() => loadDeliveries(page, searchQuery, statusFilter)} className="mt-4">
+            Retry
+          </Button>
         </Card>
       ) : deliveries.length === 0 ? (
         <Card className="p-12 text-center">
@@ -168,10 +171,16 @@ export default function AdminDeliveriesPage() {
                 <thead className="bg-warm-50 border-b border-warm-200">
                   <tr>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Order</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">Rider</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">
+                      Rider
+                    </th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Status</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">Fee</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">Date</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">
+                      Fee
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">
+                      Date
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-warm-200">
@@ -188,7 +197,7 @@ export default function AdminDeliveriesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell text-warm-800/70">
-                        {d.rider?.name || '-'}
+                        {d.rider?.name || "-"}
                       </td>
                       <td className="px-4 py-3">{getStatusBadge(d.status)}</td>
                       <td className="px-4 py-3 text-warm-800/70 hidden sm:table-cell">
@@ -206,11 +215,23 @@ export default function AdminDeliveriesPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
                 <ChevronLeft size={16} />
               </Button>
-              <span className="text-sm text-warm-800/60">Page {page} of {totalPages}</span>
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              <span className="text-sm text-warm-800/60">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
                 <ChevronRight size={16} />
               </Button>
             </div>
@@ -219,12 +240,18 @@ export default function AdminDeliveriesPage() {
       )}
 
       {selectedDelivery && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setSelectedDelivery(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setSelectedDelivery(null)}
+        >
           <div onClick={(e) => e.stopPropagation()}>
             <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-display text-xl font-bold text-warm-900">Delivery Details</h2>
-                <button onClick={() => setSelectedDelivery(null)} className="p-2 rounded-xl hover:bg-warm-100">
+                <button
+                  onClick={() => setSelectedDelivery(null)}
+                  className="p-2 rounded-xl hover:bg-warm-100"
+                >
                   <X size={20} className="text-warm-800" />
                 </button>
               </div>
@@ -243,10 +270,10 @@ export default function AdminDeliveriesPage() {
                   <div>
                     <label className="text-xs font-medium text-warm-800/50 uppercase">Rider</label>
                     <p className="text-sm font-medium text-warm-900 mt-1">
-                      {selectedDelivery.rider?.name || 'Unassigned'}
+                      {selectedDelivery.rider?.name || "Unassigned"}
                     </p>
                     <p className="text-xs text-warm-800/60">
-                      {selectedDelivery.rider?.phone || ''}
+                      {selectedDelivery.rider?.phone || ""}
                     </p>
                   </div>
                   <div>
@@ -274,5 +301,5 @@ export default function AdminDeliveriesPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

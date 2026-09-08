@@ -10,8 +10,9 @@ import { BeautyCard } from '../../components/beauty/BeautyCard'
 import { SectionHeader } from '../../components/ui/SectionHeader'
 import { Button } from '../../components/ui/Button'
 import { api } from '../../lib/api'
-import { Product, BeautyService, Category } from '../../types'
-import { mapApiProductToFrontend, mapApiServiceToFrontend, mapApiCategoryToFrontend } from '../../lib/api-mappers'
+import { Product, BeautyService, Category, Shop } from '../../types'
+import { mapApiProductToFrontend, mapApiServiceToFrontend, mapApiCategoryToFrontend, mapApiShopToFrontend } from '../../lib/api-mappers'
+import { getShopUrl } from '../../lib/shop-url'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 function DiscoverContent() {
@@ -26,6 +27,7 @@ function DiscoverContent() {
   const [showServices, setShowServices] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
   const [services, setServices] = useState<BeautyService[]>([])
+  const [shops, setShops] = useState<Shop[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -74,18 +76,22 @@ function DiscoverContent() {
     try {
       const savedLocation = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('pickamgo-location') || 'null') : null
       const params = new URLSearchParams({ q: requestedSearch || (requestedCategory || 'products'), type: 'products', limit: '50' })
+      const shopMode = searchParams.get('type') === 'shops'
+      const shopParams = new URLSearchParams({ limit: '50' })
+      if (requestedSearch) shopParams.set('search', requestedSearch)
       if (requestedCategory) params.set('category', requestedCategory)
       if (savedLocation?.latitude != null && savedLocation?.longitude != null) {
         params.set('latitude', String(savedLocation.latitude))
         params.set('longitude', String(savedLocation.longitude))
         params.set('radius', '25')
       }
-      const [productsRes, servicesRes, categoriesRes] = await Promise.all([
+      const [productsRes, servicesRes, categoriesRes, shopsRes] = await Promise.all([
         requestedSearch || requestedCategory
           ? api.get<any>(`/search?${params.toString()}`)
           : api.get<{ products: any[] }>('/products?limit=50'),
         api.get<{ services: any[] }>('/services?limit=50'),
         api.get<any[]>('/categories'),
+        shopMode ? api.get<{ shops: any[] }>(`/shops?${shopParams.toString()}`) : Promise.resolve(null),
       ])
 
       if (currentGeneration !== generationRef.current) return
@@ -105,6 +111,10 @@ function DiscoverContent() {
 
       if (categoriesRes.success && Array.isArray(categoriesRes.data)) {
         setCategories(categoriesRes.data.map(mapApiCategoryToFrontend))
+      }
+
+      if (shopsRes?.success && shopsRes.data) {
+        setShops((shopsRes.data.shops || []).map(mapApiShopToFrontend))
       }
     } catch (err) {
       console.error('Failed to load discover data:', err)
@@ -126,6 +136,7 @@ function DiscoverContent() {
     if (selectedCategory && s.category !== selectedCategory) return false
     return true
   })
+  const shopMode = searchParams.get('type') === 'shops'
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
@@ -270,7 +281,7 @@ function DiscoverContent() {
           </div>
 
           {/* Toggle Services/Products */}
-          <div className="flex gap-2 mt-4">
+          {!shopMode && <div className="flex gap-2 mt-4">
             <button
               onClick={() => setShowServices(false)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
@@ -287,7 +298,7 @@ function DiscoverContent() {
             >
               Services ({filteredServices.length})
             </button>
-          </div>
+          </div>}
         </section>
 
         {/* Results */}
@@ -304,6 +315,36 @@ function DiscoverContent() {
               <p className="text-warm-800/60 text-lg">{loadError}</p>
               <Button className="mt-4" onClick={() => loadData(searchQuery, selectedCategory)}>Try Again</Button>
             </div>
+          ) : shopMode ? (
+            <>
+              <SectionHeader title={`${shops.length} shops`} subtitle="Local sellers and businesses" />
+              {shops.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-warm-800/60 text-lg">No shops found</p>
+                  <p className="text-sm text-warm-800/50 mt-2">Try another search query</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {shops.map((shop) => (
+                    <Card key={shop.id} className="overflow-hidden cursor-pointer" onClick={() => window.location.assign(getShopUrl(shop.slug))}>
+                      <div className="h-32 bg-warm-100">
+                        {shop.banner && <img src={shop.banner} alt={shop.name} className="w-full h-full object-cover" />}
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center gap-3">
+                          <img src={shop.logo} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                          <div className="min-w-0">
+                            <h3 className="truncate font-bold text-warm-900">{shop.name}</h3>
+                            <p className="text-sm text-warm-800/60">{shop.location}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 text-sm text-warm-800/60">★ {shop.rating} · {shop.reviews} reviews</div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
           ) : !showServices ? (
             <>
               <SectionHeader

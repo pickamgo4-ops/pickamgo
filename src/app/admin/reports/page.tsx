@@ -1,115 +1,125 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Shield, Flag, Search, Eye, CheckCircle, XCircle, Clock, ChevronLeft, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { api } from '@/lib/api'
-import { useRole } from '@/contexts/RoleContext'
+import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Shield,
+  Flag,
+  Search,
+  Eye,
+  CheckCircle,
+  XCircle,
+  Clock,
+  ChevronLeft,
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { api } from "@/lib/api";
+import { useRole } from "@/contexts/RoleContext";
 
 interface Report {
-  id: string
-  category: string
-  targetType: string
-  targetId: string
-  reason: string
-  description?: string
-  attachmentUrl?: string
-  status: string
-  adminNotes?: string
-  resolvedAt?: string
-  resolvedBy?: string
-  createdAt: string
-  reporter: { id: string; name: string; email: string }
+  id: string;
+  category: string;
+  targetType: string;
+  targetId: string;
+  reason: string;
+  description?: string;
+  attachmentUrl?: string;
+  status: string;
+  adminNotes?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  createdAt: string;
+  reporter: { id: string; name: string; email: string };
 }
 
 export default function AdminReportsPage() {
-  const router = useRouter()
-  const { user, loading, authInitialized } = useRole()
-  const [reports, setReports] = useState<Report[]>([])
-  const [dataLoading, setDataLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [statusFilter, setStatusFilter] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null)
-  const [adminNotes, setAdminNotes] = useState('')
-  const [updating, setUpdating] = useState(false)
-  const [error, setError] = useState('')
+  const router = useRouter();
+  const { user, loading, authInitialized } = useRole();
+  const [reports, setReports] = useState<Report[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [adminNotes, setAdminNotes] = useState("");
+  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState("");
 
   const loadReports = useCallback(async () => {
-    if (!authInitialized || !user?.isAdmin) return
-    setDataLoading(true)
-    setError('')
+    if (!authInitialized || !user?.isAdmin) return;
+    setDataLoading(true);
+    setError("");
     try {
-      const params = new URLSearchParams()
-      params.set('page', String(page))
-      params.set('limit', '20')
-      if (statusFilter) params.set('status', statusFilter)
-      if (categoryFilter) params.set('category', categoryFilter)
-      if (searchQuery.trim()) params.set('search', searchQuery.trim())
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", "20");
+      if (statusFilter) params.set("status", statusFilter);
+      if (categoryFilter) params.set("category", categoryFilter);
+      if (searchQuery.trim()) params.set("search", searchQuery.trim());
 
-      const response = await api.get<any>(`/reports?${params.toString()}`)
+      const response = await api.get<any>(`/reports?${params.toString()}`);
       if (response.success && response.data) {
-        setReports(response.data.reports || [])
-        setTotalPages(response.data.pagination?.totalPages || 1)
+        setReports(response.data.reports || []);
+        setTotalPages(response.data.pagination?.totalPages || 1);
       } else {
-        setError(response.error || 'Failed to load reports')
+        setError(response.error || "Failed to load reports");
       }
     } catch (err) {
-      console.error('Failed to load reports:', err)
-      setError('Network error. Please try again.')
+      console.error("Failed to load reports:", err);
+      setError("Network error. Please try again.");
     } finally {
-      setDataLoading(false)
+      setDataLoading(false);
     }
-  }, [authInitialized, user, page, statusFilter, categoryFilter, searchQuery])
+  }, [authInitialized, user, page, statusFilter, categoryFilter, searchQuery]);
 
   useEffect(() => {
-    if (!authInitialized) return
+    if (!authInitialized) return;
     if (!user || !user.isAdmin) {
-      router.push('/')
-      return
+      router.push("/");
+      return;
     }
-    loadReports()
-  }, [authInitialized, user, loadReports, router])
+    loadReports();
+  }, [authInitialized, user, loadReports, router]);
 
   useEffect(() => {
-    setPage(1)
-  }, [statusFilter, categoryFilter, searchQuery])
+    setPage(1);
+  }, [statusFilter, categoryFilter, searchQuery]);
 
   const updateStatus = async (reportId: string, status: string) => {
-    setUpdating(true)
+    setUpdating(true);
     try {
-      const response = await api.patch(`/reports/${reportId}/status`, { status, adminNotes })
+      const response = await api.patch(`/reports/${reportId}/status`, { status, adminNotes });
       if (response.success) {
-        setSelectedReport(null)
-        setAdminNotes('')
-        loadReports()
+        setSelectedReport(null);
+        setAdminNotes("");
+        loadReports();
       } else {
-        setError(response.error || 'Failed to update report')
+        setError(response.error || "Failed to update report");
       }
     } catch (err) {
-      console.error('Failed to update report:', err)
-      setError('Network error. Please try again.')
+      console.error("Failed to update report:", err);
+      setError("Network error. Please try again.");
     } finally {
-      setUpdating(false)
+      setUpdating(false);
     }
-  }
+  };
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
-      NEW: { variant: 'default', label: 'New' },
-      REVIEWING: { variant: 'deal', label: 'Reviewing' },
-      RESOLVED: { variant: 'verified', label: 'Resolved' },
-      DISMISSED: { variant: 'default', label: 'Dismissed' },
-    }
-    const c = config[status] || config.NEW
-    return <Badge variant={c.variant}>{c.label}</Badge>
-  }
+      NEW: { variant: "default", label: "New" },
+      REVIEWING: { variant: "deal", label: "Reviewing" },
+      RESOLVED: { variant: "verified", label: "Resolved" },
+      DISMISSED: { variant: "default", label: "Dismissed" },
+    };
+    const c = config[status] || config.NEW;
+    return <Badge variant={c.variant}>{c.label}</Badge>;
+  };
 
   if (loading || !authInitialized) {
     return (
@@ -118,7 +128,7 @@ export default function AdminReportsPage() {
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -139,7 +149,9 @@ export default function AdminReportsPage() {
         <Card className="p-4 border-red-200 bg-red-50">
           <div className="flex items-center justify-between">
             <p className="text-sm text-red-700">{error}</p>
-            <Button variant="outline" size="sm" onClick={loadReports}>Retry</Button>
+            <Button variant="outline" size="sm" onClick={loadReports}>
+              Retry
+            </Button>
           </div>
         </Card>
       )}
@@ -148,7 +160,10 @@ export default function AdminReportsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <button onClick={() => setSelectedReport(null)} className="p-2 rounded-xl hover:bg-warm-100">
+              <button
+                onClick={() => setSelectedReport(null)}
+                className="p-2 rounded-xl hover:bg-warm-100"
+              >
                 <ChevronLeft size={20} className="text-warm-800" />
               </button>
               <div>
@@ -166,8 +181,12 @@ export default function AdminReportsPage() {
                 <p className="text-sm font-medium text-warm-900 mt-1">{selectedReport.category}</p>
               </div>
               <div>
-                <label className="text-xs font-medium text-warm-800/50 uppercase">Target Type</label>
-                <p className="text-sm font-medium text-warm-900 mt-1">{selectedReport.targetType}</p>
+                <label className="text-xs font-medium text-warm-800/50 uppercase">
+                  Target Type
+                </label>
+                <p className="text-sm font-medium text-warm-900 mt-1">
+                  {selectedReport.targetType}
+                </p>
               </div>
               <div>
                 <label className="text-xs font-medium text-warm-800/50 uppercase">Target ID</label>
@@ -175,7 +194,9 @@ export default function AdminReportsPage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-warm-800/50 uppercase">Reporter</label>
-                <p className="text-sm font-medium text-warm-900 mt-1">{selectedReport.reporter.name} ({selectedReport.reporter.email})</p>
+                <p className="text-sm font-medium text-warm-900 mt-1">
+                  {selectedReport.reporter.name} ({selectedReport.reporter.email})
+                </p>
               </div>
             </div>
 
@@ -186,7 +207,9 @@ export default function AdminReportsPage() {
 
             {selectedReport.description && (
               <div>
-                <label className="text-xs font-medium text-warm-800/50 uppercase">Description</label>
+                <label className="text-xs font-medium text-warm-800/50 uppercase">
+                  Description
+                </label>
                 <p className="text-sm text-warm-900 mt-1">{selectedReport.description}</p>
               </div>
             )}
@@ -195,14 +218,20 @@ export default function AdminReportsPage() {
               <div>
                 <label className="text-xs font-medium text-warm-800/50 uppercase">Attachment</label>
                 <div className="mt-2 w-40 h-40 rounded-xl overflow-hidden bg-warm-200 border border-warm-200">
-                  <img src={selectedReport.attachmentUrl} alt="Attachment" className="w-full h-full object-cover" />
+                  <img
+                    src={selectedReport.attachmentUrl}
+                    alt="Attachment"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
             )}
 
             {selectedReport.adminNotes && (
               <div>
-                <label className="text-xs font-medium text-warm-800/50 uppercase">Admin Notes</label>
+                <label className="text-xs font-medium text-warm-800/50 uppercase">
+                  Admin Notes
+                </label>
                 <p className="text-sm text-warm-900 mt-1">{selectedReport.adminNotes}</p>
               </div>
             )}
@@ -219,15 +248,25 @@ export default function AdminReportsPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={() => updateStatus(selectedReport.id, 'REVIEWING')} disabled={updating || selectedReport.status === 'REVIEWING'}>
+              <Button
+                onClick={() => updateStatus(selectedReport.id, "REVIEWING")}
+                disabled={updating || selectedReport.status === "REVIEWING"}
+              >
                 <Clock size={16} />
                 Mark Reviewing
               </Button>
-              <Button onClick={() => updateStatus(selectedReport.id, 'RESOLVED')} disabled={updating || selectedReport.status === 'RESOLVED'}>
+              <Button
+                onClick={() => updateStatus(selectedReport.id, "RESOLVED")}
+                disabled={updating || selectedReport.status === "RESOLVED"}
+              >
                 <CheckCircle size={16} />
                 Resolve
               </Button>
-              <Button variant="outline" onClick={() => updateStatus(selectedReport.id, 'DISMISSED')} disabled={updating || selectedReport.status === 'DISMISSED'}>
+              <Button
+                variant="outline"
+                onClick={() => updateStatus(selectedReport.id, "DISMISSED")}
+                disabled={updating || selectedReport.status === "DISMISSED"}
+              >
                 <XCircle size={16} />
                 Dismiss
               </Button>
@@ -238,7 +277,10 @@ export default function AdminReportsPage() {
         <>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-800/50" />
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-800/50"
+              />
               <Input
                 placeholder="Search reports..."
                 value={searchQuery}
@@ -293,17 +335,23 @@ export default function AdminReportsPage() {
                 <Card
                   key={report.id}
                   className="p-4 cursor-pointer hover:shadow-md transition-all"
-                  onClick={() => { setSelectedReport(report); setAdminNotes(report.adminNotes || '') }}
+                  onClick={() => {
+                    setSelectedReport(report);
+                    setAdminNotes(report.adminNotes || "");
+                  }}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm text-warm-900">{report.category}</span>
+                        <span className="font-semibold text-sm text-warm-900">
+                          {report.category}
+                        </span>
                         {getStatusBadge(report.status)}
                       </div>
                       <p className="text-sm text-warm-800/70 line-clamp-1">{report.reason}</p>
                       <p className="text-xs text-warm-800/50 mt-1">
-                        {report.targetType} • {report.targetId} • {new Date(report.createdAt).toLocaleDateString()}
+                        {report.targetType} • {report.targetId} •{" "}
+                        {new Date(report.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                     <Eye size={16} className="text-warm-800/50 flex-shrink-0 ml-2" />
@@ -315,11 +363,23 @@ export default function AdminReportsPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
                 Previous
               </Button>
-              <span className="text-sm text-warm-800/60">Page {page} of {totalPages}</span>
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              <span className="text-sm text-warm-800/60">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
                 Next
               </Button>
             </div>
@@ -327,5 +387,5 @@ export default function AdminReportsPage() {
         </>
       )}
     </div>
-  )
+  );
 }

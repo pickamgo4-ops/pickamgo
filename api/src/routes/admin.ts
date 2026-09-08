@@ -11,20 +11,62 @@ import { z } from "zod";
 const router = Router();
 
 const orderStatusSchema = z.object({
-  status: z.enum(['PENDING_PAYMENT', 'PAID', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'FAILED']),
+  status: z.enum([
+    "PENDING_PAYMENT",
+    "PAID",
+    "CONFIRMED",
+    "PREPARING",
+    "READY_FOR_PICKUP",
+    "OUT_FOR_DELIVERY",
+    "DELIVERED",
+    "CANCELLED",
+    "FAILED",
+  ]),
 });
 
 const platformThemeKeys = [
-  'pageBackground', 'surfaceBackground', 'surfaceSecondary', 'primaryBrand', 'primaryHover', 'secondaryBrand', 'accent', 'textColor', 'secondaryText', 'mutedText', 'border', 'inputBackground', 'inputBorder', 'buttonBackground', 'buttonText', 'linkColor', 'success', 'warning', 'error', 'info', 'badgeBackground', 'badgeText', 'headerBackground', 'footerBackground', 'sidebarBackground', 'sidebarText', 'sidebarActive', 'modalOverlay',
+  "pageBackground",
+  "surfaceBackground",
+  "surfaceSecondary",
+  "primaryBrand",
+  "primaryHover",
+  "secondaryBrand",
+  "accent",
+  "textColor",
+  "secondaryText",
+  "mutedText",
+  "border",
+  "inputBackground",
+  "inputBorder",
+  "buttonBackground",
+  "buttonText",
+  "linkColor",
+  "success",
+  "warning",
+  "error",
+  "info",
+  "badgeBackground",
+  "badgeText",
+  "headerBackground",
+  "footerBackground",
+  "sidebarBackground",
+  "sidebarText",
+  "sidebarActive",
+  "modalOverlay",
 ] as const;
-const themeColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Theme colors must be 6- or 8-digit HEX values');
+const themeColorSchema = z
+  .string()
+  .regex(/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, "Theme colors must be 6- or 8-digit HEX values");
 const platformThemeSchema = z.object({
   light: z.record(themeColorSchema),
   dark: z.record(themeColorSchema),
 });
 
 function sanitizePlatformTheme(input: z.infer<typeof platformThemeSchema>) {
-  const sanitizeMode = (mode: Record<string, string>) => Object.fromEntries(platformThemeKeys.map(key => [key, mode[key]]).filter(([, value]) => value));
+  const sanitizeMode = (mode: Record<string, string>) =>
+    Object.fromEntries(
+      platformThemeKeys.map((key) => [key, mode[key]]).filter(([, value]) => value),
+    );
   return { light: sanitizeMode(input.light), dark: sanitizeMode(input.dark) };
 }
 
@@ -126,9 +168,14 @@ router.get(
         prisma.rider.count({ where: { isOnline: true } }),
         prisma.payout.count({ where: { status: "PENDING" } }),
         prisma.delivery.count({ where: { status: "DELIVERED", order: { isTestOrder: false } } }),
-        prisma.delivery.count({ where: { status: { notIn: ["DELIVERED", "CANCELLED"] }, order: { isTestOrder: false } } }),
+        prisma.delivery.count({
+          where: { status: { notIn: ["DELIVERED", "CANCELLED"] }, order: { isTestOrder: false } },
+        }),
         prisma.order.count({
-          where: { isTestOrder: false, createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+          where: {
+            isTestOrder: false,
+            createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+          },
         }),
         prisma.order.aggregate({
           _sum: { total: true },
@@ -169,11 +216,13 @@ router.get(
           _sum: { total: true },
           where: { isTestOrder: false },
         }),
-        prisma.financialLedger.groupBy({
-          by: ["type"],
-          _sum: { amount: true },
-          where: { type: "PLATFORM_COMMISSION" },
-        }).catch(() => []),
+        prisma.financialLedger
+          .groupBy({
+            by: ["type"],
+            _sum: { amount: true },
+            where: { type: "PLATFORM_COMMISSION" },
+          })
+          .catch(() => []),
       ]);
 
       const platformCommission = revenueBreakdown.reduce(
@@ -1280,9 +1329,13 @@ router.get("/settings/public", async (_req, res) => {
     const dbSettings = await prisma.setting.findMany();
     const settingMap = new Map(dbSettings.map((s) => [s.key, s.value]));
     let theme: unknown = null;
-    const rawTheme = settingMap.get('platformTheme');
+    const rawTheme = settingMap.get("platformTheme");
     if (rawTheme) {
-      try { theme = JSON.parse(rawTheme); } catch { theme = null; }
+      try {
+        theme = JSON.parse(rawTheme);
+      } catch {
+        theme = null;
+      }
     }
     return successResponse(res, {
       maintenanceMode: settingMap.get("maintenanceMode") === "true",
@@ -1300,32 +1353,76 @@ router.get(
   requireRole(["ADMIN"]),
   async (_req: AuthenticatedRequest, res) => {
     try {
-      const setting = await prisma.setting.findUnique({ where: { key: 'platformTheme' }, select: { value: true } });
+      const setting = await prisma.setting.findUnique({
+        where: { key: "platformTheme" },
+        select: { value: true },
+      });
       let theme: unknown = null;
       if (setting?.value) {
-        try { theme = JSON.parse(setting.value); } catch { theme = null; }
+        try {
+          theme = JSON.parse(setting.value);
+        } catch {
+          theme = null;
+        }
       }
       return successResponse(res, { theme });
     } catch (error) {
-      console.error('Failed to fetch platform theme:', error);
-      return errorResponse(res, 'Failed to fetch platform theme', 500);
+      console.error("Failed to fetch platform theme:", error);
+      return errorResponse(res, "Failed to fetch platform theme", 500);
     }
   },
 );
 
-router.get('/seller-store-overview', authMiddleware, requireRole(['ADMIN']), async (_req: AuthenticatedRequest, res) => {
-  try {
-    const [shippingZones, collections, promotions, qrCodes] = await Promise.all([
-      prisma.shippingZone.findMany({ include: { shop: { select: { id: true, name: true, owner: { select: { id: true, name: true, email: true } } } } }, orderBy: { createdAt: 'desc' }, take: 100 }),
-      prisma.productCollection.findMany({ include: { shop: { select: { id: true, name: true, owner: { select: { id: true, name: true } } } }, _count: { select: { products: true } } }, orderBy: { createdAt: 'desc' }, take: 100 }),
-      prisma.productPromotion.findMany({ include: { shop: { select: { id: true, name: true, owner: { select: { id: true, name: true } } } }, _count: { select: { products: true } } }, orderBy: { createdAt: 'desc' }, take: 100 }),
-      prisma.sellerQrCode.findMany({ include: { shop: { select: { id: true, name: true, owner: { select: { id: true, name: true } } } } }, orderBy: { createdAt: 'desc' }, take: 100 }),
-    ])
-    return successResponse(res, { shippingZones, collections, promotions, qrCodes })
-  } catch {
-    return errorResponse(res, 'Failed to fetch seller store overview', 500)
-  }
-})
+router.get(
+  "/seller-store-overview",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  async (_req: AuthenticatedRequest, res) => {
+    try {
+      const [shippingZones, collections, promotions, qrCodes] = await Promise.all([
+        prisma.shippingZone.findMany({
+          include: {
+            shop: {
+              select: {
+                id: true,
+                name: true,
+                owner: { select: { id: true, name: true, email: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        }),
+        prisma.productCollection.findMany({
+          include: {
+            shop: { select: { id: true, name: true, owner: { select: { id: true, name: true } } } },
+            _count: { select: { products: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        }),
+        prisma.productPromotion.findMany({
+          include: {
+            shop: { select: { id: true, name: true, owner: { select: { id: true, name: true } } } },
+            _count: { select: { products: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        }),
+        prisma.sellerQrCode.findMany({
+          include: {
+            shop: { select: { id: true, name: true, owner: { select: { id: true, name: true } } } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        }),
+      ]);
+      return successResponse(res, { shippingZones, collections, promotions, qrCodes });
+    } catch {
+      return errorResponse(res, "Failed to fetch seller store overview", 500);
+    }
+  },
+);
 
 router.patch(
   "/settings/theme",
@@ -1336,21 +1433,30 @@ router.patch(
     try {
       const theme = sanitizePlatformTheme(req.body.theme);
       await prisma.setting.upsert({
-        where: { key: 'platformTheme' },
+        where: { key: "platformTheme" },
         update: { value: JSON.stringify(theme) },
-        create: { key: 'platformTheme', value: JSON.stringify(theme) },
+        create: { key: "platformTheme", value: JSON.stringify(theme) },
       });
       try {
         await prisma.auditLog.create({
-          data: { actorId: req.user!.id, actorRole: 'ADMIN', action: 'PLATFORM_THEME_UPDATED', targetType: 'SETTING', targetId: 'platformTheme', metadata: JSON.stringify({ colorCount: Object.keys(theme.light).length + Object.keys(theme.dark).length }) },
+          data: {
+            actorId: req.user!.id,
+            actorRole: "ADMIN",
+            action: "PLATFORM_THEME_UPDATED",
+            targetType: "SETTING",
+            targetId: "platformTheme",
+            metadata: JSON.stringify({
+              colorCount: Object.keys(theme.light).length + Object.keys(theme.dark).length,
+            }),
+          },
         });
       } catch (auditError) {
-        console.error('Failed to record platform theme audit log:', auditError);
+        console.error("Failed to record platform theme audit log:", auditError);
       }
-      return successResponse(res, { theme }, 200, 'Platform theme published successfully');
+      return successResponse(res, { theme }, 200, "Platform theme published successfully");
     } catch (error) {
-      console.error('Failed to save platform theme:', error);
-      return errorResponse(res, 'Failed to save platform theme', 500);
+      console.error("Failed to save platform theme:", error);
+      return errorResponse(res, "Failed to save platform theme", 500);
     }
   },
 );
@@ -1762,7 +1868,7 @@ router.get(
               },
             },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           skip: (page - 1) * limit,
           take: limit,
         }),
@@ -1774,7 +1880,7 @@ router.get(
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
     } catch (error) {
-      return errorResponse(res, 'Failed to fetch evidence queue', 500);
+      return errorResponse(res, "Failed to fetch evidence queue", 500);
     }
   },
 );
@@ -1783,7 +1889,12 @@ router.patch(
   "/evidence/:id/status",
   authMiddleware,
   requireRole(["ADMIN"]),
-  validateBody(z.object({ status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'NEEDS_MORE_INFO']).optional(), note: z.string().max(2000).optional() })),
+  validateBody(
+    z.object({
+      status: z.enum(["PENDING", "APPROVED", "REJECTED", "NEEDS_MORE_INFO"]).optional(),
+      note: z.string().max(2000).optional(),
+    }),
+  ),
   async (req: AuthenticatedRequest, res) => {
     try {
       const evidence = await prisma.orderEvidence.findUnique({
@@ -1798,42 +1909,57 @@ router.patch(
         where: { id: evidence.id },
         data: {
           status,
-          note: req.body.note ? `${evidence.note || ''}\n${req.body.note}`.trim() : evidence.note,
+          note: req.body.note ? `${evidence.note || ""}\n${req.body.note}`.trim() : evidence.note,
         },
         include: {
           uploader: { select: { id: true, name: true, email: true, avatar: true } },
-          order: { select: { id: true, orderNumber: true, customerId: true, sellerId: true, riderId: true } },
+          order: {
+            select: {
+              id: true,
+              orderNumber: true,
+              customerId: true,
+              sellerId: true,
+              riderId: true,
+            },
+          },
         },
       });
 
       await prisma.auditLog.create({
         data: {
           actorId: req.user!.id,
-          actorRole: 'ADMIN',
-          action: 'ADMIN_EVIDENCE_REVIEW',
-          targetType: 'ORDER_EVIDENCE',
+          actorRole: "ADMIN",
+          action: "ADMIN_EVIDENCE_REVIEW",
+          targetType: "ORDER_EVIDENCE",
           targetId: evidence.id,
           reason: status,
           metadata: JSON.stringify({ note: req.body.note || null, orderId: evidence.orderId }),
         },
       });
 
-      if (status === 'REJECTED' || status === 'NEEDS_MORE_INFO') {
+      if (status === "REJECTED" || status === "NEEDS_MORE_INFO") {
         await prisma.fraudAlert.create({
           data: {
             userId: evidence.uploaderId,
             orderId: evidence.orderId,
-            riskLevel: status === 'REJECTED' ? 'HIGH' : 'MEDIUM',
-            reason: status === 'REJECTED' ? 'Evidence rejected during admin review' : 'Evidence requires more documentation',
-            status: 'OPEN',
-            metadata: JSON.stringify({ evidenceId: evidence.id, evidenceType: evidence.type, stage: evidence.stage }),
+            riskLevel: status === "REJECTED" ? "HIGH" : "MEDIUM",
+            reason:
+              status === "REJECTED"
+                ? "Evidence rejected during admin review"
+                : "Evidence requires more documentation",
+            status: "OPEN",
+            metadata: JSON.stringify({
+              evidenceId: evidence.id,
+              evidenceType: evidence.type,
+              stage: evidence.stage,
+            }),
           },
         });
       }
 
-      return successResponse(res, updated, undefined, 'Evidence status updated');
+      return successResponse(res, updated, undefined, "Evidence status updated");
     } catch (error) {
-      return errorResponse(res, 'Failed to update evidence status', 500);
+      return errorResponse(res, "Failed to update evidence status", 500);
     }
   },
 );
@@ -2173,7 +2299,12 @@ router.patch(
       if (typeof isSeller === "boolean") updateData.isSeller = isSeller;
       if (typeof isRider === "boolean") updateData.isRider = isRider;
       if (typeof isAdmin === "boolean") {
-        return errorResponse(res, "Admin role changes require the dedicated privileged-admin workflow", 403, "ADMIN_ROLE_CHANGE_RESTRICTED");
+        return errorResponse(
+          res,
+          "Admin role changes require the dedicated privileged-admin workflow",
+          403,
+          "ADMIN_ROLE_CHANGE_RESTRICTED",
+        );
       }
       if (typeof suspended === "boolean") updateData.suspended = suspended;
       if (typeof banned === "boolean") updateData.banned = banned;
@@ -2761,7 +2892,8 @@ router.post(
       const existingFreeze = await prisma.sellerPayoutFreeze.findFirst({
         where: { userId: id, thawedAt: null },
       });
-      if (existingFreeze) return errorResponse(res, "Payouts are already frozen for this user", 400);
+      if (existingFreeze)
+        return errorResponse(res, "Payouts are already frozen for this user", 400);
 
       const freeze = await prisma.sellerPayoutFreeze.create({
         data: {
@@ -2909,7 +3041,9 @@ router.patch(
         },
       });
 
-      const reportedUserId = ['USER', 'SELLER', 'RIDER', 'CUSTOMER'].includes(report.targetType) ? report.targetId : null;
+      const reportedUserId = ["USER", "SELLER", "RIDER", "CUSTOMER"].includes(report.targetType)
+        ? report.targetId
+        : null;
       if (status === "RESOLVED" && reportedUserId) {
         const risk = await prisma.sellerRisk.findUnique({ where: { userId: reportedUserId } });
         if (risk) {

@@ -15,6 +15,7 @@ export default function SellerShopPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [shop, setShop] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadShop()
@@ -22,13 +23,16 @@ export default function SellerShopPage() {
 
   const loadShop = async () => {
     setLoading(true)
+    setError(null)
     try {
       const response = await api.get<any>('/seller/shop')
-      if (response.success && response.data?.shop) {
+      if (response.success && response.data) {
         setShop(response.data)
+      } else {
+        setError(response.error || 'Failed to load shop')
       }
     } catch {
-      // ignore
+      setError('Failed to load shop. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -42,6 +46,19 @@ export default function SellerShopPage() {
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-warm-800/60">Loading shop...</p>
           </div>
+        </div>
+      </SellerSidebar>
+    )
+  }
+
+  if (error) {
+    return (
+      <SellerSidebar>
+        <div className="text-center py-20">
+          <Store size={48} className="mx-auto text-warm-800/30 mb-4" />
+          <h3 className="font-semibold text-warm-900 mb-2">Failed to load shop</h3>
+          <p className="text-sm text-warm-800/60 mb-4">{error}</p>
+          <Button onClick={loadShop}>Retry</Button>
         </div>
       </SellerSidebar>
     )

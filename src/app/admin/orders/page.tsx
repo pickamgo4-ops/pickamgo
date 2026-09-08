@@ -1,205 +1,218 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, FileText, Loader2, XCircle, X } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { Card } from '@/components/ui/Card'
-import { api } from '@/lib/api'
-import { useRole } from '@/contexts/RoleContext'
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { Search, ChevronLeft, ChevronRight, FileText, Loader2, XCircle, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { api } from "@/lib/api";
+import { useRole } from "@/contexts/RoleContext";
 
 interface AdminOrder {
-  id: string
-  orderNumber: string
-  customerName: string
-  customerEmail?: string
-  isGuest: boolean
-  shopName: string
-  total: number
-  paymentStatus: string
-  status: string
-  riderName?: string
-  createdAt: string
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  customerEmail?: string;
+  isGuest: boolean;
+  shopName: string;
+  total: number;
+  paymentStatus: string;
+  status: string;
+  riderName?: string;
+  createdAt: string;
 }
 
 interface OrderDetail {
-  id: string
-  orderNumber: string
-  status: string
-  total: number
-  deliveryFee: number
-  paymentStatus: string
-  paymentMethod: string
-  fulfillmentMethod: string
-  customerName: string
-  customerEmail?: string
-  customerPhone?: string
-  isGuest: boolean
-  shopName: string
-  riderName?: string
-  deliveryAddress: string
-  items: any[]
-  createdAt: string
+  id: string;
+  orderNumber: string;
+  status: string;
+  total: number;
+  deliveryFee: number;
+  paymentStatus: string;
+  paymentMethod: string;
+  fulfillmentMethod: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  isGuest: boolean;
+  shopName: string;
+  riderName?: string;
+  deliveryAddress: string;
+  items: any[];
+  createdAt: string;
 }
 
 function mapOrderDetail(o: any): OrderDetail {
   return {
     id: o.id,
     orderNumber: o.orderNumber || o.id,
-    status: o.status || 'PENDING_PAYMENT',
+    status: o.status || "PENDING_PAYMENT",
     total: Number(o.total) || 0,
     deliveryFee: Number(o.deliveryFee) || 0,
-    paymentStatus: o.payment?.status || 'PENDING_PAYMENT',
-    paymentMethod: o.payment?.method || '-',
-    fulfillmentMethod: o.fulfillmentMethod || '-',
-    customerName: o.customer?.name || o.guestName || 'Guest',
+    paymentStatus: o.payment?.status || "PENDING_PAYMENT",
+    paymentMethod: o.payment?.method || "-",
+    fulfillmentMethod: o.fulfillmentMethod || "-",
+    customerName: o.customer?.name || o.guestName || "Guest",
     customerEmail: o.customer?.email || o.guestEmail || undefined,
     customerPhone: o.customer?.phone || o.guestPhone || undefined,
     isGuest: !o.customerId && (!!o.guestName || !!o.guestEmail || !!o.guestPhone),
-    shopName: o.shop?.name || '-',
+    shopName: o.shop?.name || "-",
     riderName: o.rider?.name || undefined,
-    deliveryAddress: o.deliveryAddress || '-',
+    deliveryAddress: o.deliveryAddress || "-",
     items: o.items || [],
     createdAt: o.createdAt,
-  }
+  };
 }
 
-const PAYMENT_STATUSES = ['PENDING_PAYMENT', 'PAID', 'FAILED', 'REFUNDED']
-const ORDER_STATUSES = ['PENDING_PAYMENT', 'PAID', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'FAILED']
+const PAYMENT_STATUSES = ["PENDING_PAYMENT", "PAID", "FAILED", "REFUNDED"];
+const ORDER_STATUSES = [
+  "PENDING_PAYMENT",
+  "PAID",
+  "CONFIRMED",
+  "PREPARING",
+  "READY_FOR_PICKUP",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "CANCELLED",
+  "FAILED",
+];
 
 function mapOrder(o: any): AdminOrder {
   return {
     id: o.id,
     orderNumber: o.orderNumber || o.id,
-    customerName: o.customer?.name || o.guestName || 'Guest',
+    customerName: o.customer?.name || o.guestName || "Guest",
     customerEmail: o.customer?.email || o.guestEmail || undefined,
     isGuest: !o.customerId && (!!o.guestName || !!o.guestEmail || !!o.guestPhone),
-    shopName: o.shop?.name || '-',
+    shopName: o.shop?.name || "-",
     total: Number(o.total) || 0,
-    paymentStatus: o.payment?.status || o.status || 'PENDING_PAYMENT',
-    status: o.status || 'PENDING_PAYMENT',
+    paymentStatus: o.payment?.status || o.status || "PENDING_PAYMENT",
+    status: o.status || "PENDING_PAYMENT",
     riderName: o.rider?.name || undefined,
     createdAt: o.createdAt,
-  }
+  };
 }
 
 export default function AdminOrdersPage() {
-  const router = useRouter()
-  const { user, loading, authInitialized } = useRole()
-  const [dataLoading, setDataLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [orders, setOrders] = useState<AdminOrder[]>([])
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [paymentFilter, setPaymentFilter] = useState('')
-  const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null)
-  const [orderLoading, setOrderLoading] = useState(false)
-  const [updatingStatus, setUpdatingStatus] = useState(false)
-  const loadingRef = useRef(false)
+  const router = useRouter();
+  const { user, loading, authInitialized } = useRole();
+  const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const loadingRef = useRef(false);
 
-  const loadOrders = useCallback(async (pageNum: number, search: string, status: string, payment: string) => {
-    if (loadingRef.current) return
-    loadingRef.current = true
-    setDataLoading(true)
-    setError('')
-    try {
-      const params = new URLSearchParams()
-      params.set('page', String(pageNum))
-      params.set('limit', '20')
-      if (search) params.set('search', search)
-      if (status) params.set('status', status)
-      if (payment) params.set('paymentStatus', payment)
+  const loadOrders = useCallback(
+    async (pageNum: number, search: string, status: string, payment: string) => {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
+      setDataLoading(true);
+      setError("");
+      try {
+        const params = new URLSearchParams();
+        params.set("page", String(pageNum));
+        params.set("limit", "20");
+        if (search) params.set("search", search);
+        if (status) params.set("status", status);
+        if (payment) params.set("paymentStatus", payment);
 
-      const response = await api.get<any>(`/admin/orders?${params.toString()}`)
-      if (response.success && response.data) {
-        setOrders((response.data.orders || []).map(mapOrder))
-        setTotalPages(response.data.pagination?.totalPages || 1)
-        setTotal(response.data.pagination?.total || 0)
-      } else {
-        setError(response.error || 'Failed to load orders')
+        const response = await api.get<any>(`/admin/orders?${params.toString()}`);
+        if (response.success && response.data) {
+          setOrders((response.data.orders || []).map(mapOrder));
+          setTotalPages(response.data.pagination?.totalPages || 1);
+          setTotal(response.data.pagination?.total || 0);
+        } else {
+          setError(response.error || "Failed to load orders");
+        }
+      } catch {
+        setError("Network error. Please try again.");
+      } finally {
+        setDataLoading(false);
+        loadingRef.current = false;
       }
-    } catch {
-      setError('Network error. Please try again.')
-    } finally {
-      setDataLoading(false)
-      loadingRef.current = false
-    }
-  }, [])
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (!authInitialized) return
+    if (!authInitialized) return;
     if (!user || !user.isAdmin) {
-      router.push('/')
-      return
+      router.push("/");
+      return;
     }
-    loadOrders(page, searchQuery, statusFilter, paymentFilter)
-  }, [authInitialized, user, page, searchQuery, statusFilter, paymentFilter, loadOrders, router])
+    loadOrders(page, searchQuery, statusFilter, paymentFilter);
+  }, [authInitialized, user, page, searchQuery, statusFilter, paymentFilter, loadOrders, router]);
 
   const loadOrderDetail = async (orderId: string) => {
-    setOrderLoading(true)
-    setError('')
+    setOrderLoading(true);
+    setError("");
     try {
-      const response = await api.get<any>(`/admin/orders/${orderId}`)
+      const response = await api.get<any>(`/admin/orders/${orderId}`);
       if (response.success && response.data) {
-        setSelectedOrder(mapOrderDetail(response.data))
+        setSelectedOrder(mapOrderDetail(response.data));
       } else {
-        setError(response.error || 'Failed to load order detail')
+        setError(response.error || "Failed to load order detail");
       }
     } catch {
-      setError('Failed to load order detail. Please try again.')
+      setError("Failed to load order detail. Please try again.");
     } finally {
-      setOrderLoading(false)
+      setOrderLoading(false);
     }
-  }
+  };
 
   const handleOrderClick = (o: AdminOrder) => {
-    loadOrderDetail(o.id)
-  }
+    loadOrderDetail(o.id);
+  };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    const order = orders.find(o => o.id === orderId)
-    if (!order) return
-    if (!window.confirm(`Update order #${order.orderNumber} status to ${newStatus}?`)) return
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    if (!window.confirm(`Update order #${order.orderNumber} status to ${newStatus}?`)) return;
 
-    setUpdatingStatus(true)
-    setError('')
+    setUpdatingStatus(true);
+    setError("");
     try {
-      const response = await api.patch(`/admin/orders/${orderId}/status`, { status: newStatus })
+      const response = await api.patch(`/admin/orders/${orderId}/status`, { status: newStatus });
       if (response.success) {
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o))
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
         if (selectedOrder?.id === orderId) {
-          setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null)
+          setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
         }
       } else {
-        setError(response.error || 'Failed to update order status')
+        setError(response.error || "Failed to update order status");
       }
     } catch {
-      setError('Failed to update order status. Please try again.')
+      setError("Failed to update order status. Please try again.");
     } finally {
-      setUpdatingStatus(false)
+      setUpdatingStatus(false);
     }
-  }
+  };
 
   const getPaymentBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
-      PENDING_PAYMENT: { variant: 'default', label: 'Pending' },
-      PAID: { variant: 'verified', label: 'Paid' },
-      CONFIRMED: { variant: 'deal', label: 'Confirmed' },
-      PREPARING: { variant: 'delivery', label: 'Preparing' },
-      READY_FOR_PICKUP: { variant: 'new', label: 'Ready' },
-      OUT_FOR_DELIVERY: { variant: 'delivery', label: 'Out for Delivery' },
-      DELIVERED: { variant: 'verified', label: 'Delivered' },
-      CANCELLED: { variant: 'default', label: 'Cancelled' },
-      FAILED: { variant: 'default', label: 'Failed' },
-    }
-    const c = config[status] || { variant: 'default', label: status }
-    return <Badge variant={c.variant}>{c.label}</Badge>
-  }
+      PENDING_PAYMENT: { variant: "default", label: "Pending" },
+      PAID: { variant: "verified", label: "Paid" },
+      CONFIRMED: { variant: "deal", label: "Confirmed" },
+      PREPARING: { variant: "delivery", label: "Preparing" },
+      READY_FOR_PICKUP: { variant: "new", label: "Ready" },
+      OUT_FOR_DELIVERY: { variant: "delivery", label: "Out for Delivery" },
+      DELIVERED: { variant: "verified", label: "Delivered" },
+      CANCELLED: { variant: "default", label: "Cancelled" },
+      FAILED: { variant: "default", label: "Failed" },
+    };
+    const c = config[status] || { variant: "default", label: status };
+    return <Badge variant={c.variant}>{c.label}</Badge>;
+  };
 
   if (loading || !authInitialized) {
     return (
@@ -208,7 +221,7 @@ export default function AdminOrdersPage() {
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -218,9 +231,7 @@ export default function AdminOrdersPage() {
           <FileText size={20} className="text-primary" />
         </div>
         <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
-            Orders
-          </h1>
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Orders</h1>
           <p className="text-warm-800/60 text-sm">Manage platform orders</p>
         </div>
       </div>
@@ -237,22 +248,32 @@ export default function AdminOrdersPage() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-xl border border-warm-200 px-3 py-3 bg-white text-sm text-warm-900"
         >
           <option value="">All order statuses</option>
-          {ORDER_STATUSES.map(s => (
-            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+          {ORDER_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s.replace(/_/g, " ")}
+            </option>
           ))}
         </select>
         <select
           value={paymentFilter}
-          onChange={(e) => { setPaymentFilter(e.target.value); setPage(1) }}
+          onChange={(e) => {
+            setPaymentFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-xl border border-warm-200 px-3 py-3 bg-white text-sm text-warm-900"
         >
           <option value="">All payment statuses</option>
-          {PAYMENT_STATUSES.map(s => (
-            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+          {PAYMENT_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s.replace(/_/g, " ")}
+            </option>
           ))}
         </select>
       </div>
@@ -268,7 +289,12 @@ export default function AdminOrdersPage() {
         <Card className="p-12 text-center">
           <XCircle size={44} className="mx-auto text-red-500 mb-3" />
           <p className="text-warm-900 font-medium">{error}</p>
-          <Button onClick={() => loadOrders(page, searchQuery, statusFilter, paymentFilter)} className="mt-4">Retry</Button>
+          <Button
+            onClick={() => loadOrders(page, searchQuery, statusFilter, paymentFilter)}
+            className="mt-4"
+          >
+            Retry
+          </Button>
         </Card>
       ) : orders.length === 0 ? (
         <Card className="p-12 text-center">
@@ -283,11 +309,19 @@ export default function AdminOrdersPage() {
                 <thead className="bg-warm-50 border-b border-warm-200">
                   <tr>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Order</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">Customer</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">Total</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden md:table-cell">
+                      Customer
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden sm:table-cell">
+                      Total
+                    </th>
                     <th className="px-4 py-3 font-semibold text-warm-800/70">Status</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">Rider</th>
-                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">Date</th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">
+                      Rider
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-warm-800/70 hidden lg:table-cell">
+                      Date
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-warm-200">
@@ -306,12 +340,20 @@ export default function AdminOrdersPage() {
                       <td className="px-4 py-3 hidden md:table-cell">
                         <div className="flex items-center gap-2">
                           <span className="text-warm-800/70">{o.customerName}</span>
-                          {o.isGuest && <Badge variant="default" size="sm">Guest</Badge>}
+                          {o.isGuest && (
+                            <Badge variant="default" size="sm">
+                              Guest
+                            </Badge>
+                          )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium text-warm-900 hidden sm:table-cell">GH₵{o.total?.toFixed(2)}</td>
+                      <td className="px-4 py-3 font-medium text-warm-900 hidden sm:table-cell">
+                        GH₵{o.total?.toFixed(2)}
+                      </td>
                       <td className="px-4 py-3">{getPaymentBadge(o.status)}</td>
-                      <td className="px-4 py-3 text-warm-800/70 hidden lg:table-cell">{o.riderName || '-'}</td>
+                      <td className="px-4 py-3 text-warm-800/70 hidden lg:table-cell">
+                        {o.riderName || "-"}
+                      </td>
                       <td className="px-4 py-3 text-warm-800/60 hidden lg:table-cell">
                         {new Date(o.createdAt).toLocaleDateString()}
                       </td>
@@ -324,11 +366,23 @@ export default function AdminOrdersPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
                 <ChevronLeft size={16} />
               </Button>
-              <span className="text-sm text-warm-800/60">Page {page} of {totalPages}</span>
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              <span className="text-sm text-warm-800/60">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
                 <ChevronRight size={16} />
               </Button>
             </div>
@@ -337,12 +391,20 @@ export default function AdminOrdersPage() {
       )}
 
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setSelectedOrder(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setSelectedOrder(null)}
+        >
           <div onClick={(e) => e.stopPropagation()}>
             <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-xl font-bold text-warm-900">Order #{selectedOrder.orderNumber}</h2>
-                <button onClick={() => setSelectedOrder(null)} className="p-2 rounded-xl hover:bg-warm-100">
+                <h2 className="font-display text-xl font-bold text-warm-900">
+                  Order #{selectedOrder.orderNumber}
+                </h2>
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="p-2 rounded-xl hover:bg-warm-100"
+                >
                   <X size={20} className="text-warm-800" />
                 </button>
               </div>
@@ -355,46 +417,73 @@ export default function AdminOrdersPage() {
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2">
                     {getPaymentBadge(selectedOrder.status)}
-                    <Badge variant={selectedOrder.isGuest ? 'default' : 'verified'}>
-                      {selectedOrder.isGuest ? 'Guest' : 'Registered'}
+                    <Badge variant={selectedOrder.isGuest ? "default" : "verified"}>
+                      {selectedOrder.isGuest ? "Guest" : "Registered"}
                     </Badge>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-medium text-warm-800/50 uppercase">Customer</label>
-                      <p className="text-sm font-medium text-warm-900 mt-1">{selectedOrder.customerName}</p>
-                      <p className="text-xs text-warm-800/60">{selectedOrder.customerEmail || '-'}</p>
+                      <label className="text-xs font-medium text-warm-800/50 uppercase">
+                        Customer
+                      </label>
+                      <p className="text-sm font-medium text-warm-900 mt-1">
+                        {selectedOrder.customerName}
+                      </p>
+                      <p className="text-xs text-warm-800/60">
+                        {selectedOrder.customerEmail || "-"}
+                      </p>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-warm-800/50 uppercase">Shop</label>
-                      <p className="text-sm font-medium text-warm-900 mt-1">{selectedOrder.shopName}</p>
+                      <p className="text-sm font-medium text-warm-900 mt-1">
+                        {selectedOrder.shopName}
+                      </p>
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-warm-800/50 uppercase">Total</label>
-                      <p className="text-sm font-medium text-warm-900 mt-1">GH₵{selectedOrder.total?.toFixed(2)}</p>
+                      <label className="text-xs font-medium text-warm-800/50 uppercase">
+                        Total
+                      </label>
+                      <p className="text-sm font-medium text-warm-900 mt-1">
+                        GH₵{selectedOrder.total?.toFixed(2)}
+                      </p>
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-warm-800/50 uppercase">Payment</label>
-                      <p className="text-sm font-medium text-warm-900 mt-1">{selectedOrder.paymentMethod}</p>
+                      <label className="text-xs font-medium text-warm-800/50 uppercase">
+                        Payment
+                      </label>
+                      <p className="text-sm font-medium text-warm-900 mt-1">
+                        {selectedOrder.paymentMethod}
+                      </p>
                     </div>
                   </div>
 
                   {selectedOrder.deliveryAddress && (
                     <div>
-                      <label className="text-xs font-medium text-warm-800/50 uppercase">Delivery Address</label>
+                      <label className="text-xs font-medium text-warm-800/50 uppercase">
+                        Delivery Address
+                      </label>
                       <p className="text-sm text-warm-900 mt-1">{selectedOrder.deliveryAddress}</p>
                     </div>
                   )}
 
                   {selectedOrder.items && selectedOrder.items.length > 0 && (
                     <div>
-                      <label className="text-xs font-medium text-warm-800/50 uppercase mb-2 block">Items</label>
+                      <label className="text-xs font-medium text-warm-800/50 uppercase mb-2 block">
+                        Items
+                      </label>
                       <div className="space-y-2">
                         {selectedOrder.items.map((item: any, idx: number) => (
-                          <div key={idx} className="p-3 bg-warm-50 rounded-xl text-sm flex justify-between">
-                            <span className="text-warm-900">{item.product?.name || item.service?.name || 'Item'} x{item.quantity}</span>
-                             <span className="font-medium text-warm-900">GH₵{Number(item.price).toFixed(2)}</span>
+                          <div
+                            key={idx}
+                            className="p-3 bg-warm-50 rounded-xl text-sm flex justify-between"
+                          >
+                            <span className="text-warm-900">
+                              {item.product?.name || item.service?.name || "Item"} x{item.quantity}
+                            </span>
+                            <span className="font-medium text-warm-900">
+                              GH₵{Number(item.price).toFixed(2)}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -404,17 +493,19 @@ export default function AdminOrdersPage() {
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-warm-800/50 uppercase">Update Status</p>
                     <div className="flex flex-wrap gap-2">
-                      {ORDER_STATUSES.filter(s => s !== 'CANCELLED' && s !== 'FAILED').map(status => (
-                        <Button
-                          key={status}
-                          size="sm"
-                          variant={selectedOrder.status === status ? 'primary' : 'outline'}
-                          onClick={() => updateOrderStatus(selectedOrder.id, status)}
-                          disabled={updatingStatus || selectedOrder.status === status}
-                        >
-                          {status.replace(/_/g, ' ')}
-                        </Button>
-                      ))}
+                      {ORDER_STATUSES.filter((s) => s !== "CANCELLED" && s !== "FAILED").map(
+                        (status) => (
+                          <Button
+                            key={status}
+                            size="sm"
+                            variant={selectedOrder.status === status ? "primary" : "outline"}
+                            onClick={() => updateOrderStatus(selectedOrder.id, status)}
+                            disabled={updatingStatus || selectedOrder.status === status}
+                          >
+                            {status.replace(/_/g, " ")}
+                          </Button>
+                        ),
+                      )}
                     </div>
                   </div>
                 </div>
@@ -424,5 +515,5 @@ export default function AdminOrdersPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

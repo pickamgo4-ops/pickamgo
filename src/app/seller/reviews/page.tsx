@@ -15,6 +15,7 @@ export default function SellerReviewsPage() {
   const [loading, setLoading] = useState(true)
   const [reviews, setReviews] = useState<Review[]>([])
   const [averageRating, setAverageRating] = useState(0)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadReviews()
@@ -22,14 +23,17 @@ export default function SellerReviewsPage() {
 
   const loadReviews = async () => {
     setLoading(true)
+    setError(null)
     try {
       const response = await api.get<{ reviews: Review[]; averageRating: number }>('/seller/reviews')
       if (response.success && response.data) {
         setReviews(response.data.reviews || [])
         setAverageRating(response.data.averageRating || 0)
+      } else {
+        setError(response.error || 'Failed to load reviews')
       }
     } catch {
-      // ignore
+      setError('Failed to load reviews. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -55,6 +59,13 @@ export default function SellerReviewsPage() {
           <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">Reviews</h1>
           <p className="text-warm-800/60 mt-1">What customers say about your shop</p>
         </div>
+
+        {error && (
+          <Card className="border-red-200 bg-red-50 p-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-red-700">{error}</p>
+            <Button variant="outline" size="sm" onClick={loadReviews}>Retry</Button>
+          </Card>
+        )}
 
         {/* Rating Summary */}
         <Card className="p-6">
