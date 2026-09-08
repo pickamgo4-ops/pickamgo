@@ -173,7 +173,9 @@ export default function ProductPage() {
 
   const handleAddToCart = async () => {
     const result = await addToCart(false)
-    if (result !== true && result !== 'blocked') {
+    if (result === true) {
+      router.push('/cart')
+    } else if (result !== 'blocked') {
       setCartError(typeof result === 'string' ? result : 'Unable to add this item to your cart.')
     }
   }
