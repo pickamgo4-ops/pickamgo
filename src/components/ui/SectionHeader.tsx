@@ -9,6 +9,10 @@ interface SectionHeaderProps {
   link?: string
   linkText?: string
   className?: string
+  titleClassName?: string
+  subtitleClassName?: string
+  titleStyle?: React.CSSProperties
+  subtitleStyle?: React.CSSProperties
 }
 
 export function SectionHeader({
@@ -18,16 +22,20 @@ export function SectionHeader({
   link,
   linkText = 'See all',
   className = '',
+  titleClassName = '',
+  subtitleClassName = '',
+  titleStyle,
+  subtitleStyle,
 }: SectionHeaderProps) {
   return (
     <div className={`flex items-center justify-between mb-4 ${className}`}>
       <div>
-        <h2 className="font-display text-xl md:text-2xl font-bold text-warm-900 flex items-center gap-2">
+        <h2 style={titleStyle} className="font-display text-xl md:text-2xl font-bold text-warm-900 flex items-center gap-2">
           {emoji && <span className="flex items-center">{emoji}</span>}
           {title}
         </h2>
         {subtitle && (
-          <p className="text-sm text-warm-800/60 mt-0.5">{subtitle}</p>
+          <p style={subtitleStyle} className="text-sm text-warm-800/60 mt-0.5">{subtitle}</p>
         )}
       </div>
       {link && (

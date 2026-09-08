@@ -281,7 +281,7 @@ export default function ShopPage() {
             </div>
           )}
 
-          {shop.collections && shop.collections.length > 0 && <div className="mb-6 space-y-6">{shop.collections.map(collection => <section key={collection.id}><SectionHeader title={collection.name} subtitle={collection.description || undefined} titleClassName="text-warm-900" subtitleClassName="text-warm-800/60" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{(collection.products || []).slice(0, 4).map(item => <ProductCard key={item.product.id} product={mapApiProductToFrontend(item.product)} />)}</div></section>)}</div>}
+          {shop.collections && shop.collections.length > 0 && <div className="mb-6 space-y-6">{shop.collections.map(collection => <section key={collection.id}><SectionHeader title={collection.name} subtitle={collection.description || undefined} titleStyle={{ color: surfaceTextColor }} subtitleStyle={{ color: surfaceTextColor }} /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{(collection.products || []).slice(0, 4).map(item => <ProductCard key={item.product.id} product={mapApiProductToFrontend(item.product)} />)}</div></section>)}</div>}
 
           {shop.promotions && shop.promotions.length > 0 && <div className="mb-6 rounded-2xl border border-[var(--shop-border)] p-4" style={{ backgroundColor: 'var(--shop-surface)' }}><h2 className="mb-3 font-display text-lg font-bold" style={{ color: surfaceTextColor }}>Current promotions</h2><div className="grid gap-3 sm:grid-cols-2">{shop.promotions.map(promotion => <div key={promotion.id} className="rounded-xl p-3" style={{ backgroundColor: 'var(--shop-secondary)' }}><p className="font-semibold" style={{ color: surfaceTextColor }}>{promotion.name}</p><p className="text-xs opacity-75">{promotion.type.replace(/_/g, ' ')} · {promotion.products?.length || 0} products</p></div>)}</div></div>}
 
@@ -356,8 +356,8 @@ export default function ShopPage() {
           <SectionHeader
             title="Products"
             subtitle={`${visibleProducts.length} items available`}
-            titleClassName="text-warm-900"
-            subtitleClassName="text-warm-800/60"
+            titleStyle={{ color: surfaceTextColor }}
+            subtitleStyle={{ color: surfaceTextColor }}
           />
           <div className={`grid ${productGridClass} gap-3 sm:gap-4`}>
             {visibleProducts.map((product) => (
