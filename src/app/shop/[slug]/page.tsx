@@ -28,6 +28,7 @@ export default function ShopPage() {
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [followMessage, setFollowMessage] = useState('')
+  const [messageAccessError, setMessageAccessError] = useState('')
   const [reviews, setReviews] = useState<any[]>([])
   const [averageRating, setAverageRating] = useState(0)
   const [totalReviews, setTotalReviews] = useState(0)
@@ -115,6 +116,22 @@ export default function ShopPage() {
       text: `Check out ${shop.name} on PickAmGo`,
       url: window.location.href,
     })
+  }
+
+  const handleMessageShop = async () => {
+    if (!localStorage.getItem('token')) {
+      router.push('/auth/login')
+      return
+    }
+    if (!shop?.owner.id) return
+
+    setMessageAccessError('')
+    const response = await api.get<{ allowed: boolean }>(`/messages/access/${shop.owner.id}?shopId=${encodeURIComponent(shop.id)}`)
+    if (response.success && response.data?.allowed) {
+      router.push(`/messages/${shop.owner.id}`)
+    } else {
+      setMessageAccessError(response.error || 'You must have an active order with this seller first.')
+    }
   }
 
   if (loading) {
@@ -297,13 +314,7 @@ export default function ShopPage() {
             >
               {isFollowing ? 'Following' : 'Follow'}
             </Button>
-            <Button className="!px-2 !py-2.5 text-sm" variant="outline" fullWidth icon={<MessageCircle size={17} />} onClick={() => {
-              if (!localStorage.getItem('token')) {
-                router.push('/auth/login')
-                return
-              }
-              router.push(`/messages/${shop.owner.id}`)
-            }}>
+            <Button className="!px-2 !py-2.5 text-sm" variant="outline" fullWidth icon={<MessageCircle size={17} />} onClick={handleMessageShop}>
               Message
             </Button>
             <Button className="!px-2 !py-2.5 text-sm" variant="ghost" fullWidth icon={<Heart size={17} />} onClick={() => {
@@ -316,6 +327,12 @@ export default function ShopPage() {
               Write review
             </Button>
           </div>
+
+          {messageAccessError && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm text-amber-800">
+              {messageAccessError}
+            </div>
+          )}
 
           {followMessage && (
             <div className={`mt-3 p-3 rounded-xl text-sm text-center`} style={{

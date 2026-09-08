@@ -175,6 +175,20 @@ router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, r
   }
 })
 
+router.get('/access/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  try {
+    const shopId = typeof req.query.shopId === 'string' ? req.query.shopId : undefined
+    const access = await resolvePurchasedShopAccess(req.user!.id, req.params.userId, shopId)
+    if (!access) {
+      return errorResponse(res, 'You must have an active order with this seller first.', 403)
+    }
+    return successResponse(res, { allowed: true, shopId: access.shopId, orderId: access.orderId })
+  } catch (error) {
+    console.error('Failed to check message access:', error)
+    return errorResponse(res, 'Unable to check messaging access', 500)
+  }
+})
+
 router.get('/conversations/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const currentUserId = req.user!.id
