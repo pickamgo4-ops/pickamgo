@@ -21,6 +21,7 @@ export default function SellerTour({ children }: SellerTourProps) {
   const router = useRouter()
   const { user, authInitialized } = useRole()
   const [status, setStatus] = useState<TourStatus>('NOT_STARTED')
+  const [tourInitialized, setTourInitialized] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [isVisible, setIsVisible] = useState(false)
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
@@ -44,7 +45,11 @@ export default function SellerTour({ children }: SellerTourProps) {
   }, [])
 
   useEffect(() => {
-    if (!authInitialized || user?.role !== 'seller') return
+    if (!authInitialized) return
+    if (user?.role !== 'seller') {
+      setTourInitialized(true)
+      return
+    }
 
     const initTour = async () => {
       try {
@@ -77,6 +82,8 @@ export default function SellerTour({ children }: SellerTourProps) {
         }
       } catch {
         // ignore
+      } finally {
+        setTourInitialized(true)
       }
     }
     initTour()
@@ -270,7 +277,7 @@ export default function SellerTour({ children }: SellerTourProps) {
   )
 
   const renderWelcomeModal = () => {
-    if (status !== 'NOT_STARTED' || isVisible) return null
+    if (!tourInitialized || status !== 'NOT_STARTED' || isVisible) return null
 
     return (
       <div
