@@ -348,13 +348,19 @@ router.patch('/:id/status', authMiddleware, validateBody(orderStatusSchema), asy
     ? await prisma.shop.findMany({ where: { ownerId: req.user!.id }, select: { id: true } })
     : []
   const sellerShopIds = sellerShops.map(shop => shop.id)
+  const [sellerProductIds, sellerServiceIds]: [string[], string[]] = sellerShopIds.length
+    ? await Promise.all([
+        prisma.product.findMany({ where: { shopId: { in: sellerShopIds } }, select: { id: true } }),
+        prisma.service.findMany({ where: { shopId: { in: sellerShopIds } }, select: { id: true } }),
+      ]).then(([products, services]) => [products.map(product => product.id), services.map(service => service.id)] as const)
+    : [[], []]
   const ownsOrderItem = req.user!.isSeller && sellerShopIds.length > 0
     ? await prisma.orderItem.findFirst({
         where: {
           orderId: order.id,
           OR: [
-            { product: { shopId: { in: sellerShopIds } } },
-            { service: { shopId: { in: sellerShopIds } } },
+            ...(sellerProductIds.length ? [{ productId: { in: sellerProductIds } }] : []),
+            ...(sellerServiceIds.length ? [{ serviceId: { in: sellerServiceIds } }] : []),
           ],
         },
         select: { id: true },

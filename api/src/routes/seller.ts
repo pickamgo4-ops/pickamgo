@@ -164,13 +164,19 @@ router.get('/orders', authMiddleware, requireRole(['SELLER']), async (req: Authe
 
     const shops = await prisma.shop.findMany({ where: { ownerId: req.user!.id }, select: { id: true } })
     const shopIds = shops.map(shop => shop.id)
+    const [products, services] = shopIds.length
+      ? await Promise.all([
+          prisma.product.findMany({ where: { shopId: { in: shopIds } }, select: { id: true } }),
+          prisma.service.findMany({ where: { shopId: { in: shopIds } }, select: { id: true } }),
+        ])
+      : [[], []]
+    const productIds = products.map(product => product.id)
+    const serviceIds = services.map(service => service.id)
     const sellerOrderScope = [
       { sellerId: req.user!.id },
       ...(shopIds.length ? [{ shopId: { in: shopIds } }] : []),
-      ...(shopIds.length ? [
-        { items: { some: { product: { shopId: { in: shopIds } } } } },
-        { items: { some: { service: { shopId: { in: shopIds } } } } },
-      ] : []),
+      ...(productIds.length ? [{ items: { some: { productId: { in: productIds } } } }] : []),
+      ...(serviceIds.length ? [{ items: { some: { serviceId: { in: serviceIds } } } }] : []),
     ]
     const where: any = {
       OR: [
