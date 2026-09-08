@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { FlaskConical, RotateCcw, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { FlaskConical, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'

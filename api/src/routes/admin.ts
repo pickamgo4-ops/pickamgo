@@ -1078,6 +1078,8 @@ router.get(
   requireRole(["ADMIN"]),
   async (req: AuthenticatedRequest, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
       const status = req.query.status as string | undefined;
       const type = req.query.type as string | undefined;
 
@@ -1085,24 +1087,32 @@ router.get(
       if (status) where.status = status;
       if (type) where.type = type;
 
-      const verifications = await prisma.sellerVerification.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              avatar: true,
-              location: true,
+      const [verifications, total] = await Promise.all([
+        prisma.sellerVerification.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                avatar: true,
+                location: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: "asc" },
-      });
+          orderBy: { createdAt: "asc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.sellerVerification.count({ where }),
+      ]);
 
-      return successResponse(res, verifications);
+      return successResponse(res, {
+        verifications,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
     } catch (error) {
       console.error("Failed to fetch verifications:", error);
       return errorResponse(res, "Failed to fetch verifications", 500);
@@ -1117,23 +1127,26 @@ router.patch(
   async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
-      const { status, rejectionReason } = req.body;
+      const { status, rejectionReason, reviewStatus } = req.body;
 
-      if (!["APPROVED", "REJECTED", "SUSPENDED"].includes(status)) {
+      if (!["APPROVED", "REJECTED", "SUSPENDED", "NEEDS_REVIEW"].includes(status)) {
         return errorResponse(res, "Invalid status", 400);
       }
 
       const verification = await prisma.sellerVerification.findUnique({ where: { id } });
       if (!verification) return errorResponse(res, "Verification not found", 404);
 
+      const data: any = {
+        status,
+        rejectionReason: rejectionReason || null,
+        reviewedAt: new Date(),
+        reviewedBy: req.user!.id,
+      };
+      if (reviewStatus) data.reviewStatus = reviewStatus;
+
       const updated = await prisma.sellerVerification.update({
         where: { id },
-        data: {
-          status,
-          rejectionReason: rejectionReason || null,
-          reviewedAt: new Date(),
-          reviewedBy: req.user!.id,
-        },
+        data,
         include: {
           user: {
             select: { id: true, name: true, email: true },

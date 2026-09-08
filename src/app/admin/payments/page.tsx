@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, Receipt, Eye, Loader2, XCircle, X } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Receipt, Loader2, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'

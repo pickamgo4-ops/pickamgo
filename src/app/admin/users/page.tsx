@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, Package, Eye, Loader2, XCircle, X, Trash2, CheckCircle2, Ban, Shield, ShieldOff, UserCheck, UserX, AlertTriangle, Mail, Phone } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Package, Eye, Loader2, XCircle, X, Ban, Shield, ShieldOff, AlertTriangle, Mail, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -84,18 +84,6 @@ function mapUserDetail(u: any): UserDetail {
     orderCount: u._count?.customerOrders ?? u.orderCount ?? 0,
   }
 }
-
-function getRoleBadge(role: string) {
-  const config: Record<string, { variant: any; label: string }> = {
-    buyer: { variant: 'default', label: 'Buyer' },
-    seller: { variant: 'deal', label: 'Seller' },
-    rider: { variant: 'delivery', label: 'Rider' },
-    admin: { variant: 'verified', label: 'Admin' },
-  }
-  const c = config[role] || config.buyer
-  return <Badge variant={c.variant}>{c.label}</Badge>
-}
-
 function getStatusBadge(user: AdminUser) {
   if (user.banned) return <Badge variant="deal">Banned</Badge>
   if (user.suspended) return <Badge variant="default">Suspended</Badge>
@@ -434,13 +422,6 @@ export default function AdminUsersPage() {
                         onClick={() => toggleRole(selectedUser.id, 'isRider')}
                       >
                         Rider: {selectedUser.isRider ? 'ON' : 'OFF'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={selectedUser.isAdmin ? 'primary' : 'outline'}
-                        onClick={() => toggleRole(selectedUser.id, 'isAdmin')}
-                      >
-                        Admin: {selectedUser.isAdmin ? 'ON' : 'OFF'}
                       </Button>
                     </div>
                   </div>

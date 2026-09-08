@@ -177,9 +177,15 @@ export default function AdminCategoriesPage() {
     }
     if (!window.confirm(`Are you sure you want to delete "${cat.name}"?`)) return
 
-    const response = await api.delete(`/admin/categories/${cat.id}`)
-    if (response.success) {
-      setCategories(prev => prev.filter(c => c.id !== cat.id))
+    try {
+      const response = await api.delete(`/admin/categories/${cat.id}`)
+      if (response.success) {
+        setCategories(prev => prev.filter(c => c.id !== cat.id))
+      } else {
+        setError(response.error || 'Failed to delete category')
+      }
+    } catch {
+      setError('Failed to delete category. Please try again.')
     }
   }
 
