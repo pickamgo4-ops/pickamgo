@@ -33,6 +33,7 @@ export default function ProductPage() {
   const [showGuestCheckoutNotice, setShowGuestCheckoutNotice] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [cartError, setCartError] = useState<string | null>(null)
+  const [cartSuccess, setCartSuccess] = useState('')
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
 
   const activeVariant = product?.variants?.find(v => v.id === selectedVariantId) || null
@@ -132,6 +133,7 @@ export default function ProductPage() {
     }
     setAddingToCart(true)
     setCartError(null)
+    setCartSuccess('')
     try {
       const response = await api.addToCart({
         productId: product.id,
@@ -142,6 +144,7 @@ export default function ProductPage() {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('cart-updated'))
         }
+        if (!buyNow) setCartSuccess('Added to cart')
         return true
       }
       if (response.code === 'GUEST_CHECKOUT_REQUIRES_AUTH') {
@@ -165,6 +168,13 @@ export default function ProductPage() {
       router.push('/checkout')
     } else if (success !== 'blocked') {
       alert(typeof success === 'string' ? success : cartError || 'Unable to add this item to your cart. Please try again.')
+    }
+  }
+
+  const handleAddToCart = async () => {
+    const result = await addToCart(false)
+    if (result !== true && result !== 'blocked') {
+      setCartError(typeof result === 'string' ? result : 'Unable to add this item to your cart.')
     }
   }
 
@@ -607,7 +617,7 @@ export default function ProductPage() {
             variant="orange"
             fullWidth
             className="flex-1"
-            onClick={() => addToCart(false)}
+            onClick={handleAddToCart}
             disabled={addingToCart || !canPurchase}
           >
             {addingToCart ? 'Adding...' : 'Add to Cart'}
@@ -648,7 +658,7 @@ export default function ProductPage() {
             </button>
           </div>
            <button
-             onClick={() => addToCart(false)}
+             onClick={handleAddToCart}
              disabled={addingToCart || !canPurchase}
              className="p-2.5 rounded-xl border border-warm-200 hover:bg-warm-100 transition-colors disabled:opacity-50"
              aria-label="Add to cart"
@@ -665,6 +675,11 @@ export default function ProductPage() {
              {addingToCart ? 'Adding...' : 'Buy Now'}
            </Button>
         </div>
+        {(cartError || cartSuccess) && (
+          <p className={`mt-3 text-center text-sm font-medium ${cartError ? 'text-red-600' : 'text-green-600'}`} role="status">
+            {cartError || cartSuccess}
+          </p>
+        )}
       </div>
 
       {showGuestCheckoutNotice && (
