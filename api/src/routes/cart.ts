@@ -176,6 +176,9 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
       if (!product || product.status !== 'ACTIVE' || product.stock <= 0 || product.shop?.status !== 'ACTIVE') {
         return errorResponse(res, 'Product not found or unavailable', 404)
       }
+      if (!userId && product.shop.allowGuestCheckout === false) {
+        return errorResponse(res, 'This shop requires you to sign in before adding items to your cart.', 403, 'GUEST_CHECKOUT_REQUIRES_AUTH')
+      }
 
       if (variantId) {
         const variant = await prisma.productVariant.findUnique({ where: { id: variantId } })
@@ -204,6 +207,9 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
       })
       if (!service || service.status !== 'ACTIVE' || service.shop?.status !== 'ACTIVE') {
         return errorResponse(res, 'Service not found or unavailable', 404)
+      }
+      if (!userId && service.shop.allowGuestCheckout === false) {
+        return errorResponse(res, 'This shop requires you to sign in before adding items to your cart.', 403, 'GUEST_CHECKOUT_REQUIRES_AUTH')
       }
 
       itemPrice = Number(service.price)
