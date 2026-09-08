@@ -260,6 +260,7 @@ export default function CartPage() {
               </div>
 
               <Button
+                variant="orange"
                 fullWidth
                 className="mt-6"
                 onClick={() => {

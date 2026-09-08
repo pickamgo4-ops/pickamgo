@@ -1019,7 +1019,7 @@ function CheckoutContent() {
                 </div>
               </div>
 
-              <Button fullWidth className="mt-6" type="submit" disabled={submitting}>
+              <Button variant="success" fullWidth className="mt-6" type="submit" disabled={submitting}>
                 {submitting ? "Processing..." : `Pay GH₵${total.toFixed(2)}`}
               </Button>
             </div>
@@ -1499,6 +1499,7 @@ function CheckoutContent() {
             )}
 
             <Button
+              variant="success"
               fullWidth
               className="mt-6"
               type="submit"

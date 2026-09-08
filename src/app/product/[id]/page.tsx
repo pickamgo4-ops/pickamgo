@@ -600,7 +600,7 @@ export default function ProductPage() {
             Save
           </Button>
           <Button
-            variant="outline"
+            variant="orange"
             fullWidth
             className="flex-1"
             onClick={() => addToCart(false)}
@@ -609,7 +609,7 @@ export default function ProductPage() {
             {addingToCart ? 'Adding...' : 'Add to Cart'}
           </Button>
           <Button
-            variant="primary"
+            variant="success"
             fullWidth
             className="flex-[2]"
             onClick={handleBuyNow}
@@ -652,7 +652,7 @@ export default function ProductPage() {
              <ShoppingCart size={20} className={addingToCart ? 'text-warm-800/50' : 'text-warm-800'} />
            </button>
            <Button
-             variant="primary"
+             variant="success"
              fullWidth
              className="flex-[2]"
              onClick={handleBuyNow}

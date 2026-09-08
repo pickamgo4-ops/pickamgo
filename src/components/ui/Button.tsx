@@ -2,7 +2,7 @@ import React from 'react'
 
 interface ButtonProps {
   children: React.ReactNode
-  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'teal' | 'outline' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info' | 'orange' | 'purple' | 'teal' | 'outline' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   className?: string
   onClick?: () => void
@@ -34,6 +34,7 @@ export function Button({
     warning: 'bg-[var(--color-warning-500)] text-white shadow-lg shadow-amber-400/20 hover:bg-[var(--color-warning-600)] hover:shadow-xl hover:shadow-amber-400/25',
     danger: 'bg-[var(--color-danger-600)] text-white shadow-lg shadow-red-500/20 hover:bg-[var(--color-danger-700)] hover:shadow-xl hover:shadow-red-500/25',
     info: 'bg-[var(--color-info-600)] text-white shadow-lg shadow-blue-500/20 hover:bg-[var(--color-info-700)] hover:shadow-xl hover:shadow-blue-500/25',
+    orange: 'bg-[var(--color-orange-600)] text-white shadow-lg shadow-orange-500/20 hover:bg-[var(--color-orange-700)] hover:shadow-xl hover:shadow-orange-500/25',
     purple: 'bg-[var(--color-purple-600)] text-white shadow-lg shadow-purple-500/20 hover:bg-[var(--color-purple-700)] hover:shadow-xl hover:shadow-purple-500/25',
     teal: 'bg-[var(--color-teal-600)] text-white shadow-lg shadow-teal-500/20 hover:bg-[var(--color-teal-700)] hover:shadow-xl hover:shadow-teal-500/25',
     outline: 'border-2 border-[var(--border)] bg-transparent text-[color:var(--foreground)] hover:bg-[var(--warm-100)]',
