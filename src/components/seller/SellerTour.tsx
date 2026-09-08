@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { X, ChevronLeft, ChevronRight, SkipForward, CheckCircle2, Sparkles } from 'lucide-react'
 import { api } from '@/lib/api'
+import { useRole } from '@/contexts/RoleContext'
 import { sellerTourSteps, SellerTourStep, tourGroups, getFirstStepInGroup } from './seller-tour-steps'
 
 type TourStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED'
@@ -18,6 +19,7 @@ const SELLER_TOUR_INTRO_KEY = 'seller-tour-intro-shown'
 export default function SellerTour({ children }: SellerTourProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { user, authInitialized } = useRole()
   const [status, setStatus] = useState<TourStatus>('NOT_STARTED')
   const [currentStep, setCurrentStep] = useState(0)
   const [isVisible, setIsVisible] = useState(false)
@@ -42,6 +44,8 @@ export default function SellerTour({ children }: SellerTourProps) {
   }, [])
 
   useEffect(() => {
+    if (!authInitialized || user?.role !== 'seller') return
+
     const initTour = async () => {
       try {
         const response = await api.get<{ status: TourStatus }>('/seller/tour/status')
@@ -52,6 +56,7 @@ export default function SellerTour({ children }: SellerTourProps) {
           if (nextStatus === 'NOT_STARTED') {
             if (localStorage.getItem(introKey) === 'true') {
               setStatus('SKIPPED')
+              await api.post('/seller/tour/status', { status: 'SKIPPED' })
               return
             }
             localStorage.setItem(introKey, 'true')
@@ -75,10 +80,11 @@ export default function SellerTour({ children }: SellerTourProps) {
       }
     }
     initTour()
-  }, [])
+  }, [authInitialized, user])
 
   const updateStatus = useCallback(async (newStatus: TourStatus) => {
     setStatus(newStatus)
+    window.dispatchEvent(new CustomEvent('seller-tour-status-changed', { detail: newStatus }))
     try {
       await api.post('/seller/tour/status', { status: newStatus })
     } catch {

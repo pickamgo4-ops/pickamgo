@@ -123,6 +123,15 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
     checkTourStatus()
   }, [])
 
+  useEffect(() => {
+    const handleTourStatusChange = (event: Event) => {
+      const status = (event as CustomEvent<TourStatus>).detail
+      if (status) setTourStatus(status)
+    }
+    window.addEventListener('seller-tour-status-changed', handleTourStatusChange)
+    return () => window.removeEventListener('seller-tour-status-changed', handleTourStatusChange)
+  }, [])
+
   const restartTour = useCallback(async () => {
     try {
       await api.post('/seller/tour/status', { status: 'IN_PROGRESS' })
@@ -202,7 +211,7 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
       </nav>
 
       <div className="p-3 border-t border-warm-200 dark:border-warm-700">
-        {(tourStatus === 'NOT_STARTED' || tourStatus === 'SKIPPED') && (
+        {tourStatus === 'NOT_STARTED' && (
           <button
             onClick={restartTour}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium text-primary hover:bg-primary/10 dark:hover:bg-primary/20 transition-all mb-1"
