@@ -219,24 +219,6 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
     if (!cart) {
       cart = await prisma.cart.create({
         data: userId ? { userId } : { sessionId },
-        include: {
-          items: {
-            include: {
-              product: {
-                include: {
-                  images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-                  shop: { select: { id: true, name: true, logo: true } },
-                },
-              },
-              service: {
-                include: {
-                  images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-                  shop: { select: { id: true, name: true, logo: true } },
-                },
-              },
-            },
-          },
-        },
       })
     }
 
@@ -290,25 +272,11 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         image: itemImage,
         shopId,
       },
-      include: {
-        product: {
-          include: {
-            images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-            shop: { select: { id: true, name: true, logo: true } },
-          },
-        },
-        service: {
-          include: {
-            images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-            shop: { select: { id: true, name: true, logo: true } },
-          },
-        },
-        variant: true,
-      },
     })
 
     return successResponse(res, newItem, 201, 'Added to cart')
   } catch (error) {
+    console.error('Failed to add item to cart:', error)
     return errorResponse(res, 'Failed to add item to cart', 500)
   }
 })
