@@ -45,6 +45,7 @@ const navItems = [
   { href: "/admin/product-moderation", label: "Product Moderation", icon: ClipboardList },
   { href: "/admin/categories", label: "Categories", icon: Tag },
   { href: "/admin/orders", label: "Orders", icon: ClipboardList },
+  { href: "/admin/disputes", label: "Disputes", icon: Shield },
   { href: "/admin/deliveries", label: "Deliveries", icon: Truck },
   { href: "/admin/payments", label: "Payments", icon: Receipt },
   { href: "/admin/payouts", label: "Withdrawals", icon: DollarSign },

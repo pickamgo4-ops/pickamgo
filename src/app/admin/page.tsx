@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Shield, Users, Store, Package, Tag, Bike, FileText, Clock, XCircle, Receipt, Settings, ClipboardList, Truck } from 'lucide-react'
+import { Shield, Users, Store, Package, Tag, Bike, FileText, Clock, XCircle, Receipt, Settings, ClipboardList, Truck, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { api } from '@/lib/api'
@@ -34,6 +34,10 @@ export default function AdminDashboardPage() {
     todayOrders: 0,
     todayRevenue: 0,
     platformCommission: 0,
+    totalDisputes: 0,
+    openDisputes: 0,
+    underReviewDisputes: 0,
+    resolvedDisputes: 0,
   })
   const [isAdmin, setIsAdmin] = useState(false)
   const [error, setError] = useState('')
@@ -80,6 +84,10 @@ export default function AdminDashboardPage() {
           todayOrders: s.todayOrders || 0,
           todayRevenue: s.todayRevenue || 0,
           platformCommission: s.platformCommission || 0,
+          totalDisputes: s.totalDisputes || 0,
+          openDisputes: s.openDisputes || 0,
+          underReviewDisputes: s.underReviewDisputes || 0,
+          resolvedDisputes: s.resolvedDisputes || 0,
         })
       }
     } catch (err) {
@@ -134,6 +142,10 @@ export default function AdminDashboardPage() {
     { label: 'Pending Seller Approvals', value: stats.pendingSellerVerifications, href: '/admin/verifications', icon: FileText },
     { label: 'Pending Rider Approvals', value: stats.pendingRiderVerifications, href: '/admin/verifications', icon: Bike },
     { label: 'Pending Payouts', value: stats.pendingPayouts, href: '/admin/payouts', icon: Receipt },
+    { label: 'Total Disputes', value: stats.totalDisputes, href: '/admin/disputes', icon: AlertTriangle },
+    { label: 'Open Disputes', value: stats.openDisputes, href: '/admin/disputes?status=OPEN', icon: AlertTriangle },
+    { label: 'Under Review', value: stats.underReviewDisputes, href: '/admin/disputes?status=UNDER_REVIEW', icon: Clock },
+    { label: 'Resolved Disputes', value: stats.resolvedDisputes, href: '/admin/disputes?status=RESOLVED', icon: Shield },
   ]
 
   return (
