@@ -2,7 +2,7 @@ import React from 'react'
 
 interface BadgeProps {
   children: React.ReactNode
-  variant?: 'trending' | 'new' | 'deal' | 'verified' | 'delivery' | 'popular' | 'default'
+  variant?: 'trending' | 'new' | 'deal' | 'verified' | 'delivery' | 'popular' | 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'teal' | 'default'
   size?: 'sm' | 'md'
   className?: string
 }
@@ -14,13 +14,19 @@ export function Badge({
   className = '',
 }: BadgeProps) {
   const variants = {
-    trending: 'bg-orange-100 text-orange-700',
-    new: 'bg-blue-100 text-blue-700',
-    deal: 'bg-green-100 text-green-700',
-    verified: 'bg-emerald-100 text-emerald-700',
-    delivery: 'bg-purple-100 text-purple-700',
-    popular: 'bg-pink-100 text-pink-700',
-    default: 'bg-warm-100 text-warm-800',
+    trending: 'bg-[var(--color-orange-100)] text-[var(--color-orange-700)]',
+    new: 'bg-[var(--color-purple-100)] text-[var(--color-purple-700)]',
+    deal: 'bg-[var(--color-success-100)] text-[var(--color-success-700)]',
+    verified: 'bg-[var(--color-teal-100)] text-[var(--color-teal-700)]',
+    delivery: 'bg-[var(--color-cyan-100)] text-[var(--color-teal-700)]',
+    popular: 'bg-[var(--color-pink-100)] text-[var(--color-pink-700)]',
+    success: 'bg-[var(--color-success-100)] text-[var(--color-success-700)]',
+    warning: 'bg-[var(--color-warning-100)] text-[var(--color-warning-700)]',
+    danger: 'bg-[var(--color-danger-100)] text-[var(--color-danger-700)]',
+    info: 'bg-[var(--color-info-100)] text-[var(--color-info-700)]',
+    purple: 'bg-[var(--color-purple-100)] text-[var(--color-purple-700)]',
+    teal: 'bg-[var(--color-teal-100)] text-[var(--color-teal-700)]',
+    default: 'bg-[var(--warm-100)] text-[color:var(--foreground)]',
   }
 
   const sizes = {
