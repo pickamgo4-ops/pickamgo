@@ -23,7 +23,9 @@ export default function SellerPayoutsPage() {
   const [provider, setProvider] = useState('MTN')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [accountName, setAccountName] = useState('')
+  const [acceptDisclaimer, setAcceptDisclaimer] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
     loadData()
@@ -31,6 +33,7 @@ export default function SellerPayoutsPage() {
 
   const loadData = async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const [balancesRes, methodsRes, historyRes] = await Promise.all([
         api.get<any>('/payouts/balances'),
@@ -40,8 +43,11 @@ export default function SellerPayoutsPage() {
       if (balancesRes.success) setBalances(balancesRes.data)
       if (methodsRes.success) setMethods(methodsRes.data)
       if (historyRes.success) setHistory(historyRes.data.payouts || [])
+      const failed = [balancesRes, methodsRes, historyRes].find(response => !response.success)
+      if (failed) setLoadError(failed.error || 'Failed to load payout data')
     } catch (error) {
       console.error('Failed to load payout data:', error)
+      setLoadError('Failed to load payout data. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -57,6 +63,7 @@ export default function SellerPayoutsPage() {
         provider,
         phoneNumber,
         accountName,
+        acceptDisclaimer,
       })
       if (response.success) {
         setMessage({ type: 'success', text: 'Payout method added successfully' })
@@ -64,6 +71,7 @@ export default function SellerPayoutsPage() {
         setProvider('MTN')
         setPhoneNumber('')
         setAccountName('')
+        setAcceptDisclaimer(false)
         loadData()
       } else {
         setMessage({ type: 'error', text: response.error || 'Failed to add payout method' })
@@ -140,6 +148,8 @@ export default function SellerPayoutsPage() {
     <SellerSidebar>
       <div className="space-y-6">
         <h1 className="font-display text-2xl font-bold text-warm-900 mb-6">Payouts</h1>
+
+        {loadError && <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><span>{loadError}</span><Button variant="outline" size="sm" onClick={loadData}>Retry</Button></div>}
 
         {message && (
           <div className={`mb-4 p-3 rounded-xl text-sm ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
@@ -287,9 +297,13 @@ export default function SellerPayoutsPage() {
               </div>
               <Input label="Phone Number" value={phoneNumber} onValueChange={setPhoneNumber} required />
               <Input label="Account Name (optional)" value={accountName} onValueChange={setAccountName} />
+              <label className="flex items-start gap-2 text-xs text-warm-800/70">
+                <input type="checkbox" checked={acceptDisclaimer} onChange={event => setAcceptDisclaimer(event.target.checked)} className="mt-0.5" />
+                <span>I confirm this payout method uses my verified PickAmGo phone number and understand payout changes may be reviewed.</span>
+              </label>
               <div className="flex gap-3">
                 <Button type="button" variant="outline" fullWidth onClick={() => setShowAddMethod(false)}>Cancel</Button>
-                <Button type="submit" fullWidth disabled={addingMethod}>
+                <Button type="submit" fullWidth disabled={addingMethod || !acceptDisclaimer}>
                   {addingMethod ? 'Adding...' : 'Add Method'}
                 </Button>
               </div>

@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, ChevronRight, FileText, Eye, Loader2, XCircle, X, RefreshCw } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, FileText, Loader2, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -142,13 +142,16 @@ export default function AdminOrdersPage() {
 
   const loadOrderDetail = async (orderId: string) => {
     setOrderLoading(true)
+    setError('')
     try {
       const response = await api.get<any>(`/admin/orders/${orderId}`)
       if (response.success && response.data) {
         setSelectedOrder(mapOrderDetail(response.data))
+      } else {
+        setError(response.error || 'Failed to load order detail')
       }
     } catch {
-      console.error('Failed to load order detail')
+      setError('Failed to load order detail. Please try again.')
     } finally {
       setOrderLoading(false)
     }
@@ -164,6 +167,7 @@ export default function AdminOrdersPage() {
     if (!window.confirm(`Update order #${order.orderNumber} status to ${newStatus}?`)) return
 
     setUpdatingStatus(true)
+    setError('')
     try {
       const response = await api.patch(`/admin/orders/${orderId}/status`, { status: newStatus })
       if (response.success) {
@@ -171,9 +175,11 @@ export default function AdminOrdersPage() {
         if (selectedOrder?.id === orderId) {
           setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null)
         }
+      } else {
+        setError(response.error || 'Failed to update order status')
       }
     } catch {
-      console.error('Failed to update order status')
+      setError('Failed to update order status. Please try again.')
     } finally {
       setUpdatingStatus(false)
     }

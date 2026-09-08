@@ -10,6 +10,10 @@ import { z } from "zod";
 
 const router = Router();
 
+const orderStatusSchema = z.object({
+  status: z.enum(['PENDING_PAYMENT', 'PAID', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'FAILED']),
+});
+
 const platformThemeKeys = [
   'pageBackground', 'surfaceBackground', 'surfaceSecondary', 'primaryBrand', 'primaryHover', 'secondaryBrand', 'accent', 'textColor', 'secondaryText', 'mutedText', 'border', 'inputBackground', 'inputBorder', 'buttonBackground', 'buttonText', 'linkColor', 'success', 'warning', 'error', 'info', 'badgeBackground', 'badgeText', 'headerBackground', 'footerBackground', 'sidebarBackground', 'sidebarText', 'sidebarActive', 'modalOverlay',
 ] as const;
@@ -824,9 +828,13 @@ router.get(
       const limit = parseInt(req.query.limit as string) || 20;
       const status = req.query.status as string | undefined;
       const search = req.query.search as string | undefined;
+      const paymentStatus = req.query.paymentStatus as string | undefined;
 
       const where: any = {};
       if (status) where.status = status;
+      if (paymentStatus) {
+        where.payment = { status: paymentStatus };
+      }
       if (search) {
         where.OR = [
           { orderNumber: { contains: search, mode: "insensitive" } },
@@ -900,6 +908,7 @@ router.patch(
   "/orders/:id/status",
   authMiddleware,
   requireRole(["ADMIN"]),
+  validateBody(orderStatusSchema),
   async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;

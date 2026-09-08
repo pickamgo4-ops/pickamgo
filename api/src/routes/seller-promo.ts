@@ -43,7 +43,6 @@ const createSellerPromoSchema = z.object({
 })
 
 const updateSellerPromoSchema = createSellerPromoSchema.partial().extend({
-  id: z.string(),
 })
 
 // Seller: list own promos
@@ -87,7 +86,7 @@ router.get('/', authMiddleware, requireRole(['SELLER']), async (req: Authenticat
     ])
 
     return successResponse(res, {
-      promos: promos.map(p => ({
+      promos: await Promise.all(promos.map(async p => ({
         ...p,
         discountValue: Number(p.discountValue),
         maxDiscount: p.maxDiscount ? Number(p.maxDiscount) : null,
@@ -96,7 +95,8 @@ router.get('/', authMiddleware, requireRole(['SELLER']), async (req: Authenticat
         campaignSpent: Number(p.campaignSpent),
         startAt: p.startAt.toISOString(),
         endAt: p.endAt.toISOString(),
-      })),
+        stats: await getPromoStats(p.id),
+      }))),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     })
   } catch (error) {

@@ -1,16 +1,17 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import { HelpCircle, BookOpen, MessageCircle, Mail, ExternalLink } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 
 const helpTopics = [
-  { icon: BookOpen, title: 'Getting Started', description: 'Learn how to set up your shop and start selling', href: '#' },
-  { icon: MessageCircle, title: 'Managing Orders', description: 'How to accept, prepare, and deliver orders', href: '#' },
-  { icon: Mail, title: 'Contact Support', description: 'Get in touch with our support team', href: '#' },
-  { icon: ExternalLink, title: 'Seller Guidelines', description: 'Read our seller terms and guidelines', href: '#' },
+  { icon: BookOpen, title: 'Getting Started', description: 'Learn how to set up your shop and start selling', href: '/seller/onboarding' },
+  { icon: MessageCircle, title: 'Managing Orders', description: 'How to accept, prepare, and deliver orders', href: '/seller/manage-orders' },
+  { icon: Mail, title: 'Contact Support', description: 'Get in touch with our support team', href: '/help' },
+  { icon: ExternalLink, title: 'Seller Guidelines', description: 'Read our seller terms and guidelines', href: '/terms' },
 ]
 
 export default function SellerHelpPage() {
@@ -26,7 +27,8 @@ export default function SellerHelpPage() {
           {helpTopics.map((topic) => {
             const Icon = topic.icon
             return (
-              <Card key={topic.title} className="p-5 hover:border-primary/30 transition-colors cursor-pointer">
+              <Link key={topic.title} href={topic.href} className="block">
+              <Card className="p-5 hover:border-primary/30 transition-colors cursor-pointer">
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Icon size={20} className="text-primary" />
@@ -37,6 +39,7 @@ export default function SellerHelpPage() {
                   </div>
                 </div>
               </Card>
+              </Link>
             )
           })}
         </div>
@@ -47,7 +50,7 @@ export default function SellerHelpPage() {
             {[
               { q: 'How do I add products to my shop?', a: 'Go to Products > Add Product to create your first listing.' },
               { q: 'How do I process an order?', a: 'Go to Orders, find the order, and use the action buttons to update its status.' },
-              { q: 'How do I withdraw my earnings?', a: 'Earnings are automatically transferred to your registered bank account weekly.' },
+              { q: 'How do I withdraw my earnings?', a: 'Open Payouts, add a verified payout method, then request a withdrawal when your available balance reaches the minimum.' },
               { q: 'How do I get verified?', a: 'Go to Verification and submit your phone and business details for review. Ghana Card upload is not required for sellers.' },
             ].map((faq, idx) => (
               <div key={idx} className="border-b border-warm-200 last:border-0 pb-4 last:pb-0">

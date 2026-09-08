@@ -448,10 +448,10 @@ export const api = {
           ) as Record<string, string>
         ).toString()
       : ''
-    return api.get<{ reports: any[]; pagination: any }>(`/admin/reports${query}`)
+    return api.get<{ reports: any[]; pagination: any }>(`/reports${query}`)
   },
-  resolveReport: (id: string, data: { status: 'PENDING' | 'INVESTIGATING' | 'RESOLVED' | 'DISMISSED'; adminNotes?: string }) =>
-    api.patch(`/admin/reports/${id}/resolve`, data),
+  updateReportStatus: (id: string, data: { status: 'NEW' | 'REVIEWING' | 'RESOLVED' | 'DISMISSED'; adminNotes?: string }) =>
+    api.patch(`/reports/${id}/status`, data),
   updatePayoutMethod: (id: string, data: any) => api.patch(`/payouts/methods/${id}`, data),
   getVerificationHistory: () => api.get<any[]>('/seller/verification/history'),
   getReviewResponses: (reviewId: string) => api.get<any>(`/reviews/${reviewId}/responses`),

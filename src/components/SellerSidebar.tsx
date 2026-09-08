@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { 
   Home, LayoutDashboard, Store, Package, Tag, Archive, ShoppingBag, 
-   TrendingUp, Star, MessageSquare, Bell, Settings, HelpCircle,
+  TrendingUp, Star, MessageSquare, Bell, Settings, HelpCircle,
   Palette, CheckCircle, ChevronLeft, LogOut, Calendar,
    DollarSign, Truck, Ticket, Users, Sparkles, Shield
 } from 'lucide-react'

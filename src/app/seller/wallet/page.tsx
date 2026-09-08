@@ -18,6 +18,7 @@ export default function SellerWalletPage() {
   const [summary, setSummary] = useState<SellerWalletSummary | null>(null)
   const [transactions, setTransactions] = useState<SellerWalletTransaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (authLoading) return
@@ -30,6 +31,7 @@ export default function SellerWalletPage() {
 
   const loadWallet = async () => {
     setLoading(true)
+    setError('')
     try {
       const [summaryRes, txRes] = await Promise.all([
         api.get<any>('/seller/wallet/summary'),
@@ -42,8 +44,11 @@ export default function SellerWalletPage() {
       if (txRes.success && txRes.data) {
         setTransactions(txRes.data.transactions || [])
       }
+      const failed = [summaryRes, txRes].find(response => !response.success)
+      if (failed) setError(failed.error || 'Failed to load wallet data')
     } catch (err) {
       console.error('Failed to load wallet:', err)
+      setError('Failed to load wallet data. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -84,6 +89,8 @@ export default function SellerWalletPage() {
             <p className="text-warm-800/60">Earnings and payouts</p>
           </div>
         </div>
+
+        {error && <Card className="mb-6 border-red-200 bg-red-50 p-4"><div className="flex items-center justify-between gap-3 text-sm text-red-700"><span>{error}</span><Button variant="outline" size="sm" onClick={loadWallet}>Retry</Button></div></Card>}
 
         {summary && (
           <div className="space-y-4 mb-8">

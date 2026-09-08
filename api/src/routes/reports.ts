@@ -39,6 +39,7 @@ const listReportsSchema = z.object({
   status: z.enum(reportStatuses).optional(),
   category: z.enum(reportCategories).optional(),
   targetType: z.enum(targetTypes).optional(),
+  search: z.string().optional(),
 })
 
 router.post('/', authMiddleware, validateBody(submitReportSchema), async (req: AuthenticatedRequest, res) => {
@@ -140,6 +141,16 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
     if (query.status) where.status = query.status
     if (query.category) where.category = query.category
     if (query.targetType) where.targetType = query.targetType
+    if (query.search) {
+      const term = query.search.trim()
+      where.OR = [
+        { reason: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+        { targetId: { contains: term, mode: 'insensitive' } },
+        { reporter: { name: { contains: term, mode: 'insensitive' } } },
+        { reporter: { email: { contains: term, mode: 'insensitive' } } },
+      ]
+    }
 
     const [reports, total] = await Promise.all([
       prisma.report.findMany({

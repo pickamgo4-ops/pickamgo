@@ -23,14 +23,19 @@ export default function ProductModerationPage() {
   const load = useCallback(async () => {
     setLoadingProducts(true)
     setError('')
-    const response = await api.getPendingModerationProducts({ page, limit: 20 })
-    if (response.success && response.data) {
-      setProducts(response.data.products || [])
-      setTotalPages(response.data.pagination?.totalPages || 1)
-    } else {
-      setError(response.error || 'Failed to load pending products')
+    try {
+      const response = await api.getPendingModerationProducts({ page, limit: 20 })
+      if (response.success && response.data) {
+        setProducts(response.data.products || [])
+        setTotalPages(response.data.pagination?.totalPages || 1)
+      } else {
+        setError(response.error || 'Failed to load pending products')
+      }
+    } catch {
+      setError('Failed to load pending products. Please try again.')
+    } finally {
+      setLoadingProducts(false)
     }
-    setLoadingProducts(false)
   }, [page])
 
   useEffect(() => {
@@ -44,13 +49,18 @@ export default function ProductModerationPage() {
 
   const moderate = async (id: string, moderationStatus: 'APPROVED' | 'REJECTED') => {
     setSavingId(id)
-    const response = await api.moderateProduct(id, { moderationStatus, moderationNotes: notes[id]?.trim() || undefined })
-    if (response.success) {
-      setProducts(current => current.filter(product => product.id !== id))
-    } else {
-      setError(response.error || 'Failed to update product moderation')
+    try {
+      const response = await api.moderateProduct(id, { moderationStatus, moderationNotes: notes[id]?.trim() || undefined })
+      if (response.success) {
+        setProducts(current => current.filter(product => product.id !== id))
+      } else {
+        setError(response.error || 'Failed to update product moderation')
+      }
+    } catch {
+      setError('Failed to update product moderation. Please try again.')
+    } finally {
+      setSavingId(null)
     }
-    setSavingId(null)
   }
 
   if (loading || !authInitialized) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={36} /></div>

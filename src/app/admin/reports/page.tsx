@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Shield, Flag, Search, Filter, Eye, CheckCircle, XCircle, Clock, ChevronLeft, Loader2 } from 'lucide-react'
+import { Shield, Flag, Search, Eye, CheckCircle, XCircle, Clock, ChevronLeft, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -51,6 +51,7 @@ export default function AdminReportsPage() {
       params.set('limit', '20')
       if (statusFilter) params.set('status', statusFilter)
       if (categoryFilter) params.set('category', categoryFilter)
+      if (searchQuery.trim()) params.set('search', searchQuery.trim())
 
       const response = await api.get<any>(`/reports?${params.toString()}`)
       if (response.success && response.data) {
@@ -65,7 +66,7 @@ export default function AdminReportsPage() {
     } finally {
       setDataLoading(false)
     }
-  }, [authInitialized, user, page, statusFilter, categoryFilter])
+  }, [authInitialized, user, page, statusFilter, categoryFilter, searchQuery])
 
   useEffect(() => {
     if (!authInitialized) return

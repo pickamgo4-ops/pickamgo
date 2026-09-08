@@ -308,14 +308,14 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
       },
       stats: {
         totalOrders,
-        totalRevenue: totalRevenue._sum.total || 0,
+        totalRevenue: Number(totalRevenue._sum.total || 0),
         pendingOrders,
         totalProducts,
         totalReviews,
         followersCount,
       },
-      topProducts,
-      recentOrders,
+      topProducts: topProducts.map(product => ({ ...product, price: Number(product.price), originalPrice: product.originalPrice == null ? null : Number(product.originalPrice) })),
+      recentOrders: recentOrders.map(order => ({ ...order, total: Number(order.total), deliveryFee: Number(order.deliveryFee) })),
     })
   } catch (error: any) {
     console.error('Analytics error:', error)

@@ -131,6 +131,7 @@ function mapMessage(message: any, receiverId: string) {
     receiverId,
     content: message.content,
     read: message.isRead || false,
+    isRead: message.isRead || false,
     createdAt: message.createdAt,
   }
 }
