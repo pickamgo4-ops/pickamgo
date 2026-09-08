@@ -124,7 +124,7 @@ export default function CartPage() {
       <Header />
 
       <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-6 animate-slide-up motion-safe-only">
           <ShoppingBag size={28} className="text-primary" />
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
@@ -164,7 +164,7 @@ export default function CartPage() {
               {cart.items.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200 animate-fade-in"
+                  className="bg-white rounded-2xl p-4 shadow-sm border border-warm-200 animate-slide-up motion-safe-only"
                 >
                   <div className="flex gap-4">
                     <div className="w-20 h-20 rounded-xl overflow-hidden bg-warm-100 flex-shrink-0">

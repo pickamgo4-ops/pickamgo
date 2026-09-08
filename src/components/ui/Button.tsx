@@ -25,7 +25,7 @@ export function Button({
   fullWidth = false,
   type = 'button',
 }: ButtonProps) {
-  const baseStyles = 'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary/30'
+  const baseStyles = 'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 transform active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary/30 motion-safe-only'
 
   const variants = {
     primary: 'bg-[var(--color-primary-600)] text-white shadow-lg shadow-blue-500/20 hover:bg-[var(--color-primary-700)] hover:shadow-xl hover:shadow-blue-500/25',

@@ -254,7 +254,7 @@ export default function HomePage() {
         ) : (
           <>
             {categories.length > 0 && (
-              <section className="mb-10">
+              <section className="mb-10 animate-slide-up motion-safe-only">
                 <SectionHeader title="Categories" subtitle="Browse by category" link="/categories" />
                 <CategoryGrid
                   categories={categories.slice(0, 8)}
@@ -264,7 +264,7 @@ export default function HomePage() {
             )}
 
             {nearbyProducts.length > 0 && (
-              <section className="mb-10">
+              <section className="mb-10 animate-slide-up motion-safe-only stagger-1">
                 <SectionHeader
                   title="Near you"
                   subtitle={location}
@@ -279,7 +279,7 @@ export default function HomePage() {
             )}
 
             {trendingProducts.length > 0 && (
-              <section className="mb-10">
+              <section className="mb-10 animate-slide-up motion-safe-only stagger-2">
                 <SectionHeader
                   title="Trending"
                   emoji={<Flame size={18} className="text-orange-500" />}
