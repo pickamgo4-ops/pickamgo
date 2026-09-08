@@ -283,7 +283,8 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
     return successResponse(res, newItem, 201, 'Added to cart')
   } catch (error) {
     console.error('Failed to add item to cart:', error)
-    return errorResponse(res, 'Failed to add item to cart', 500)
+    const message = error instanceof Error && error.message ? error.message : 'Failed to add item to cart'
+    return errorResponse(res, message, 500, 'CART_WRITE_FAILED')
   }
 })
 
