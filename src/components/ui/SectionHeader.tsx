@@ -1,6 +1,8 @@
+'use client'
+
 import React from 'react'
 import { ChevronRight } from 'lucide-react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface SectionHeaderProps {
   title: string
@@ -27,6 +29,12 @@ export function SectionHeader({
   titleStyle,
   subtitleStyle,
 }: SectionHeaderProps) {
+  const router = useRouter()
+
+  const handleClick = () => {
+    if (link) router.push(link)
+  }
+
   return (
     <div className={`flex items-center justify-between mb-4 ${className}`}>
       <div>
@@ -39,13 +47,14 @@ export function SectionHeader({
         )}
       </div>
       {link && (
-        <Link
-          href={link}
+        <button
+          type="button"
+          onClick={handleClick}
           className="text-primary hover:text-primary-dark text-sm font-semibold flex items-center gap-1 transition-colors"
         >
           {linkText}
           <ChevronRight size={16} />
-        </Link>
+        </button>
       )}
     </div>
   )
