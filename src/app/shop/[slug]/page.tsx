@@ -167,7 +167,7 @@ export default function ShopPage() {
   const baseShopStyle = shopCustomizationStyle(customization)
 
   return (
-    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...baseShopStyle, ...(theme === 'dark' ? {} : { backgroundColor: customization.secondaryColor }), color: surfaceTextColor }}>
+    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...baseShopStyle, ...(theme === 'dark' ? {} : { backgroundColor: customization.secondaryColor }), color: surfaceTextColor, '--shop-content-text': surfaceTextColor } as React.CSSProperties}>
       {/* Banner */}
       <div className={`relative ${customization.bannerStyle === 'MINIMAL' ? 'h-20 sm:h-24' : customization.bannerStyle === 'SHORT' ? 'h-28 sm:h-36' : 'h-40 sm:h-48 md:h-64'} bg-[var(--shop-secondary)]`}>
         {(customization.coverImage || shop.banner) && (
@@ -190,10 +190,10 @@ export default function ShopPage() {
       </div>
 
       {/* Shop Info */}
-      <div className={`max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10 ${customization.bannerStyle === 'MINIMAL' ? '-mt-3 sm:-mt-4' : '-mt-8 sm:-mt-12'}`}>
+      <div className={`max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10 ${customization.bannerStyle === 'MINIMAL' ? '-mt-2 sm:-mt-3' : customization.bannerStyle === 'SHORT' ? '-mt-6 sm:-mt-8' : '-mt-8 sm:-mt-12'}`}>
         <div className={`rounded-[var(--shop-card-radius,1rem)] p-3 sm:p-6 shadow-sm border border-[var(--shop-border)] bg-[var(--shop-surface)] ${customization.headerStyle === 'CENTERED' ? 'text-center' : ''}`}>
           <div className={`flex items-start gap-3 sm:gap-4 mb-4 ${customization.headerStyle === 'CENTERED' ? 'flex-col items-center' : ''}`}>
-            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl overflow-hidden border-4 shadow-lg -mt-10 sm:-mt-16 flex-shrink-0" style={{ borderColor: 'var(--shop-surface)', backgroundColor: 'var(--shop-secondary)' }}>
+            <div className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl overflow-hidden border-4 shadow-lg flex-shrink-0 ${customization.bannerStyle === 'MINIMAL' ? '-mt-6 sm:-mt-8' : customization.bannerStyle === 'SHORT' ? '-mt-8 sm:-mt-10' : '-mt-10 sm:-mt-16'}`} style={{ borderColor: 'var(--shop-surface)', backgroundColor: 'var(--shop-secondary)' }}>
               <img
                 src={customization.logo || shop.logo}
                 alt={shop.name}
@@ -373,8 +373,8 @@ export default function ShopPage() {
           <SectionHeader
             title="Customer Reviews"
             subtitle={`${totalReviews} review${totalReviews === 1 ? '' : 's'} • ${averageRating ? averageRating.toFixed(1) : 'No ratings yet'}`}
-            titleClassName="text-warm-900"
-            subtitleClassName="text-warm-800/60"
+            titleStyle={{ color: surfaceTextColor }}
+            subtitleStyle={{ color: surfaceTextColor }}
           />
 
           <div className="rounded-2xl border p-4 sm:p-6" style={{ backgroundColor: 'var(--shop-secondary)', borderColor: 'var(--shop-border)' }}>
@@ -445,8 +445,8 @@ export default function ShopPage() {
           <SectionHeader
             title="Services"
             subtitle={`${shop.services.length} services offered`}
-            titleClassName="text-warm-900"
-            subtitleClassName="text-warm-800/60"
+            titleStyle={{ color: surfaceTextColor }}
+            subtitleStyle={{ color: surfaceTextColor }}
           />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {shop.services.map((service) => (

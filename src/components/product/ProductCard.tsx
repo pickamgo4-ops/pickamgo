@@ -93,7 +93,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
       </div>
 
       {/* Content */}
-      <div className="p-2.5 sm:p-3" style={{ color: 'var(--shop-accent)' }}>
+      <div className="p-2.5 sm:p-3" style={{ color: 'var(--shop-content-text, var(--shop-accent))' }}>
         {/* Seller Info */}
         <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
           <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0" style={{ backgroundColor: 'var(--shop-secondary)' }}>
