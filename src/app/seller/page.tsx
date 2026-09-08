@@ -172,7 +172,7 @@ export default function SellerDashboard() {
     <SellerSidebar>
       <div className="space-y-6">
         {/* Welcome Header */}
-        <div>
+        <div className="animate-slide-up motion-safe-only">
           <div className="flex items-baseline gap-3 mb-2">
             <h1 className="font-display text-2xl md:text-3xl font-bold text-warm-900">
               Seller Dashboard
@@ -184,57 +184,71 @@ export default function SellerDashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <Card className="p-4">
+          <Card className="p-4 animate-slide-up motion-safe-only stagger-1 bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200/60">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp size={16} className="text-primary" />
-              <span className="text-xs text-warm-800/60">Total Sales</span>
+              <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center">
+                <TrendingUp size={16} />
+              </div>
+              <span className="text-xs text-blue-700 font-medium">Total Sales</span>
             </div>
             <p className="text-xl font-bold text-warm-900">GH₵{stats.sales.toFixed(2)}</p>
             {stats.sales === 0 && <p className="text-[10px] text-warm-800/50 mt-1">No sales yet</p>}
           </Card>
-          <Card className="p-4">
+          <Card className="p-4 animate-slide-up motion-safe-only stagger-2 bg-gradient-to-br from-indigo-50 to-indigo-100/50 border-indigo-200/60">
             <div className="flex items-center gap-2 mb-2">
-              <ShoppingBag size={16} className="text-blue-500" />
-              <span className="text-xs text-warm-800/60">Total Orders</span>
+              <div className="w-8 h-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center">
+                <ShoppingBag size={16} />
+              </div>
+              <span className="text-xs text-indigo-700 font-medium">Total Orders</span>
             </div>
             <p className="text-xl font-bold text-warm-900">{stats.orders}</p>
             {stats.orders === 0 && <p className="text-[10px] text-warm-800/50 mt-1">0 orders</p>}
           </Card>
-          <Card className="p-4">
+          <Card className="p-4 animate-slide-up motion-safe-only stagger-3 bg-gradient-to-br from-amber-50 to-amber-100/50 border-amber-200/60">
             <div className="flex items-center gap-2 mb-2">
-              <Package size={16} className="text-orange-500" />
-              <span className="text-xs text-warm-800/60">Pending</span>
+              <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center">
+                <Package size={16} />
+              </div>
+              <span className="text-xs text-amber-700 font-medium">Pending</span>
             </div>
             <p className="text-xl font-bold text-warm-900">{stats.pendingOrders}</p>
           </Card>
-          <Card className="p-4">
+          <Card className="p-4 animate-slide-up motion-safe-only stagger-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-emerald-200/60">
             <div className="flex items-center gap-2 mb-2">
-              <Tag size={16} className="text-purple-500" />
-              <span className="text-xs text-warm-800/60">Products</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center">
+                <Tag size={16} />
+              </div>
+              <span className="text-xs text-emerald-700 font-medium">Products</span>
             </div>
             <p className="text-xl font-bold text-warm-900">{stats.products}</p>
           </Card>
-          <Card className="p-4">
+          <Card className="p-4 animate-slide-up motion-safe-only stagger-5 bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-200/60">
             <div className="flex items-center gap-2 mb-2">
-              <Users size={16} className="text-pink-500" />
-              <span className="text-xs text-warm-800/60">Followers</span>
+              <div className="w-8 h-8 rounded-lg bg-rose-500 text-white flex items-center justify-center">
+                <Users size={16} />
+              </div>
+              <span className="text-xs text-rose-700 font-medium">Followers</span>
             </div>
             <p className="text-xl font-bold text-warm-900">{stats.followers}</p>
           </Card>
-          <Card className="p-4">
+          <Card className="p-4 animate-slide-up motion-safe-only stagger-6 bg-gradient-to-br from-teal-50 to-teal-100/50 border-teal-200/60">
             <div className="flex items-center gap-2 mb-2">
-              <Star size={16} className="text-yellow-500" />
-              <span className="text-xs text-warm-800/60">Reviews</span>
+              <div className="w-8 h-8 rounded-lg bg-teal-500 text-white flex items-center justify-center">
+                <Star size={16} />
+              </div>
+              <span className="text-xs text-teal-700 font-medium">Reviews</span>
             </div>
             <p className="text-xl font-bold text-warm-900">{stats.reviews}</p>
           </Card>
         </div>
 
         {/* Get Started Checklist */}
-        <Card className="p-6">
+        <Card className="p-6 animate-slide-up motion-safe-only bg-white border-warm-200">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-warm-900 flex items-center gap-2">
-              <CheckCircle size={20} className="text-primary" />
+              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                <CheckCircle size={18} />
+              </div>
               Get Started Checklist
             </h3>
             <span className="text-sm text-warm-800/60">
@@ -253,11 +267,15 @@ export default function SellerDashboard() {
             {checks.map((item) => (
               <div
                 key={item.key}
-                className="flex items-center justify-between p-3 rounded-xl bg-warm-50"
+                className={`flex items-center justify-between p-3 rounded-xl transition-colors ${
+                  item.done ? 'bg-warm-100/50' : 'bg-warm-50 hover:bg-warm-100'
+                }`}
               >
                 <div className="flex items-center gap-3">
                   {item.done ? (
-                    <CheckCircle size={20} className="text-green-500 flex-shrink-0" />
+                    <div className="w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center flex-shrink-0">
+                      <CheckCircle size={14} />
+                    </div>
                   ) : (
                     <div className="w-5 h-5 rounded-full border-2 border-warm-800/20 flex-shrink-0" />
                   )}
@@ -270,7 +288,7 @@ export default function SellerDashboard() {
                 {!item.done && (
                   <button
                     onClick={() => router.push(item.href)}
-                    className="text-xs text-primary font-medium hover:text-primary-dark flex items-center gap-1"
+                    className="text-xs text-primary font-medium hover:text-primary-dark flex items-center gap-1 transition-colors"
                   >
                     Do it <ArrowRight size={12} />
                   </button>
@@ -282,8 +300,13 @@ export default function SellerDashboard() {
 
         {/* Verification Status */}
         {verification && (
-          <Card className="p-6">
-            <h3 className="font-semibold text-warm-900 mb-3">Verification Status</h3>
+          <Card className="p-6 animate-slide-up motion-safe-only bg-white border-warm-200">
+            <h3 className="font-semibold text-warm-900 mb-3 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                <FileText size={18} />
+              </div>
+              Verification Status
+            </h3>
             <div className="flex items-center gap-2">
               <Badge
                 variant={
