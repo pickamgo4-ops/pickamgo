@@ -153,11 +153,21 @@ export default function ShopPage() {
     ? shop.products.filter(product => product.isTrending || product.isNew || product.isDeal)
     : shop.products
   const featuredProduct = shop.products.find(product => product.id === customization.featuredProductId)
+    || (customization.layout === 'FEATURED' ? shop.products[0] : undefined)
+  const productGridClass = customization.layout === 'BEAUTY'
+    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+    : customization.layout === 'GRID'
+      ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+      : customization.layout === 'QUICK_PICKS'
+        ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+        : `grid-cols-2 md:grid-cols-3 ${customization.productColumns >= 4 ? 'lg:grid-cols-4' : customization.productColumns === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`
   const surfaceTextColor = theme === 'dark' ? '#F5F1EA' : readableTextColor(customization.secondaryColor)
   const primaryTextColor = theme === 'dark' ? '#171614' : readableTextColor(customization.primaryColor)
+  const panelStyle = { backgroundColor: 'var(--shop-surface)', borderColor: 'var(--shop-border)', color: surfaceTextColor }
+  const baseShopStyle = shopCustomizationStyle(customization)
 
   return (
-    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...shopCustomizationStyle(customization), backgroundColor: customization.secondaryColor, color: surfaceTextColor }}>
+    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...baseShopStyle, ...(theme === 'dark' ? {} : { backgroundColor: customization.secondaryColor }), color: surfaceTextColor }}>
       {/* Banner */}
       <div className={`relative ${customization.bannerStyle === 'MINIMAL' ? 'h-20 sm:h-24' : customization.bannerStyle === 'SHORT' ? 'h-28 sm:h-36' : 'h-40 sm:h-48 md:h-64'} bg-[var(--shop-secondary)]`}>
         {(customization.coverImage || shop.banner) && (
@@ -168,12 +178,12 @@ export default function ShopPage() {
           />
         )}
         <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 flex justify-between items-start">
-          <button aria-label="Go back" onClick={() => router.back()} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
+          <button aria-label="Go back" onClick={() => router.back()} className="w-10 h-10 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm border" style={{ backgroundColor: 'var(--shop-surface)', color: surfaceTextColor, borderColor: 'var(--shop-border)' }}>
             <ChevronLeft size={20} />
           </button>
           <div className="flex gap-2">
-            <button type="button" aria-label="Share shop" onClick={handleShareShop} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
-              <Share2 size={20} className="text-warm-800" />
+            <button type="button" aria-label="Share shop" onClick={handleShareShop} className="w-10 h-10 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm border" style={{ backgroundColor: 'var(--shop-surface)', color: surfaceTextColor, borderColor: 'var(--shop-border)' }}>
+              <Share2 size={20} />
             </button>
           </div>
         </div>
@@ -183,7 +193,7 @@ export default function ShopPage() {
       <div className={`max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10 ${customization.bannerStyle === 'MINIMAL' ? '-mt-3 sm:-mt-4' : '-mt-8 sm:-mt-12'}`}>
         <div className={`rounded-[var(--shop-card-radius,1rem)] p-3 sm:p-6 shadow-sm border border-[var(--shop-border)] bg-[var(--shop-surface)] ${customization.headerStyle === 'CENTERED' ? 'text-center' : ''}`}>
           <div className={`flex items-start gap-3 sm:gap-4 mb-4 ${customization.headerStyle === 'CENTERED' ? 'flex-col items-center' : ''}`}>
-            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-warm-100 -mt-10 sm:-mt-16 flex-shrink-0">
+            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl overflow-hidden border-4 shadow-lg -mt-10 sm:-mt-16 flex-shrink-0" style={{ borderColor: 'var(--shop-surface)', backgroundColor: 'var(--shop-secondary)' }}>
               <img
                 src={customization.logo || shop.logo}
                 alt={shop.name}
@@ -204,7 +214,7 @@ export default function ShopPage() {
 
           <p className="mb-4 opacity-75">{customization.description || shop.description}</p>
 
-          {customization.announcement && <div className="mb-4 rounded-xl px-4 py-3 text-sm font-medium bg-[var(--shop-primary)]" style={{ color: primaryTextColor }}>{customization.announcement}</div>}
+          {customization.announcement && <div className="mb-4 rounded-xl px-4 py-3 text-sm font-medium" style={{ backgroundColor: 'var(--shop-primary)', color: primaryTextColor }}>{customization.announcement}</div>}
 
           {/* Stats */}
           <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4">
@@ -271,19 +281,19 @@ export default function ShopPage() {
             </div>
           )}
 
-          {shop.collections && shop.collections.length > 0 && <div className="mb-6 space-y-6">{shop.collections.map(collection => <section key={collection.id}><SectionHeader title={collection.name} subtitle={collection.description || undefined} /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{(collection.products || []).slice(0, 4).map(item => <ProductCard key={item.product.id} product={mapApiProductToFrontend(item.product)} />)}</div></section>)}</div>}
+          {shop.collections && shop.collections.length > 0 && <div className="mb-6 space-y-6">{shop.collections.map(collection => <section key={collection.id}><SectionHeader title={collection.name} subtitle={collection.description || undefined} titleClassName="text-warm-900" subtitleClassName="text-warm-800/60" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{(collection.products || []).slice(0, 4).map(item => <ProductCard key={item.product.id} product={mapApiProductToFrontend(item.product)} />)}</div></section>)}</div>}
 
           {shop.promotions && shop.promotions.length > 0 && <div className="mb-6 rounded-2xl border border-[var(--shop-border)] p-4" style={{ backgroundColor: 'var(--shop-surface)' }}><h2 className="mb-3 font-display text-lg font-bold" style={{ color: surfaceTextColor }}>Current promotions</h2><div className="grid gap-3 sm:grid-cols-2">{shop.promotions.map(promotion => <div key={promotion.id} className="rounded-xl p-3" style={{ backgroundColor: 'var(--shop-secondary)' }}><p className="font-semibold" style={{ color: surfaceTextColor }}>{promotion.name}</p><p className="text-xs opacity-75">{promotion.type.replace(/_/g, ' ')} · {promotion.products?.length || 0} products</p></div>)}</div></div>}
 
           {/* Actions */}
           <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-3">
             <Button
-              className="col-span-2 sm:flex-1 !px-3 !py-2.5 text-sm"
               variant={isFollowing ? 'secondary' : 'primary'}
               fullWidth
               onClick={handleFollowToggle}
               disabled={followLoading}
               icon={isFollowing ? <Check size={18} /> : <Plus size={18} />}
+              className={`col-span-2 sm:flex-1 !px-3 !py-2.5 text-sm ${isFollowing ? '' : '!bg-[var(--shop-primary)] !text-[var(--shop-primary-text)] hover:!opacity-90'}`}
             >
               {isFollowing ? 'Following' : 'Follow'}
             </Button>
@@ -308,9 +318,11 @@ export default function ShopPage() {
           </div>
 
           {followMessage && (
-            <div className={`mt-3 p-3 rounded-xl text-sm text-center ${
-              followMessage.includes('now following') ? 'bg-green-50 text-green-700' : 'bg-warm-100 text-warm-800'
-            }`}>
+            <div className={`mt-3 p-3 rounded-xl text-sm text-center`} style={{
+              backgroundColor: followMessage.includes('now following') ? 'rgba(34, 197, 94, 0.12)' : 'var(--shop-surface)',
+              color: surfaceTextColor,
+              border: `1px solid var(--shop-border)`
+            }}>
               {followMessage}
             </div>
           )}
@@ -318,7 +330,7 @@ export default function ShopPage() {
       </div>
 
       <section className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 mt-8">
-        <div className="rounded-2xl p-4 sm:p-6 border border-black/10 bg-[var(--shop-secondary)]">
+          <div className="rounded-2xl p-4 sm:p-6 border" style={{ backgroundColor: 'var(--shop-secondary)', borderColor: 'var(--shop-border)' }}>
           <h2 className="font-display text-xl font-bold mb-1" style={{ color: surfaceTextColor }}>Find us</h2>
           <p className="text-sm opacity-75 mb-4">{shop.location}</p>
           {shop.latitude != null && shop.longitude != null ? (
@@ -327,7 +339,7 @@ export default function ShopPage() {
               height="280px"
             />
           ) : (
-            <div className="rounded-xl border border-black/10 bg-black/5 p-4 text-sm opacity-75">
+            <div className="rounded-xl border p-4 text-sm opacity-75" style={{ backgroundColor: 'var(--shop-surface)', borderColor: 'var(--shop-border)' }}>
               Location map unavailable. Please use the shop address above.
             </div>
           )}
@@ -344,8 +356,10 @@ export default function ShopPage() {
           <SectionHeader
             title="Products"
             subtitle={`${visibleProducts.length} items available`}
+            titleClassName="text-warm-900"
+            subtitleClassName="text-warm-800/60"
           />
-          <div className={`grid grid-cols-2 md:grid-cols-3 ${customization.productColumns >= 4 ? 'lg:grid-cols-4' : customization.productColumns === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-3 sm:gap-4`}>
+          <div className={`grid ${productGridClass} gap-3 sm:gap-4`}>
             {visibleProducts.map((product) => (
               <ProductCard key={product.id} product={product} onClick={() => router.push(`/product/${product.id}`)} />
             ))}
@@ -359,50 +373,52 @@ export default function ShopPage() {
           <SectionHeader
             title="Customer Reviews"
             subtitle={`${totalReviews} review${totalReviews === 1 ? '' : 's'} • ${averageRating ? averageRating.toFixed(1) : 'No ratings yet'}`}
+            titleClassName="text-warm-900"
+            subtitleClassName="text-warm-800/60"
           />
 
-          <div className="rounded-2xl border border-black/10 bg-[var(--shop-secondary)] p-4 sm:p-6">
+          <div className="rounded-2xl border p-4 sm:p-6" style={{ backgroundColor: 'var(--shop-secondary)', borderColor: 'var(--shop-border)' }}>
             <div className="flex items-center gap-3 mb-5">
-              <div className="text-3xl font-bold text-warm-900">{averageRating ? averageRating.toFixed(1) : '0.0'}</div>
+              <div className="text-3xl font-bold" style={{ color: surfaceTextColor }}>{averageRating ? averageRating.toFixed(1) : '0.0'}</div>
               <div>
                 <div className="flex items-center gap-1 text-yellow-500">
                   {[1,2,3,4,5].map((star) => (
-                    <Star key={star} size={16} className={star <= Math.round(averageRating || 0) ? 'fill-current' : 'text-warm-300'} />
+                    <Star key={star} size={16} className={star <= Math.round(averageRating || 0) ? 'fill-current' : 'opacity-35'} />
                   ))}
                 </div>
-                <p className="text-sm text-warm-800/60">Based on {totalReviews} review{totalReviews === 1 ? '' : 's'}</p>
+                <p className="text-sm opacity-70">Based on {totalReviews} review{totalReviews === 1 ? '' : 's'}</p>
               </div>
             </div>
 
             {reviews.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-warm-300 bg-white/30 p-6 text-center text-warm-800/60">
+              <div className="rounded-xl border border-dashed p-6 text-center opacity-75" style={{ backgroundColor: 'var(--shop-surface)', borderColor: 'var(--shop-border)' }}>
                 No reviews yet. Be the first to review this shop.
               </div>
             ) : (
               <div className="space-y-4">
                 {reviews.map((review) => (
-                  <div key={review.id} className="rounded-xl border border-black/10 bg-white/50 p-4 sm:p-5">
+                  <div key={review.id} className="rounded-xl border p-4 sm:p-5" style={{ backgroundColor: 'var(--shop-surface)', borderColor: 'var(--shop-border)' }}>
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-warm-200 overflow-hidden flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0" style={{ backgroundColor: 'var(--shop-secondary)' }}>
                         {review.userAvatar ? (
                           <img src={review.userAvatar} alt={review.userName} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-warm-800">{(review.userName || 'A').slice(0, 1).toUpperCase()}</div>
+                          <div className="w-full h-full flex items-center justify-center text-sm font-semibold" style={{ color: surfaceTextColor }}>{(review.userName || 'A').slice(0, 1).toUpperCase()}</div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                           <div>
-                            <p className="font-semibold text-warm-900">{review.userName || 'Anonymous'}</p>
+                            <p className="font-semibold" style={{ color: surfaceTextColor }}>{review.userName || 'Anonymous'}</p>
                             <div className="flex items-center gap-1 text-yellow-500 mt-1">
                               {[1,2,3,4,5].map((star) => (
-                                <Star key={star} size={14} className={star <= (review.rating || 0) ? 'fill-current' : 'text-warm-300'} />
+                                <Star key={star} size={14} className={star <= (review.rating || 0) ? 'fill-current' : 'opacity-35'} />
                               ))}
                             </div>
                           </div>
-                          <time className="text-xs text-warm-800/60">{new Date(review.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</time>
+                          <time className="text-xs opacity-70">{new Date(review.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</time>
                         </div>
-                        <p className="mt-3 text-sm text-warm-800/80 whitespace-pre-wrap">{review.comment}</p>
+                        <p className="mt-3 text-sm opacity-80 whitespace-pre-wrap">{review.comment}</p>
                       </div>
                     </div>
                   </div>
@@ -415,7 +431,7 @@ export default function ShopPage() {
 
       {customization.showAbout && (
         <section className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 mt-8 mb-10">
-          <div className="rounded-[var(--shop-card-radius,1rem)] border border-[var(--shop-border)] bg-[var(--shop-surface)] p-4 sm:p-6">
+          <div className="rounded-[var(--shop-card-radius,1rem)] border p-4 sm:p-6" style={panelStyle}>
             <h2 className="font-display text-xl font-bold mb-2">About {shop.name}</h2>
             <p className="text-sm opacity-75">{customization.description || shop.description}</p>
             {customization.showContact && <p className="mt-3 text-sm opacity-70">{shop.location}</p>}
@@ -429,6 +445,8 @@ export default function ShopPage() {
           <SectionHeader
             title="Services"
             subtitle={`${shop.services.length} services offered`}
+            titleClassName="text-warm-900"
+            subtitleClassName="text-warm-800/60"
           />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {shop.services.map((service) => (

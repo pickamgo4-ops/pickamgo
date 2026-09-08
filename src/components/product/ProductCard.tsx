@@ -28,7 +28,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
       className="group cursor-pointer bg-[var(--shop-surface,var(--shop-secondary))] rounded-[var(--shop-card-radius,1rem)] overflow-hidden border border-[var(--shop-border)] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
     >
       {/* Image Container */}
-      <div className="relative aspect-[4/5] sm:aspect-square overflow-hidden bg-warm-100">
+      <div className="relative aspect-[4/5] sm:aspect-square overflow-hidden" style={{ backgroundColor: 'var(--shop-secondary)' }}>
         <img
           src={product.image}
           alt={product.name}
@@ -58,11 +58,12 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
             e.stopPropagation()
             onFavorite?.()
           }}
-          className="absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+          style={{ backgroundColor: 'var(--shop-surface)', color: 'var(--shop-text)', borderColor: 'var(--shop-border)' }}
+          className="absolute top-2 right-2 w-8 h-8 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform border"
         >
           <Heart
             size={16}
-            className={product.isFavorite ? 'fill-red-500 text-red-500' : 'text-warm-800'}
+            className={product.isFavorite ? 'fill-red-500 text-red-500' : ''}
           />
         </button>
 
@@ -77,9 +78,10 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
               url: `${window.location.origin}/product/${product.id}`,
             })
           }}
-          className="absolute top-12 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+          style={{ backgroundColor: 'var(--shop-surface)', color: 'var(--shop-text)', borderColor: 'var(--shop-border)' }}
+          className="absolute top-12 right-2 w-8 h-8 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform border"
         >
-          <Share2 size={16} className="text-warm-800" />
+          <Share2 size={16} />
         </button>
 
         {/* Discount Badge */}
@@ -94,7 +96,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
       <div className="p-2.5 sm:p-3" style={{ color: 'var(--shop-accent)' }}>
         {/* Seller Info */}
         <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
-          <div className="w-5 h-5 rounded-full overflow-hidden bg-warm-200 flex-shrink-0">
+          <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0" style={{ backgroundColor: 'var(--shop-secondary)' }}>
             {product.seller.avatar && (
               <img
                 src={product.seller.avatar}

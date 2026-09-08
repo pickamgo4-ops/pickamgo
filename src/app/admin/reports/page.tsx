@@ -52,7 +52,7 @@ export default function AdminReportsPage() {
       if (statusFilter) params.set('status', statusFilter)
       if (categoryFilter) params.set('category', categoryFilter)
 
-      const response = await api.get<any>(`/admin/reports?${params.toString()}`)
+      const response = await api.get<any>(`/reports?${params.toString()}`)
       if (response.success && response.data) {
         setReports(response.data.reports || [])
         setTotalPages(response.data.pagination?.totalPages || 1)
@@ -83,7 +83,7 @@ export default function AdminReportsPage() {
   const updateStatus = async (reportId: string, status: string) => {
     setUpdating(true)
     try {
-      const response = await api.patch(`/admin/reports/${reportId}/resolve`, { status, adminNotes })
+      const response = await api.patch(`/reports/${reportId}/status`, { status, adminNotes })
       if (response.success) {
         setSelectedReport(null)
         setAdminNotes('')

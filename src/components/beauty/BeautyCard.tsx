@@ -19,7 +19,7 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
       className="group cursor-pointer bg-[var(--shop-surface,var(--shop-secondary,#fff))] rounded-[var(--shop-card-radius,1rem)] overflow-hidden border border-[var(--shop-border,rgba(120,100,80,0.2))] transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
     >
       {/* Image Container */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-warm-100">
+      <div className="relative aspect-[4/5] overflow-hidden" style={{ backgroundColor: 'var(--shop-secondary)' }}>
         <img
           src={service.image}
           alt={service.name}
@@ -43,11 +43,12 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
             e.stopPropagation()
             onFavorite?.()
           }}
-          className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+          style={{ backgroundColor: 'var(--shop-surface)', color: 'var(--shop-text)', borderColor: 'var(--shop-border)' }}
+          className="absolute top-3 right-3 w-8 h-8 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform border"
         >
           <Heart
             size={16}
-            className={service.isFavorite ? 'fill-red-500 text-red-500' : 'text-warm-800'}
+            className={service.isFavorite ? 'fill-red-500 text-red-500' : ''}
           />
         </button>
 
@@ -82,7 +83,7 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
       <div className="p-4" style={customization ? { color: 'var(--shop-accent)' } : undefined}>
         {/* Provider */}
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 rounded-full overflow-hidden bg-warm-200">
+          <div className="w-6 h-6 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shop-secondary)' }}>
             {service.provider.avatar && (
               <img
                 src={service.provider.avatar}
@@ -91,7 +92,7 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
               />
             )}
           </div>
-          <span className="text-sm font-medium text-warm-900">
+          <span className="text-sm font-medium">
             {service.provider.name}
           </span>
         </div>
@@ -99,8 +100,8 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
         {/* Price and CTA */}
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs text-warm-800/60">From</span>
-            <p className="font-bold text-xl text-warm-900">
+            <span className="text-xs opacity-60">From</span>
+            <p className="font-bold text-xl">
               GH₵{service.price}
             </p>
           </div>
@@ -110,7 +111,7 @@ export function BeautyCard({ service, onClick, onFavorite }: BeautyCardProps) {
               event.stopPropagation()
               onClick?.()
             }}
-            className="!bg-orange-500 !text-white text-sm font-semibold py-2 px-4 rounded-xl transition-colors flex items-center gap-1.5 hover:!bg-orange-600"
+            className="!bg-[var(--shop-primary)] !text-[var(--shop-primary-text)] text-sm font-semibold py-2 px-4 rounded-xl transition-colors flex items-center gap-1.5 hover:!opacity-90"
           >
             <Calendar size={16} />
             Book

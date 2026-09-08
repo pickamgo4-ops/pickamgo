@@ -85,16 +85,16 @@ export default function AdminPromoCodesPage() {
     <div className="min-h-screen">
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="md:ml-64 min-w-0 max-w-full overflow-x-hidden pt-14 md:pt-0">
-        <div className="max-w-7xl mx-auto min-w-0 p-4 md:p-6 lg:p-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-8">
+      <main className="md:ml-64 min-w-0 max-w-full overflow-x-hidden bg-[#f5f7fb] pt-14 md:pt-0">
+        <div className="mx-auto min-w-0 w-full max-w-[1440px] p-4 sm:p-6 lg:p-8">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between mb-7 lg:mb-8">
             <div>
-              <h1 className="font-display text-4xl md:text-5xl font-bold tracking-[-0.04em] text-warm-900 leading-none">Promo Codes</h1>
-              <p className="text-warm-800/60 text-base mt-3">Manage and track all promotional campaigns</p>
+              <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold tracking-[-0.04em] text-warm-900 leading-none">Promo Codes</h1>
+              <p className="text-warm-800/60 text-sm sm:text-base mt-3">Manage and track all promotional campaigns</p>
             </div>
             <Button
               onClick={() => router.push('/admin/promo-codes/new')}
-              className="!rounded-2xl !px-6 !py-4 text-lg shadow-[0_12px_25px_rgba(249,115,22,0.22)] hover:shadow-[0_16px_30px_rgba(249,115,22,0.28)]"
+              className="w-full sm:w-auto !rounded-xl !px-5 !py-3 text-sm sm:text-base shadow-[0_10px_22px_rgba(21,94,239,0.18)] hover:shadow-[0_14px_26px_rgba(21,94,239,0.24)]"
               icon={<Plus size={20} />}
             >
               Create Promo
@@ -103,58 +103,58 @@ export default function AdminPromoCodesPage() {
 
           {/* Stats Cards */}
           {stats && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 lg:gap-4 mb-7 lg:mb-8">
+              <div className="min-w-0 bg-white rounded-2xl p-4 border border-[#e4eaf2] shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-9 h-9 rounded-xl bg-[#fff1ea] flex items-center justify-center text-primary">
                     <Ticket size={18} />
                   </div>
-                  <span className="text-xs text-warm-800/60 font-medium">Active Promos</span>
+                  <span className="min-w-0 text-xs text-warm-800/60 font-medium leading-tight">Active Promos</span>
                 </div>
-                <p className="text-[2rem] leading-none font-bold text-warm-900">{stats.activePromos}</p>
+                <p className="text-2xl sm:text-[2rem] leading-none font-bold text-warm-900 truncate">{stats.activePromos}</p>
               </div>
-              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+              <div className="min-w-0 bg-white rounded-2xl p-4 border border-[#e4eaf2] shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-9 h-9 rounded-xl bg-[#edfdf4] flex items-center justify-center text-green-600">
                     <ShoppingCart size={18} />
                   </div>
-                  <span className="text-xs text-warm-800/60 font-medium">Total Uses</span>
+                  <span className="min-w-0 text-xs text-warm-800/60 font-medium leading-tight">Total Uses</span>
                 </div>
-                <p className="text-[2rem] leading-none font-bold text-warm-900">{stats.totalUses}</p>
+                <p className="text-2xl sm:text-[2rem] leading-none font-bold text-warm-900 truncate">{stats.totalUses}</p>
               </div>
-              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+              <div className="min-w-0 bg-white rounded-2xl p-4 border border-[#e4eaf2] shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-9 h-9 rounded-xl bg-[#fff3e8] flex items-center justify-center text-orange-600">
                     <Percent size={18} />
                   </div>
-                  <span className="text-xs text-warm-800/60 font-medium">Total Discounts</span>
+                  <span className="min-w-0 text-xs text-warm-800/60 font-medium leading-tight">Total Discounts</span>
                 </div>
-                <p className="text-[2rem] leading-none font-bold text-warm-900">{formatCurrency(stats.totalDiscount)}</p>
+                <p className="text-xl sm:text-2xl lg:text-[2rem] leading-none font-bold text-warm-900 truncate">{formatCurrency(stats.totalDiscount)}</p>
               </div>
-              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+              <div className="min-w-0 bg-white rounded-2xl p-4 border border-[#e4eaf2] shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-9 h-9 rounded-xl bg-[#fff0f0] flex items-center justify-center text-red-600">
                     <DollarSign size={18} />
                   </div>
-                  <span className="text-xs text-warm-800/60 font-medium">PickAmGo Cost</span>
+                  <span className="min-w-0 text-xs text-warm-800/60 font-medium leading-tight">PickAmGo Cost</span>
                 </div>
-                <p className="text-[2rem] leading-none font-bold text-warm-900">{formatCurrency(stats.pickamgoCost)}</p>
+                <p className="text-xl sm:text-2xl lg:text-[2rem] leading-none font-bold text-warm-900 truncate">{formatCurrency(stats.pickamgoCost)}</p>
               </div>
-              <div className="bg-[#fffaf7] rounded-2xl p-4 border border-[#f1d7c4] shadow-sm">
+              <div className="min-w-0 bg-white rounded-2xl p-4 border border-[#e4eaf2] shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-9 h-9 rounded-xl bg-[#eafaf2] flex items-center justify-center text-green-600">
                     <TrendingUp size={18} />
                   </div>
-                  <span className="text-xs text-warm-800/60 font-medium">Promo Revenue</span>
+                  <span className="min-w-0 text-xs text-warm-800/60 font-medium leading-tight">Promo Revenue</span>
                 </div>
-                <p className="text-[2rem] leading-none font-bold text-warm-900">{formatCurrency(stats.revenueFromPromoOrders)}</p>
+                <p className="text-xl sm:text-2xl lg:text-[2rem] leading-none font-bold text-warm-900 truncate">{formatCurrency(stats.revenueFromPromoOrders)}</p>
               </div>
             </div>
           )}
 
           {/* Filters */}
-          <div className="mb-8">
-            <div className="flex flex-col md:flex-row gap-3">
+          <div className="mb-7 lg:mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(170px,220px)_minmax(170px,220px)] gap-3">
               <div className="flex-1">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-warm-800/45" size={18} />
@@ -163,14 +163,14 @@ export default function AdminPromoCodesPage() {
                     placeholder="Search promo codes..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full rounded-2xl border border-[#f0d7c2] bg-white px-12 py-3 text-base text-warm-900 placeholder:text-warm-800/40 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                    className="w-full rounded-xl border border-[#dfe7f2] bg-white px-12 py-3 text-sm sm:text-base text-warm-900 placeholder:text-warm-800/40 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
                   />
                 </div>
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
-                className="min-w-[180px] rounded-2xl border border-[#f0d7c2] bg-white px-4 py-3 text-base text-warm-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                className="w-full min-w-0 rounded-xl border border-[#dfe7f2] bg-white px-4 py-3 text-sm sm:text-base text-warm-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
               >
                 <option value="">All Statuses</option>
                 <option value="ACTIVE">Active</option>
@@ -182,7 +182,7 @@ export default function AdminPromoCodesPage() {
               <select
                 value={fundingFilter}
                 onChange={(e) => { setFundingFilter(e.target.value); setPage(1) }}
-                className="min-w-[180px] rounded-2xl border border-[#f0d7c2] bg-white px-4 py-3 text-base text-warm-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                className="w-full min-w-0 rounded-xl border border-[#dfe7f2] bg-white px-4 py-3 text-sm sm:text-base text-warm-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
               >
                 <option value="">All Funding</option>
                 <option value="SELLER">Seller-funded</option>
@@ -192,22 +192,22 @@ export default function AdminPromoCodesPage() {
           </div>
 
           {/* Promos Table */}
-          <div className="bg-white rounded-2xl shadow-sm border border-warm-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-[#dfe7f2] overflow-hidden">
             {loading ? (
               <div className="p-8 text-center">
                 <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                 <p className="text-warm-800/60 text-sm">Loading promos...</p>
               </div>
             ) : promos.length === 0 ? (
-              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[28px] border-[2px] border-[#d6d1cb] bg-[#f8f7f5] text-[#b9b4ae]">
-                  <Ticket size={42} />
+              <div className="flex flex-col items-center justify-center px-6 py-14 sm:py-16 text-center">
+                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#dfe7f2] bg-[#f8fafc] text-[#94a3b8]">
+                  <Ticket size={32} />
                 </div>
-                <h3 className="text-3xl font-bold text-warm-900">No promo codes yet</h3>
-                <p className="mt-3 max-w-md text-base text-warm-800/60">Create your first promotion to start giving customers discounts.</p>
+                <h3 className="text-2xl sm:text-3xl font-bold text-warm-900">No promo codes yet</h3>
+                <p className="mt-3 max-w-md text-sm sm:text-base text-warm-800/60">Create your first promotion to start giving customers discounts.</p>
                 <Button
                   onClick={() => router.push('/admin/promo-codes/new')}
-                  className="!mt-8 !rounded-2xl !px-7 !py-4 text-lg shadow-[0_12px_25px_rgba(249,115,22,0.22)]"
+                  className="!mt-7 !rounded-xl !px-5 !py-3 text-sm sm:text-base shadow-[0_10px_22px_rgba(21,94,239,0.18)]"
                   icon={<Plus size={20} />}
                 >
                   Create Promo Code
