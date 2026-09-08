@@ -142,6 +142,17 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const sectionColorMap: Record<string, { bg: string; text: string; light: string }> = {
+    SHOP: { bg: 'bg-blue-500', text: 'text-blue-600', light: 'bg-blue-50' },
+    PRODUCTS: { bg: 'bg-emerald-500', text: 'text-emerald-600', light: 'bg-emerald-50' },
+    SALES: { bg: 'bg-amber-500', text: 'text-amber-600', light: 'bg-amber-50' },
+    'ORDER MANAGEMENT': { bg: 'bg-indigo-500', text: 'text-indigo-600', light: 'bg-indigo-50' },
+    EARNINGS: { bg: 'bg-green-500', text: 'text-green-600', light: 'bg-green-50' },
+    BUSINESS: { bg: 'bg-purple-500', text: 'text-purple-600', light: 'bg-purple-50' },
+    COMMUNICATION: { bg: 'bg-teal-500', text: 'text-teal-600', light: 'bg-teal-50' },
+    SETTINGS: { bg: 'bg-warm-500', text: 'text-warm-700', light: 'bg-warm-100' },
+  }
+
   const SidebarContent = () => (
     <>
       <div className="p-4 border-b border-warm-200 dark:border-warm-700">
@@ -173,41 +184,45 @@ export function SellerSidebar({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-4">
-        {shopSections.map((section) => (
-          <div key={section.title}>
-            <h3 className="text-[10px] font-bold text-warm-800/50 dark:text-warm-200/50 uppercase tracking-wider px-2 mb-1.5">
-              {section.title}
-            </h3>
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const isActive = pathname === item.href || (item.href !== '/' && item.href !== '/seller' && pathname.startsWith(item.href))
-                const Icon = item.icon
+        {shopSections.map((section) => {
+          const colors = sectionColorMap[section.title] || sectionColorMap['SETTINGS']
 
-                return (
-                  <button
-                    key={item.href}
-                    data-tour-target={item.href}
-                    onClick={() => {
-                      router.push(item.href)
-                      setIsOpen(false)
-                    }}
-                    className={`
-                      w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left
-                      transition-all duration-200 text-sm font-medium
-                      ${isActive 
-                        ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light' 
-                        : 'text-warm-800/70 dark:text-warm-200/70 hover:bg-warm-100 dark:hover:bg-warm-800 hover:text-warm-900 dark:hover:text-warm-100'
-                      }
-                    `}
-                  >
-                    <Icon size={18} className="flex-shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                )
-              })}
+          return (
+            <div key={section.title}>
+              <h3 className="text-[10px] font-bold text-warm-800/50 dark:text-warm-200/50 uppercase tracking-wider px-2 mb-1.5">
+                {section.title}
+              </h3>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href || (item.href !== '/' && item.href !== '/seller' && pathname.startsWith(item.href))
+                  const Icon = item.icon
+
+                  return (
+                    <button
+                      key={item.href}
+                      data-tour-target={item.href}
+                      onClick={() => {
+                        router.push(item.href)
+                        setIsOpen(false)
+                      }}
+                      className={`
+                        w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left
+                        transition-all duration-200 text-sm font-medium
+                        ${isActive 
+                          ? `${colors.light} ${colors.text} dark:bg-warm-800` 
+                          : 'text-warm-800/70 dark:text-warm-200/70 hover:bg-warm-100 dark:hover:bg-warm-800 hover:text-warm-900 dark:hover:text-warm-100'
+                        }
+                      `}
+                    >
+                      <Icon size={18} className="flex-shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </nav>
 
       <div className="p-3 border-t border-warm-200 dark:border-warm-700">
