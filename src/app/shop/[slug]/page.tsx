@@ -126,9 +126,10 @@ export default function ShopPage() {
     if (!shop?.owner.id) return
 
     setMessageAccessError('')
-    const response = await api.get<{ allowed: boolean }>(`/messages/access/${shop.owner.id}?shopId=${encodeURIComponent(shop.id)}`)
+    const response = await api.get<{ allowed: boolean; orderId?: string }>(`/messages/access/${shop.owner.id}?shopId=${encodeURIComponent(shop.id)}`)
     if (response.success && response.data?.allowed) {
-      router.push(`/messages/${shop.owner.id}`)
+      const orderQuery = response.data.orderId ? `?orderId=${encodeURIComponent(response.data.orderId)}` : ''
+      router.push(`/messages/${shop.owner.id}${orderQuery}`)
     } else {
       setMessageAccessError(response.error || 'You must have an active order with this seller first.')
     }
