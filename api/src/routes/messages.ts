@@ -294,12 +294,19 @@ router.post('/conversations/:userId/messages', authMiddleware, validateBody(mess
 
     await prisma.user.update({ where: { id: currentUserId }, data: { lastActiveAt: new Date() } })
 
+    const participantPair = {
+      OR: [{ participant1Id: currentUserId, participant2Id: otherUserId }, { participant1Id: otherUserId, participant2Id: currentUserId }],
+    }
     let conversation: any = await prisma.conversation.findFirst({
       where: {
         ...(orderId ? { orderId } : {}),
-        OR: [{ participant1Id: currentUserId, participant2Id: otherUserId }, { participant1Id: otherUserId, participant2Id: currentUserId }],
+        ...participantPair,
       },
+      orderBy: { updatedAt: 'desc' },
     })
+    if (!conversation && orderId) {
+      conversation = await prisma.conversation.findFirst({ where: participantPair, orderBy: { updatedAt: 'desc' } })
+    }
 
     const existingConversationAccess = conversation
       ? await canAccessExistingConversation(currentUserId, otherUserId, conversation)
