@@ -12,6 +12,7 @@ export default function SellerAnalyticsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [analytics, setAnalytics] = useState<any>(null)
+  const [apiError, setApiError] = useState('')
 
   useEffect(() => {
     loadAnalytics()
@@ -19,13 +20,17 @@ export default function SellerAnalyticsPage() {
 
   const loadAnalytics = async () => {
     setLoading(true)
+    setApiError('')
     try {
       const response = await api.get<any>('/seller/analytics')
       if (response.success && response.data) {
         setAnalytics(response.data)
+      } else {
+        setApiError(response.error || 'Failed to load analytics')
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Analytics load error:', err)
+      setApiError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -44,13 +49,27 @@ export default function SellerAnalyticsPage() {
     )
   }
 
+  if (apiError) {
+    return (
+      <SellerSidebar>
+        <div className="text-center py-20">
+          <TrendingUp size={48} className="mx-auto text-warm-800/30 mb-4" />
+          <h3 className="font-semibold text-warm-900 mb-2">Unable to load analytics</h3>
+          <p className="text-sm text-warm-800/60 mb-4">{apiError}</p>
+          <Button onClick={loadAnalytics}>Try Again</Button>
+        </div>
+      </SellerSidebar>
+    )
+  }
+
   if (!analytics || !analytics.shop) {
     return (
       <SellerSidebar>
         <div className="text-center py-20">
           <TrendingUp size={48} className="mx-auto text-warm-800/30 mb-4" />
           <h3 className="font-semibold text-warm-900 mb-2">No shop found</h3>
-          <p className="text-sm text-warm-800/60">Create a shop to see analytics</p>
+          <p className="text-sm text-warm-800/60 mb-4">Create a shop to see analytics</p>
+          <Button onClick={() => router.push('/seller/shop/create')}>Create Shop</Button>
         </div>
       </SellerSidebar>
     )

@@ -164,23 +164,28 @@ router.get('/orders', authMiddleware, requireRole(['SELLER']), async (req: Authe
 
     const shops = await prisma.shop.findMany({ where: { ownerId: req.user!.id }, select: { id: true } })
     const shopIds = shops.map(shop => shop.id)
+    const sellerOrderScope = [
+      { sellerId: req.user!.id },
+      ...(shopIds.length ? [{ shopId: { in: shopIds } }] : []),
+      ...(shopIds.length ? [
+        { items: { some: { product: { shopId: { in: shopIds } } } } },
+        { items: { some: { service: { shopId: { in: shopIds } } } } },
+      ] : []),
+    ]
     const where: any = {
       OR: [
-        { sellerId: req.user!.id },
-        ...(shopIds.length ? [{ shopId: { in: shopIds } }] : []),
-        ...(shopIds.length ? [
-          { items: { some: { product: { shopId: { in: shopIds } } } } },
-          { items: { some: { service: { shopId: { in: shopIds } } } } },
-        ] : []),
+        ...sellerOrderScope,
       ],
     }
     if (status) where.status = status
     if (search) {
-      where.OR = [
+      where.AND = [{ OR: sellerOrderScope }, {
+        OR: [
         { orderNumber: { contains: search, mode: 'insensitive' } },
         { customer: { name: { contains: search, mode: 'insensitive' } } },
         { customer: { phone: { contains: search, mode: 'insensitive' } } },
-      ]
+        ],
+      }]
     }
 
     const [orders, total] = await Promise.all([
@@ -306,8 +311,9 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
       topProducts,
       recentOrders,
     })
-  } catch (error) {
-    return errorResponse(res, 'Failed to fetch analytics', 500)
+  } catch (error: any) {
+    console.error('Analytics error:', error)
+    return errorResponse(res, error?.message || 'Failed to fetch analytics', 500)
   }
 })
 
