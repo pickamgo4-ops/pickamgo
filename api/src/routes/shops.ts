@@ -105,11 +105,12 @@ const publishedToResponse = (customization: any) => customization?.publishedAt ?
 const effectiveCustomization = (customization: any) => {
   if (!customization) return null
   const published = publishedToResponse(customization)
-  const draft = draftToResponse(customization)
+  const draft = draftToResponse(customization) as Record<string, any>
+  const publishedValues = published as Record<string, any>
   if (!published) return draft
   return Object.fromEntries(Object.entries(draft).map(([key, value]) => [
     key,
-    published[key] !== null && published[key] !== undefined ? published[key] : value,
+    publishedValues[key] !== null && publishedValues[key] !== undefined ? publishedValues[key] : value,
   ]))
 }
 
