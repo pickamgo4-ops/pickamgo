@@ -13,6 +13,7 @@ export default function SellerNotificationsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState<any[]>([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
     loadNotifications()
@@ -20,13 +21,14 @@ export default function SellerNotificationsPage() {
 
   const loadNotifications = async () => {
     setLoading(true)
+    setError('')
     try {
       const response = await api.get<any>('/notifications?limit=50')
       if (response.success && response.data) {
         setNotifications(response.data.notifications || [])
       }
     } catch {
-      // ignore
+      setError('Failed to load notifications. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -77,6 +79,8 @@ export default function SellerNotificationsPage() {
             </Button>
           )}
         </div>
+
+        {error && <Card className="border-red-200 bg-red-50 p-4"><div className="flex items-center justify-between gap-3 text-sm text-red-700"><span>{error}</span><Button variant="outline" size="sm" onClick={loadNotifications}>Retry</Button></div></Card>}
 
         {notifications.length === 0 ? (
           <Card className="p-12 text-center">

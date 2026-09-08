@@ -17,7 +17,7 @@ export default function SellerShippingPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
-  const load = async () => { const response = await api.getSellerShippingZones(); if (response.success) setZones((response.data || []).map((item: any) => ({ ...item, locations: item.locations ? JSON.parse(item.locations) : [] }))); setLoading(false) }
+  const load = async () => { setLoading(true); const response = await api.getSellerShippingZones(); if (response.success) { setZones((response.data || []).map((item: any) => { let locations: string[] = []; try { locations = item.locations ? JSON.parse(item.locations) : [] } catch { locations = [] } return { ...item, locations: Array.isArray(locations) ? locations : [] } })) } else setMessage(response.error || 'Could not load delivery zones'); setLoading(false) }
   useEffect(() => { load() }, [])
   const save = async (event: React.FormEvent) => { event.preventDefault(); setSaving(true); const response = zone.id ? await api.updateSellerShippingZone(zone.id, zone) : await api.createSellerShippingZone(zone); if (response.success) { setMessage('Delivery zone saved'); setZone(emptyZone); await load() } else setMessage(response.error || 'Could not save zone'); setSaving(false) }
   const remove = async (id: string) => { if (!window.confirm('Delete this delivery zone?')) return; await api.deleteSellerShippingZone(id); await load() }
