@@ -69,7 +69,10 @@ export default function SellerAnalyticsPage() {
           <TrendingUp size={48} className="mx-auto text-warm-800/30 mb-4" />
           <h3 className="font-semibold text-warm-900 mb-2">No shop found</h3>
           <p className="text-sm text-warm-800/60 mb-4">Create a shop to see analytics</p>
-          <Button onClick={() => router.push('/seller/shop/create')}>Create Shop</Button>
+          <div className="flex items-center justify-center gap-3">
+            <Button onClick={() => router.push('/seller/shop/create')}>Create Shop</Button>
+            <Button variant="ghost" onClick={() => router.push('/')}>Go back home</Button>
+          </div>
         </div>
       </SellerSidebar>
     )
