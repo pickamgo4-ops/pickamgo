@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useRole } from '@/contexts/RoleContext'
 import { useEffect } from 'react'
 
-const customerPaths = ['/', '/discover', '/cart', '/favorites', '/orders', '/notifications', '/profile', '/product', '/service', '/shop', '/checkout', '/addresses', '/track', '/messages', '/report', '/settings', '/help', '/security']
+const customerPaths = ['/', '/discover', '/categories', '/cart', '/favorites', '/orders', '/notifications', '/profile', '/product', '/service', '/shop', '/checkout', '/addresses', '/track', '/messages', '/report', '/settings', '/help', '/security']
 const publicPaths = ['/terms', '/privacy']
 
 export function RoleRedirector() {

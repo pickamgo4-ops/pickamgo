@@ -5,8 +5,14 @@ export function middleware(request: NextRequest) {
   const rootDomain = process.env.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com'
   const suffix = `.${rootDomain}`
 
-  if (!hostname.endsWith(suffix) || hostname === `www.${rootDomain}`) {
+  if (!hostname.endsWith(suffix)) {
     return NextResponse.next()
+  }
+
+  if (hostname === `www.${rootDomain}`) {
+    const url = request.nextUrl.clone()
+    url.hostname = rootDomain
+    return NextResponse.redirect(url, 301)
   }
 
   const slug = hostname.slice(0, -suffix.length)

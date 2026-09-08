@@ -77,6 +77,22 @@ module.exports = {
           700: 'var(--color-teal-700)',
           DEFAULT: 'var(--color-teal-600)',
         },
+        cyan: {
+          50: 'var(--color-cyan-50)',
+          100: 'var(--color-cyan-100)',
+          500: 'var(--color-cyan-500)',
+          600: 'var(--color-cyan-600)',
+          700: 'var(--color-cyan-700)',
+          DEFAULT: 'var(--color-cyan-600)',
+        },
+        pink: {
+          50: 'var(--color-pink-50)',
+          100: 'var(--color-pink-100)',
+          500: 'var(--color-pink-500)',
+          600: 'var(--color-pink-600)',
+          700: 'var(--color-pink-700)',
+          DEFAULT: 'var(--color-pink-600)',
+        },
         neutral: {
           50: 'var(--color-neutral-50)',
           100: 'var(--color-neutral-100)',
