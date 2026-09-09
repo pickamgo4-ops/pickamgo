@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import prisma from '../utils/prisma'
-import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
+import { authMiddleware, optionalAuthMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody, validateQuery } from '../types/express'
 import { distanceInKm } from '../utils/geo'
 import { publicProductVisibility } from '../utils/visibility'
@@ -255,6 +255,50 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
   }
 })
 
+router.post('/:id/view', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, status: true, sellerId: true, shop: { select: { ownerId: true, status: true } } },
+    })
+    if (!product) return errorResponse(res, 'Product not found', 404)
+    if (product.status !== 'ACTIVE' || product.shop.status !== 'ACTIVE') return successResponse(res, { recorded: false })
+
+    const viewer = req.user
+    if (viewer?.isAdmin || viewer?.isSeller && (viewer.id === product.sellerId || viewer.id === product.shop.ownerId)) {
+      return successResponse(res, { recorded: false })
+    }
+
+    const userAgent = String((req as any).headers?.['user-agent'] || '')
+    if (/bot|crawler|spider|headless|curl|wget|python-requests/i.test(userAgent)) {
+      return successResponse(res, { recorded: false })
+    }
+
+    const sessionIdHeader = (req as any).headers?.['x-session-id']
+    const sessionId = typeof sessionIdHeader === 'string' && sessionIdHeader.length <= 120 ? sessionIdHeader : undefined
+    if (!viewer?.id && !sessionId) return successResponse(res, { recorded: false })
+
+    const recentSince = new Date(Date.now() - 10 * 60 * 1000)
+    const recentView = await prisma.productView.findFirst({
+      where: {
+        productId: product.id,
+        createdAt: { gte: recentSince },
+        ...(viewer?.id ? { userId: viewer.id } : { sessionId }),
+      },
+      select: { id: true },
+    })
+    if (recentView) return successResponse(res, { recorded: false })
+
+    await prisma.productView.create({
+      data: { productId: product.id, userId: viewer?.id || null, sessionId: viewer?.id ? null : sessionId || null },
+    })
+    return successResponse(res, { recorded: true })
+  } catch (error) {
+    console.error('Failed to record product view:', error)
+    return errorResponse(res, 'Failed to record product view', 500)
+  }
+})
+
 router.get('/:id', async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params
@@ -356,14 +400,6 @@ router.post(
 
       if (shopId !== shop.id) return errorResponse(res, 'Invalid shop for authenticated seller', 403)
 
-      const sellerVerification = await prisma.sellerVerification.findFirst({
-        where: { userId, type: 'SELLER' },
-      })
-
-      const isSellerVerified = sellerVerification?.status === 'APPROVED'
-
-      const isAutoApproved = sellerVerification?.verificationMethod === 'KYC_PROVIDER' && !!sellerVerification?.verificationReference
-
       const category = await prisma.category.findUnique({
         where: { id: categoryId },
       })
@@ -419,10 +455,10 @@ router.post(
           sellerId: userId,
           categoryId,
           shopCategoryId: shopCategoryId || null,
-          moderationStatus: isSellerVerified ? 'APPROVED' : 'PENDING',
-          moderatedBy: isSellerVerified ? 'system' : null,
-          moderatedAt: isSellerVerified ? new Date() : null,
-          status: isSellerVerified ? 'ACTIVE' : 'PENDING',
+          moderationStatus: 'APPROVED',
+          moderatedBy: 'seller-publishing',
+          moderatedAt: new Date(),
+          status: draft ? 'DRAFT' : 'ACTIVE',
           images: {
             create: images.map((url: string, index: number) => ({
               url,
@@ -526,6 +562,7 @@ router.patch(
         where: { id },
         data: {
           ...updateData,
+          ...(existingProduct.status === 'PENDING' ? { status: updateData.draft ? 'DRAFT' : 'ACTIVE' } : {}),
           ...(hasShopCategoryId ? { shopCategoryId: shopCategoryId || null } : {}),
           ...(updateData.publishedAt ? { publishedAt: new Date(updateData.publishedAt) } : {}),
           ...(images ? { images: { create: images.map((url: string, index: number) => ({ url, sortOrder: index })) } } : {}),

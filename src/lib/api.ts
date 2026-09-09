@@ -120,7 +120,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     !token &&
     (endpoint.startsWith("/cart") ||
       endpoint.startsWith("/checkout/guest") ||
-      endpoint.startsWith("/public-notices"))
+      endpoint.startsWith("/public-notices") ||
+      /^\/products\/[^/]+\/view$/.test(endpoint))
   ) {
     const guestSessionId = getGuestSessionId();
     requestHeaders["x-session-id"] = guestSessionId;
@@ -395,6 +396,7 @@ export const api = {
     formData.append("image", file);
     return api.uploadFile<{ url: string; filename: string }>("/upload/image", formData);
   },
+  trackProductView: (productId: string) => api.post<{ recorded: boolean }>(`/products/${productId}/view`, {}),
   trackOrder: (orderNumber: string) => api.get<any>(`/tracking/${orderNumber}`),
   followShop: (shopId: string) => api.post(`/follows/shops/${shopId}/follow`, {}),
   getFollowStatus: (shopId: string) =>

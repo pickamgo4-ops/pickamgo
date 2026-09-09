@@ -12,6 +12,7 @@ import { getShopUrl } from '../../../lib/shop-url'
 import { shareLink } from '../../../lib/share'
 import { ProductCard } from '../../../components/product/ProductCard'
 import { PaymentSafetyNotice } from '../../../components/ui/PaymentSafetyNotice'
+import { ProductReportModal } from '../../../components/ProductReportModal'
 import { useRole } from '../../../contexts/RoleContext'
 import { defaultShopCustomization, shopCustomizationStyle, themeClass } from '../../../lib/shop-themes'
 
@@ -35,6 +36,7 @@ export default function ProductPage() {
   const [cartError, setCartError] = useState<string | null>(null)
   const [cartSuccess, setCartSuccess] = useState('')
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
 
   const activeVariant = product?.variants?.find(v => v.id === selectedVariantId) || null
   const hasVariants = (product?.variants?.length || 0) > 0
@@ -48,6 +50,7 @@ export default function ProductPage() {
   useEffect(() => {
     if (!productId) return
     loadProduct()
+    void api.trackProductView(productId)
   }, [productId])
 
   useEffect(() => {
@@ -262,6 +265,7 @@ export default function ProductPage() {
   }
 
   const safeProduct: Product = {
+    id: product.id,
     image: product.image || '',
     images: Array.isArray(product.images) ? product.images.filter(Boolean) : [],
     name: product.name || 'Untitled Product',
@@ -340,6 +344,7 @@ export default function ProductPage() {
                 <button type="button" aria-label="Share product" onClick={handleShareProduct} className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
                   <Share2 size={20} className="text-warm-800" />
                 </button>
+                <button type="button" aria-label="Report product" onClick={() => { if (!localStorage.getItem('token')) router.push('/auth/login'); else setReportOpen(true) }} className="h-10 rounded-full bg-white/90 px-3 text-xs font-semibold text-red-600 shadow-sm">Report</button>
               </div>
             </div>
             {images.length > 1 && (
@@ -698,6 +703,7 @@ export default function ProductPage() {
           </div>
         </div>
       )}
+      {reportOpen && <ProductReportModal productId={safeProduct.id} onClose={() => setReportOpen(false)} onSubmit={data => api.submitReport({ ...data, targetType: 'PRODUCT', targetId: safeProduct.id })} />}
 
       {/* Recommendations Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

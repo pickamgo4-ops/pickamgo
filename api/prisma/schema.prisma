@@ -577,6 +577,7 @@ model Product {
   collectionItems   CollectionProduct[]
   promotionItems    PromotionProduct[]
   flashSaleProducts FlashSaleProduct[]
+  engagements       ProductEngagement[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -1299,6 +1300,21 @@ model ProductView {
   @@index([productId])
   @@index([userId])
   @@index([sessionId])
+  @@index([productId, createdAt])
+  @@index([productId, userId, createdAt])
+  @@index([productId, sessionId, createdAt])
+}
+
+model ProductEngagement {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String
+  type      String
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, type, createdAt])
+  @@index([productId, userId, type])
 }
 
 model InventoryMovement {

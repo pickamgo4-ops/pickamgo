@@ -15,6 +15,12 @@ const router = Router();
 
 const reportCategories = [
   "FRAUD",
+  "SCAM_FRAUD",
+  "COUNTERFEIT",
+  "PROHIBITED_ITEM",
+  "MISLEADING_INFORMATION",
+  "INCORRECT_CATEGORY",
+  "INAPPROPRIATE_CONTENT",
   "PAYMENT_ISSUE",
   "WRONG_PRODUCT",
   "HARASSMENT",

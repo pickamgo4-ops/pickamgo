@@ -180,10 +180,11 @@ export default function AdminProductsPage() {
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: any; label: string }> = {
-      ACTIVE: { variant: 'verified', label: 'Active' },
+      ACTIVE: { variant: 'verified', label: 'Published' },
       DRAFT: { variant: 'default', label: 'Draft' },
-      ARCHIVED: { variant: 'default', label: 'Archived' },
       HIDDEN: { variant: 'default', label: 'Hidden' },
+      SUSPENDED: { variant: 'deal', label: 'Suspended' },
+      REMOVED: { variant: 'deal', label: 'Removed' },
     }
     const c = config[status] || { variant: 'default', label: status }
     return <Badge variant={c.variant}>{c.label}</Badge>
@@ -229,9 +230,11 @@ export default function AdminProductsPage() {
           className="rounded-xl border border-warm-200 px-3 py-3 bg-white text-sm text-warm-900"
         >
           <option value="">All statuses</option>
-          <option value="ACTIVE">Active</option>
+          <option value="ACTIVE">Published</option>
+          <option value="HIDDEN">Hidden</option>
+          <option value="SUSPENDED">Suspended</option>
+          <option value="REMOVED">Removed</option>
           <option value="DRAFT">Draft</option>
-          <option value="ARCHIVED">Archived</option>
         </select>
         <select
           value={categoryFilter}
@@ -384,18 +387,21 @@ export default function AdminProductsPage() {
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-warm-800/50 uppercase">Actions</p>
                     <div className="flex flex-wrap gap-2">
-                      {selectedProduct.status !== 'ACTIVE' && (
+                      {selectedProduct.status !== 'ACTIVE' && selectedProduct.status !== 'REMOVED' && (
                         <Button size="sm" onClick={() => updateProductStatus(selectedProduct.id, 'ACTIVE')}>
                           <CheckCircle size={16} />
                           Publish
                         </Button>
                       )}
                       {selectedProduct.status === 'ACTIVE' && (
-                        <Button size="sm" variant="outline" onClick={() => updateProductStatus(selectedProduct.id, 'ARCHIVED')}>
+                        <Button size="sm" variant="outline" onClick={() => updateProductStatus(selectedProduct.id, 'HIDDEN')}>
                           <Ban size={16} />
-                          Unpublish
+                          Hide
                         </Button>
                       )}
+                      {selectedProduct.status !== 'SUSPENDED' && selectedProduct.status !== 'REMOVED' && <Button size="sm" variant="outline" onClick={() => updateProductStatus(selectedProduct.id, 'SUSPENDED')}><Ban size={16} />Suspend</Button>}
+                      {selectedProduct.status === 'SUSPENDED' && <Button size="sm" onClick={() => updateProductStatus(selectedProduct.id, 'ACTIVE')}><CheckCircle size={16} />Restore</Button>}
+                      {selectedProduct.status !== 'REMOVED' && <Button size="sm" variant="ghost" onClick={() => updateProductStatus(selectedProduct.id, 'REMOVED')}><Trash2 size={16} />Remove</Button>}
                       <Button size="sm" variant="ghost" onClick={() => deleteProduct(selectedProduct.id)}>
                         <Trash2 size={16} />
                         Delete

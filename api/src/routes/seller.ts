@@ -7,6 +7,84 @@ const router = Router()
 
 const productStatus = ['ACTIVE', 'HIDDEN', 'OUT_OF_STOCK', 'ARCHIVED', 'DELETED'] as const
 
+function analyticsRange(query: any) {
+  const now = new Date()
+  const end = query.end ? new Date(String(query.end)) : now
+  const range = String(query.range || '30d')
+  let start = new Date(end)
+  if (range === 'today') start.setHours(0, 0, 0, 0)
+  else if (range === '7d') start.setDate(start.getDate() - 6)
+  else if (range === '90d') start.setDate(start.getDate() - 89)
+  else if (range === 'custom' && query.start) start = new Date(String(query.start))
+  else start.setDate(start.getDate() - 29)
+  return { start, end, previousStart: new Date(start.getTime() - (end.getTime() - start.getTime())), previousEnd: new Date(start.getTime() - 1) }
+}
+
+function dayKey(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function percentChange(current: number, previous: number) {
+  if (previous === 0) return current === 0 ? 0 : 100
+  return Number((((current - previous) / previous) * 100).toFixed(1))
+}
+
+async function collectProductAnalytics(productIds: string[], start: Date, end: Date, previousStart: Date, previousEnd: Date) {
+  if (!productIds.length) return new Map<string, any>()
+  const [views, previousViews, engagements, purchases] = await Promise.all([
+    prisma.productView.findMany({ where: { productId: { in: productIds }, createdAt: { gte: start, lte: end } }, select: { productId: true, userId: true, sessionId: true, createdAt: true } }),
+    prisma.productView.findMany({ where: { productId: { in: productIds }, createdAt: { gte: previousStart, lte: previousEnd } }, select: { productId: true, userId: true, sessionId: true, createdAt: true } }),
+    prisma.productEngagement.findMany({ where: { productId: { in: productIds }, createdAt: { gte: start, lte: end } }, select: { productId: true, userId: true, type: true, createdAt: true } }),
+    prisma.orderItem.findMany({ where: { productId: { in: productIds }, order: { isTestOrder: false, status: { notIn: ['CANCELLED', 'FAILED', 'PENDING_PAYMENT'] } }, }, select: { productId: true, quantity: true, order: { select: { createdAt: true } } } }),
+  ])
+  const result = new Map<string, any>()
+  for (const productId of productIds) result.set(productId, { totalViews: 0, uniqueViewers: 0, viewsToday: 0, viewsThisWeek: 0, viewsThisMonth: 0, viewsLast30Days: 0, viewsLast90Days: 0, addToCarts: 0, wishlists: 0, purchases: 0, previousViews: 0, previousPurchases: 0, trend: new Map<string, number>() })
+  const viewerKey = (view: any) => view.userId ? `user:${view.userId}` : `session:${view.sessionId}`
+  for (const view of views) {
+    const item = result.get(view.productId)
+    item.totalViews += 1
+    item.trend.set(dayKey(view.createdAt), (item.trend.get(dayKey(view.createdAt)) || 0) + 1)
+    item._viewers = item._viewers || new Set<string>()
+    item._viewers.add(viewerKey(view))
+  }
+  for (const view of previousViews) {
+    const item = result.get(view.productId)
+    item.previousViews += 1
+  }
+  for (const event of engagements) {
+    const item = result.get(event.productId)
+    if (event.type === 'ADD_TO_CART') item.addToCarts += 1
+    if (event.type === 'WISHLIST') item.wishlists += 1
+  }
+  for (const purchase of purchases) {
+    if (!purchase.productId) continue
+    const item = result.get(purchase.productId)
+    if (purchase.order.createdAt >= start && purchase.order.createdAt <= end) item.purchases += purchase.quantity
+    if (purchase.order.createdAt >= previousStart && purchase.order.createdAt <= previousEnd) item.previousPurchases += purchase.quantity
+  }
+  const now = new Date()
+  const today = new Date(now); today.setHours(0, 0, 0, 0)
+  const week = new Date(now); week.setDate(week.getDate() - 6); week.setHours(0, 0, 0, 0)
+  const month = new Date(now); month.setDate(month.getDate() - 29); month.setHours(0, 0, 0, 0)
+  const ninety = new Date(now); ninety.setDate(ninety.getDate() - 89); ninety.setHours(0, 0, 0, 0)
+  const allViews = await prisma.productView.findMany({ where: { productId: { in: productIds }, createdAt: { gte: ninety, lte: now } }, select: { productId: true, createdAt: true } })
+  for (const view of allViews) {
+    const item = result.get(view.productId)
+    if (view.createdAt >= today) item.viewsToday += 1
+    if (view.createdAt >= week) item.viewsThisWeek += 1
+    if (view.createdAt >= month) item.viewsThisMonth += 1
+    item.viewsLast30Days = item.viewsThisMonth
+    if (view.createdAt >= ninety) item.viewsLast90Days += 1
+  }
+  for (const item of result.values()) {
+    item.uniqueViewers = item._viewers?.size || 0
+    item.conversionRate = item.totalViews ? Number(((item.purchases / item.totalViews) * 100).toFixed(2)) : 0
+    item.previousConversionRate = item.previousViews ? Number(((item.previousPurchases / item.previousViews) * 100).toFixed(2)) : 0
+    delete item._viewers
+  }
+  return result
+}
+
 router.get('/categories', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
   const shop = await prisma.shop.findFirst({ where: { ownerId: req.user!.id } })
   if (!shop) return successResponse(res, { categories: [] })
@@ -31,7 +109,7 @@ router.get('/products', authMiddleware, requireRole(['SELLER']), async (req: Aut
     if (search) where.OR = [{ name: { contains: search } }, { description: { contains: search } }]
     if (categoryId) where.shopCategoryId = categoryId
     const sort: any = req.query.sort === 'price' ? { price: 'asc' } : req.query.sort === 'name' ? { name: 'asc' } : req.query.sort === 'stock' ? { stock: 'asc' } : { createdAt: 'desc' }
-    const products = await prisma.product.findMany({ where, orderBy: sort, include: { category: { select: { id: true, name: true, emoji: true, color: true } }, shopCategory: true, images: { orderBy: { sortOrder: 'asc' } }, variants: { orderBy: { sortOrder: 'asc' } } } })
+    const products = await prisma.product.findMany({ where, orderBy: sort, include: { category: { select: { id: true, name: true, emoji: true, color: true } }, shopCategory: true, images: { orderBy: { sortOrder: 'asc' } }, variants: { orderBy: { sortOrder: 'asc' } }, _count: { select: { views: true } } } })
     return successResponse(res, { products })
   } catch { return errorResponse(res, 'Failed to fetch seller products', 500) }
 })
@@ -41,6 +119,7 @@ router.patch('/products/:id/visibility', authMiddleware, requireRole(['SELLER'])
   if (status !== 'ACTIVE' && status !== 'HIDDEN') return errorResponse(res, 'Visibility must be ACTIVE or HIDDEN', 400)
   const product = await prisma.product.findFirst({ where: { id: req.params.id, sellerId: req.user!.id } })
   if (!product) return errorResponse(res, 'Product not found', 404)
+  if (product.status === 'SUSPENDED' || product.status === 'REMOVED') return errorResponse(res, 'This product status can only be changed by an administrator', 403)
   const updated = await prisma.product.update({ where: { id: product.id }, data: { status } })
   return successResponse(res, updated, 200, `Product ${status === 'ACTIVE' ? 'shown' : 'hidden'}`)
 })
@@ -279,7 +358,7 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
       return successResponse(res, { shop: null })
     }
 
-    const [totalOrders, totalRevenue, pendingOrders, totalProducts, followersCount, totalReviews] = await Promise.all([
+    const [totalOrders, totalRevenue, pendingOrders, totalProducts, followersCount, totalReviews, customerOrders] = await Promise.all([
       prisma.order.count({ where: { shopId: shop.id, isTestOrder: false } }),
       prisma.order.aggregate({
         where: { shopId: shop.id, isTestOrder: false, status: { not: 'CANCELLED' } },
@@ -289,6 +368,7 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
       prisma.product.count({ where: { shopId: shop.id, status: 'ACTIVE' } }),
       prisma.shopFollow.count({ where: { shopId: shop.id } }),
       prisma.review.count({ where: { targetType: 'SHOP', targetId: shop.id } }),
+      prisma.order.findMany({ where: { shopId: shop.id, isTestOrder: false, customerId: { not: null } }, select: { customerId: true }, distinct: ['customerId'] }),
     ])
 
     const topProducts = await prisma.product.findMany({
@@ -315,6 +395,7 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
         id: shop.id,
         name: shop.name,
         followersCount,
+        totalCustomers: customerOrders.length,
         rating: shop.rating,
         reviewsCount: shop.reviewsCount,
       },
@@ -332,6 +413,40 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
   } catch (error: any) {
     console.error('Analytics error:', error)
     return errorResponse(res, error?.message || 'Failed to fetch analytics', 500)
+  }
+})
+
+router.get('/analytics/product-views', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const shop = await prisma.shop.findFirst({ where: { ownerId: req.user!.id }, select: { id: true } })
+    if (!shop) return successResponse(res, { products: [], summary: null, trend: [], range: req.query.range || '30d' })
+    const { start, end, previousStart, previousEnd } = analyticsRange(req.query)
+    const products = await prisma.product.findMany({ where: { shopId: shop.id, status: { not: 'DELETED' } }, select: { id: true, name: true, price: true, images: { orderBy: { sortOrder: 'asc' }, take: 1 } } })
+    const metrics = await collectProductAnalytics(products.map(product => product.id), start, end, previousStart, previousEnd)
+    const rows = products.map(product => ({ ...product, price: Number(product.price), analytics: metrics.get(product.id) })).sort((a, b) => b.analytics.totalViews - a.analytics.totalViews)
+    const summary = rows.reduce((total, row) => ({ totalViews: total.totalViews + row.analytics.totalViews, uniqueViewers: total.uniqueViewers + row.analytics.uniqueViewers, addToCarts: total.addToCarts + row.analytics.addToCarts, wishlists: total.wishlists + row.analytics.wishlists, purchases: total.purchases + row.analytics.purchases, previousViews: total.previousViews + row.analytics.previousViews }), { totalViews: 0, uniqueViewers: 0, addToCarts: 0, wishlists: 0, purchases: 0, previousViews: 0 })
+    const trendMap = new Map<string, number>()
+    for (const row of rows) for (const [day, count] of metrics.get(row.id)?.trend || []) trendMap.set(day, (trendMap.get(day) || 0) + Number(count))
+    const trend = Array.from(trendMap, ([date, views]) => ({ date, views })).sort((a, b) => a.date.localeCompare(b.date))
+    return successResponse(res, { products: rows.map(({ id, name, price, images, analytics }) => ({ id, name, price, image: images[0]?.url || '', ...analytics, trend: Array.from(analytics.trend, ([date, views]) => ({ date, views })).sort((a, b) => a.date.localeCompare(b.date)), comparison: { views: percentChange(analytics.totalViews, analytics.previousViews), purchases: percentChange(analytics.purchases, analytics.previousPurchases) } })), summary: { ...summary, conversionRate: summary.totalViews ? Number(((summary.purchases / summary.totalViews) * 100).toFixed(2)) : 0, comparison: percentChange(summary.totalViews, summary.previousViews) }, trend, range: { start, end, previousStart, previousEnd } })
+  } catch (error) {
+    console.error('Product view analytics error:', error)
+    return errorResponse(res, 'Failed to fetch product analytics', 500)
+  }
+})
+
+router.get('/analytics/products/:productId', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const product = await prisma.product.findFirst({ where: { id: req.params.productId, sellerId: req.user!.id }, select: { id: true, name: true, price: true, images: { orderBy: { sortOrder: 'asc' }, take: 1 } } })
+    if (!product) return errorResponse(res, 'Product not found', 404)
+    const { start, end, previousStart, previousEnd } = analyticsRange(req.query)
+    const analytics = (await collectProductAnalytics([product.id], start, end, previousStart, previousEnd)).get(product.id)
+    const trend = Array.from(analytics.trend, ([date, views]) => ({ date, views })).sort((a, b) => a.date.localeCompare(b.date))
+    const bestDays = [...trend].sort((a, b) => b.views - a.views).slice(0, 5)
+    return successResponse(res, { product: { id: product.id, name: product.name, price: Number(product.price), image: product.images[0]?.url || '' }, analytics: { ...analytics, trend, bestDays, comparison: { views: percentChange(analytics.totalViews, analytics.previousViews), purchases: percentChange(analytics.purchases, analytics.previousPurchases) }, range: { start, end, previousStart, previousEnd } } })
+  } catch (error) {
+    console.error('Product detail analytics error:', error)
+    return errorResponse(res, 'Failed to fetch product analytics', 500)
   }
 })
 

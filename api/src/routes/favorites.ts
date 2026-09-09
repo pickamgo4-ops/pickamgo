@@ -89,6 +89,12 @@ router.post('/', authMiddleware, validateBody(favoriteSchema), async (req: Authe
     },
   })
 
+  if (targetType === 'PRODUCT') {
+    await prisma.productEngagement.create({
+      data: { productId: targetId, userId: req.user!.id, type: 'WISHLIST' },
+    })
+  }
+
   return successResponse(res, favorite, 201, 'Added to favorites')
 })
 

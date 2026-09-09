@@ -579,6 +579,9 @@ router.patch(
     try {
       const { id } = req.params;
       const { status } = req.body;
+      if (!['ACTIVE', 'HIDDEN', 'SUSPENDED', 'REMOVED'].includes(status)) {
+        return errorResponse(res, "Product status must be ACTIVE, HIDDEN, SUSPENDED, or REMOVED", 400);
+      }
 
       const product = await prisma.product.findUnique({ where: { id } });
       if (!product) return errorResponse(res, "Product not found", 404);
@@ -662,7 +665,11 @@ router.patch(
   async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
-      const { moderationStatus, moderationNotes } = req.body;
+      const { moderationStatus, moderationNotes, status } = req.body;
+
+      if (status && !['ACTIVE', 'HIDDEN', 'SUSPENDED', 'REMOVED'].includes(status)) {
+        return errorResponse(res, "Product status must be ACTIVE, HIDDEN, SUSPENDED, or REMOVED", 400);
+      }
 
       if (!["APPROVED", "REJECTED"].includes(moderationStatus)) {
         return errorResponse(res, "moderationStatus must be APPROVED or REJECTED", 400);
@@ -681,7 +688,7 @@ router.patch(
           moderationNotes: moderationNotes || null,
           moderatedBy: req.user!.id,
           moderatedAt: new Date(),
-          status: moderationStatus === "APPROVED" ? "ACTIVE" : product.status,
+          status: status || (moderationStatus === "APPROVED" ? "ACTIVE" : product.status),
         },
         include: {
           seller: { select: { id: true, name: true, email: true } },

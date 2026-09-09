@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Edit3, Eye, EyeOff, Package, Plus, Search, Trash2, Loader2 } from 'lucide-react'
+import { BarChart3, Edit3, Eye, EyeOff, Package, Plus, Search, Trash2, Loader2 } from 'lucide-react'
 import { SellerSidebar } from '@/components/SellerSidebar'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -157,6 +157,7 @@ export default function SellerProductsPage() {
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
                       <span className="font-bold text-warm-900">GH₵{Number(product.price).toFixed(2)}</span>
                       <span className="text-warm-800/60">Stock: {product.stock}</span>
+                      <span className="inline-flex items-center gap-1 text-warm-800/60"><Eye size={14} /> {product._count?.views || 0} views</span>
                       <span className="text-warm-800/50">Added {formatDate(product.createdAt)}</span>
                     </div>
                   </div>
@@ -169,6 +170,9 @@ export default function SellerProductsPage() {
                     </button>
                     <button aria-label="Manage stock" title="Manage stock" onClick={() => { setStockEditing(product.id); setStock(String(product.stock)) }} className="p-2 rounded-lg hover:bg-warm-100 text-primary">
                       <Package size={17} />
+                    </button>
+                    <button aria-label="View product analytics" title="View product analytics" onClick={() => window.location.href = `/seller/analytics?product=${product.id}`} className="p-2 rounded-lg hover:bg-warm-100 text-indigo-600">
+                      <BarChart3 size={17} />
                     </button>
                     <button aria-label="Delete product" title="Delete product" onClick={() => archive(product.id)} className="p-2 rounded-lg hover:bg-red-50 text-red-600">
                       <Trash2 size={17} />

@@ -263,6 +263,9 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         variant: true,
       },
     })
+      if (productId && userId) {
+        await prisma.productEngagement.create({ data: { productId, userId, type: 'ADD_TO_CART' } })
+      }
       return successResponse(res, updated, 200, 'Cart item updated')
     }
 
@@ -279,6 +282,10 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         shopId,
       },
     })
+
+    if (productId && userId) {
+      await prisma.productEngagement.create({ data: { productId, userId, type: 'ADD_TO_CART' } })
+    }
 
     return successResponse(res, newItem, 201, 'Added to cart')
   } catch (error) {
