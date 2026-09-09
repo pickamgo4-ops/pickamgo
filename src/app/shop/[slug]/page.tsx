@@ -16,12 +16,10 @@ import { shareLink } from '../../../lib/share'
 import dynamic from 'next/dynamic'
 
 const GoogleMap = dynamic(() => import('../../../components/map/GoogleMap'), { ssr: false })
-import { useTheme } from '../../../components/theme/ThemeProvider'
 
 export default function ShopPage() {
   const params = useParams()
   const router = useRouter()
-  const { theme } = useTheme()
   const routeSlug = Array.isArray(params.slug) ? params.slug[0] : params.slug
   const [shop, setShop] = useState<Shop | null>(null)
   const [loading, setLoading] = useState(true)
@@ -179,13 +177,13 @@ export default function ShopPage() {
       : customization.layout === 'QUICK_PICKS'
         ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
         : `grid-cols-2 md:grid-cols-3 ${customization.productColumns >= 4 ? 'lg:grid-cols-4' : customization.productColumns === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`
-  const surfaceTextColor = theme === 'dark' ? '#F5F1EA' : readableTextColor(customization.secondaryColor)
-  const primaryTextColor = theme === 'dark' ? '#171614' : readableTextColor(customization.primaryColor)
+  const surfaceTextColor = readableTextColor(customization.secondaryColor)
+  const primaryTextColor = readableTextColor(customization.primaryColor)
   const panelStyle = { backgroundColor: 'var(--shop-surface)', borderColor: 'var(--shop-border)', color: surfaceTextColor }
   const baseShopStyle = shopCustomizationStyle(customization)
 
   return (
-    <div className={`shop-storefront min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...baseShopStyle, ...(theme === 'dark' ? {} : { backgroundColor: customization.secondaryColor }), color: surfaceTextColor, '--shop-content-text': surfaceTextColor } as React.CSSProperties}>
+    <div className={`shop-storefront min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...baseShopStyle, backgroundColor: customization.secondaryColor, color: surfaceTextColor, '--shop-content-text': surfaceTextColor } as React.CSSProperties}>
       {/* Banner */}
       <div className={`relative ${customization.bannerStyle === 'MINIMAL' ? 'h-20 sm:h-24' : customization.bannerStyle === 'SHORT' ? 'h-28 sm:h-36' : 'h-40 sm:h-48 md:h-64'} bg-[var(--shop-secondary)]`}>
         {(customization.coverImage || shop.banner) && (

@@ -154,7 +154,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
           }}
           disabled={!canAddToCart || cartLoading}
           style={{ backgroundColor: 'var(--shop-primary)', color: 'var(--shop-primary-text)', borderColor: 'var(--shop-border)' }}
-          className="absolute top-20 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform border disabled:cursor-not-allowed disabled:opacity-50"
+          className="absolute bottom-2 right-2 w-9 h-9 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform border disabled:cursor-not-allowed disabled:opacity-50"
         >
           {cartLoading ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current" /> : <ShoppingCart size={16} />}
         </button>
