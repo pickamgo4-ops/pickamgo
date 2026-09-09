@@ -20,6 +20,7 @@ function getR2ConfigError(): string | null {
   if (!env.accessKeyId) missing.push('R2_ACCESS_KEY_ID')
   if (!env.secretAccessKey) missing.push('R2_SECRET_ACCESS_KEY')
   if (!env.bucketName) missing.push('R2_BUCKET_NAME')
+  if (process.env.NODE_ENV === 'production' && !env.publicUrl) missing.push('R2_PUBLIC_URL')
 
   if (missing.length > 0) {
     return `R2 is not fully configured. Missing env vars: ${missing.join(', ')}.`
@@ -171,6 +172,10 @@ export async function testR2Connection(): Promise<{ bucket: string; key: string 
 
 export function getStorageProvider(): multer.StorageEngine {
   initializeR2Client()
+
+  if (process.env.NODE_ENV === 'production' && !isR2Enabled()) {
+    throw new Error(getR2ConfigError() || 'Cloudflare R2 failed to initialize. Check Railway R2 environment variables and bucket permissions.')
+  }
 
   if (isR2Enabled()) {
     return {

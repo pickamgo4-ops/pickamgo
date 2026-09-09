@@ -20,6 +20,10 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `${apiTarget}/:path*`,
       },
+      {
+        source: '/uploads/:path*',
+        destination: `${apiTarget.replace(/\/api\/?$/, '')}/uploads/:path*`,
+      },
     ]
   },
   async headers() {

@@ -197,13 +197,24 @@ router.get('/orders', authMiddleware, requireRole(['SELLER']), async (req: Authe
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
         where,
-        include: {
-          items: { include: { product: true, service: true } },
+        select: {
+          id: true,
+          orderNumber: true,
+          guestName: true,
+          guestPhone: true,
+          total: true,
+          status: true,
+          deliveryAddress: true,
+          fulfillmentMethod: true,
+          createdAt: true,
+          items: { select: {
+            id: true,
+            name: true,
+            quantity: true,
+            product: { select: { id: true, name: true } },
+            service: { select: { id: true, name: true } },
+          } },
           customer: { select: { id: true, name: true, avatar: true, phone: true } },
-          seller: { select: { id: true, name: true, avatar: true } },
-          rider: { select: { id: true, name: true, avatar: true } },
-          payment: true,
-          delivery: true,
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -217,6 +228,7 @@ router.get('/orders', authMiddleware, requireRole(['SELLER']), async (req: Authe
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     })
   } catch (error) {
+    console.error('Failed to fetch seller orders:', error)
     return errorResponse(res, 'Failed to fetch orders', 500)
   }
 })

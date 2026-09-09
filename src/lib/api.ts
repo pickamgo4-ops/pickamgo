@@ -134,7 +134,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   try {
     let response: Response | null = null;
     let lastError: unknown;
-    const urlsToTry = [primaryUrl];
+    const urlsToTry = isFormDataRequest && primaryUrl !== fallbackUrl
+      ? [fallbackUrl, primaryUrl]
+      : [primaryUrl];
     const isProduction =
       typeof window !== "undefined" &&
       window.location.hostname !== "localhost" &&

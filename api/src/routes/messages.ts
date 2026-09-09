@@ -47,26 +47,37 @@ async function resolveAccess(currentUserId: string, otherUserId: string, orderId
     };
   }
 
-  const purchasedOrder = await prisma.order.findFirst({
+  return resolveStoreAccess(currentUserId, otherUserId);
+}
+
+async function resolveStoreAccess(
+  currentUserId: string,
+  otherUserId: string,
+  shopId?: string,
+) {
+  if (currentUserId === otherUserId) return null;
+
+  const shop = await prisma.shop.findFirst({
     where: {
-      customerId: currentUserId,
-      shopId: { not: null },
-      OR: [{ sellerId: otherUserId }, { shop: { ownerId: otherUserId } }],
+      id: shopId,
+      ownerId: otherUserId,
+      status: "ACTIVE",
     },
-    include: { payment: true },
+    select: { id: true },
   });
 
-  if (purchasedOrder && isOrderEligibleForMessaging(purchasedOrder)) {
-    return {
-      shopId: purchasedOrder.shopId,
-      orderId: purchasedOrder.id,
-      closedAt: ["CANCELLED", "DELIVERED", "FAILED"].includes(purchasedOrder.status)
-        ? new Date()
-        : undefined,
-    };
-  }
+  if (shop) return { shopId: shop.id, orderId: undefined, closedAt: undefined };
 
-  return null;
+  if (shopId) return null;
+
+  const ownedShop = await prisma.shop.findFirst({
+    where: { ownerId: otherUserId, status: "ACTIVE" },
+    select: { id: true },
+  });
+
+  return ownedShop
+    ? { shopId: ownedShop.id, orderId: undefined, closedAt: undefined }
+    : null;
 }
 
 async function resolvePurchasedShopAccess(
@@ -74,6 +85,9 @@ async function resolvePurchasedShopAccess(
   otherUserId: string,
   shopId?: string | null,
 ) {
+  const storeAccess = await resolveStoreAccess(currentUserId, otherUserId, shopId || undefined);
+  if (storeAccess) return storeAccess;
+
   const order = await prisma.order.findFirst({
     where: {
       customerId: currentUserId,
@@ -204,7 +218,7 @@ router.get("/access/:userId", authMiddleware, async (req: AuthenticatedRequest, 
     const shopId = typeof req.query.shopId === "string" ? req.query.shopId : undefined;
     const access = await resolvePurchasedShopAccess(req.user!.id, req.params.userId, shopId);
     if (!access) {
-      return errorResponse(res, "You must have an active order with this seller first.", 403);
+      return errorResponse(res, "This seller does not have an active store available for messaging.", 403);
     }
     return successResponse(res, { allowed: true, shopId: access.shopId, orderId: access.orderId });
   } catch (error) {
@@ -373,7 +387,7 @@ router.post(
       if (!access && !existingConversationAccess) {
         return errorResponse(
           res,
-          "You can message this seller after placing an order with this shop.",
+          "You must be signed in to message this store.",
           403,
         );
       }

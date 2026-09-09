@@ -131,7 +131,7 @@ export default function ShopPage() {
       const orderQuery = response.data.orderId ? `?orderId=${encodeURIComponent(response.data.orderId)}` : ''
       router.push(`/messages/${shop.owner.id}${orderQuery}`)
     } else {
-      setMessageAccessError(response.error || 'You must have an active order with this seller first.')
+      setMessageAccessError(response.error || 'You must be signed in to message this store.')
     }
   }
 
