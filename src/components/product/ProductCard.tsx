@@ -16,6 +16,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
   const [isFavorite, setIsFavorite] = useState(Boolean(product.isFavorite))
   const [favoriteLoading, setFavoriteLoading] = useState(false)
   const [cartLoading, setCartLoading] = useState(false)
+  const canAddToCart = product.isAvailable && product.stock > 0
   const customization = product.shop?.customization
   const cardStyle = customization
     ? shopCustomizationStyle(customization)
@@ -58,7 +59,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
       window.location.assign(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`)
       return
     }
-    if (!product.isAvailable || product.stock <= 0) return
+    if (!canAddToCart) return
     if (product.variants && product.variants.length > 0) {
       if (onClick) onClick()
       return
@@ -144,6 +145,20 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
           <Share2 size={16} />
         </button>
 
+        <button
+          type="button"
+          aria-label={canAddToCart ? `Add ${product.name} to cart` : `${product.name} is out of stock`}
+          onClick={(e) => {
+            e.stopPropagation()
+            void handleQuickAddToCart()
+          }}
+          disabled={!canAddToCart || cartLoading}
+          style={{ backgroundColor: 'var(--shop-primary)', color: 'var(--shop-primary-text)', borderColor: 'var(--shop-border)' }}
+          className="absolute top-20 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform border disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {cartLoading ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current" /> : <ShoppingCart size={16} />}
+        </button>
+
         {/* Discount Badge */}
         {product.discount && (
           <div className="absolute bottom-2 left-2">
@@ -210,7 +225,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
         </div>
 
         {/* Quick Add to Cart */}
-        {product.isAvailable && product.stock > 0 && (
+        {canAddToCart && (
           <button
             onClick={(e) => {
               e.stopPropagation()

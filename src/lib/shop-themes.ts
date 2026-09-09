@@ -62,6 +62,9 @@ export function shopCustomizationStyle(customization: ShopCustomization): CSSPro
     '--shop-surface': customization.secondaryColor,
     '--shop-button': customization.primaryColor,
     '--shop-card-radius': customization.productCardStyle === 'EDITORIAL' ? '0.25rem' : customization.productCardStyle === 'OUTLINED' ? '0.75rem' : '1rem',
+    '--shop-font-family': 'inherit',
+    '--shop-font-size': 'inherit',
+    '--shop-font-weight': 'inherit',
   } as CSSProperties
 }
 

@@ -185,7 +185,7 @@ export default function ShopPage() {
   const baseShopStyle = shopCustomizationStyle(customization)
 
   return (
-    <div className={`min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...baseShopStyle, ...(theme === 'dark' ? {} : { backgroundColor: customization.secondaryColor }), color: surfaceTextColor, '--shop-content-text': surfaceTextColor } as React.CSSProperties}>
+    <div className={`shop-storefront min-h-screen overflow-x-hidden pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...baseShopStyle, ...(theme === 'dark' ? {} : { backgroundColor: customization.secondaryColor }), color: surfaceTextColor, '--shop-content-text': surfaceTextColor } as React.CSSProperties}>
       {/* Banner */}
       <div className={`relative ${customization.bannerStyle === 'MINIMAL' ? 'h-20 sm:h-24' : customization.bannerStyle === 'SHORT' ? 'h-28 sm:h-36' : 'h-40 sm:h-48 md:h-64'} bg-[var(--shop-secondary)]`}>
         {(customization.coverImage || shop.banner) && (

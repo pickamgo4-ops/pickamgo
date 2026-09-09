@@ -415,6 +415,22 @@
 .dark .theme-STREET { background-color: #0D0D0D; }
 .dark .theme-BEAUTY { background-color: #1A1215; }
 
+/* Apply storefront customization to shared utility surfaces as well as controls. */
+.shop-storefront .bg-white,
+.shop-storefront .bg-warm-50,
+.shop-storefront .bg-warm-100 { background-color: var(--shop-surface) !important; }
+.shop-storefront .text-warm-900,
+.shop-storefront .text-warm-800,
+.shop-storefront .text-warm-800\/60,
+.shop-storefront .text-warm-800\/50,
+.shop-storefront .text-warm-800\/40 { color: var(--shop-text) !important; }
+.shop-storefront .border-warm-100,
+.shop-storefront .border-warm-200,
+.shop-storefront .border-warm-200\/50 { border-color: var(--shop-border) !important; }
+.shop-storefront .text-primary { color: var(--shop-primary) !important; }
+.shop-storefront .bg-primary { background-color: var(--shop-primary) !important; }
+.shop-storefront { font-family: var(--shop-font-family, inherit); }
+
 .dark .border-black\/10 { border-color: var(--border) !important; }
 .dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.2) !important; }
 .dark .text-blue-700 { color: #93C5FD !important; }
