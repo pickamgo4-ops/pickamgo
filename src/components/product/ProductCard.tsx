@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Heart, Share2, MapPin, Star, Clock, Flame, Sparkles, Tag, CheckCircle2 } from 'lucide-react'
+import { Heart, Share2, MapPin, Star, Clock, Flame, Sparkles, Tag, CheckCircle2, ShoppingCart } from 'lucide-react'
 import { Product } from '../../types'
 import { Badge } from '../../components/ui/Badge'
 import { shareLink } from '../../lib/share'
@@ -15,6 +15,7 @@ interface ProductCardProps {
 export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) {
   const [isFavorite, setIsFavorite] = useState(Boolean(product.isFavorite))
   const [favoriteLoading, setFavoriteLoading] = useState(false)
+  const [cartLoading, setCartLoading] = useState(false)
   const customization = product.shop?.customization
   const cardStyle = customization
     ? shopCustomizationStyle(customization)
@@ -48,6 +49,32 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
       if (response.success) setIsFavorite(!isFavorite)
     } finally {
       setFavoriteLoading(false)
+    }
+  }
+
+  const handleQuickAddToCart = async () => {
+    if (typeof window === 'undefined') return
+    if (!localStorage.getItem('token')) {
+      window.location.assign(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`)
+      return
+    }
+    if (!product.isAvailable || product.stock <= 0) return
+    if (product.variants && product.variants.length > 0) {
+      if (onClick) onClick()
+      return
+    }
+    if (product.shop?.allowGuestCheckout === false) {
+      if (onClick) onClick()
+      return
+    }
+    setCartLoading(true)
+    try {
+      const response = await api.addToCart({ productId: product.id, quantity: 1 })
+      if (response.success) {
+        window.dispatchEvent(new Event('cart-updated'))
+      }
+    } finally {
+      setCartLoading(false)
     }
   }
 
@@ -181,6 +208,25 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
           <Clock size={12} />
           <span>{product.deliveryTime}</span>
         </div>
+
+        {/* Quick Add to Cart */}
+        {product.isAvailable && product.stock > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              void handleQuickAddToCart()
+            }}
+            disabled={cartLoading}
+            className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-primary/90 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-70 transition-colors"
+          >
+            {cartLoading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <ShoppingCart size={16} />
+            )}
+            {cartLoading ? 'Adding...' : product.variants && product.variants.length > 0 ? 'Select options' : 'Add to cart'}
+          </button>
+        )}
       </div>
     </div>
   )
