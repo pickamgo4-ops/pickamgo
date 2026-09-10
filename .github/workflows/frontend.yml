@@ -5,12 +5,13 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
       - run: node scripts/check-public-env.cjs
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
@@ -18,7 +19,10 @@ jobs:
           NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || vars.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
           NEXT_PUBLIC_MARKETPLACE_DOMAIN: ${{ secrets.NEXT_PUBLIC_MARKETPLACE_DOMAIN || vars.NEXT_PUBLIC_MARKETPLACE_DOMAIN || 'pickamgo.com' }}
           NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID || vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '806419638142-pkegcrntdkn3abahd3q4ti50fff1uol4.apps.googleusercontent.com' }}
-      - run: npm run deploy
+      - run: npm run build:cloudflare
+      - name: Verify OpenNext output
+        run: test -f .open-next/worker.js && test -d .open-next/assets
+      - run: npx wrangler deploy --keep-vars
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
