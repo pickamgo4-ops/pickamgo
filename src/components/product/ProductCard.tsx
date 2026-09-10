@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { Heart, Share2, MapPin, Star, Clock, Flame, Sparkles, Tag, CheckCircle2, ShoppingCart } from 'lucide-react'
+import { Heart, Share2, MapPin, Star, Clock, Flame, Sparkles, Tag, CheckCircle2, ShoppingCart, GitCompareArrows } from 'lucide-react'
 import { Product } from '../../types'
 import { Badge } from '../../components/ui/Badge'
 import { shareLink } from '../../lib/share'
 import { shopCustomizationStyle } from '../../lib/shop-themes'
 import { api } from '../../lib/api'
+import { addComparedProduct } from '../../lib/comparison'
 
 interface ProductCardProps {
   product: Product
@@ -16,6 +17,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
   const [isFavorite, setIsFavorite] = useState(Boolean(product.isFavorite))
   const [favoriteLoading, setFavoriteLoading] = useState(false)
   const [cartLoading, setCartLoading] = useState(false)
+  const [compareMessage, setCompareMessage] = useState('')
   const canAddToCart = product.isAvailable && product.stock > 0
   const customization = product.shop?.customization
   const cardStyle = customization
@@ -77,6 +79,12 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
     } finally {
       setCartLoading(false)
     }
+  }
+
+  const handleCompare = () => {
+    const result = addComparedProduct(product.id)
+    setCompareMessage(result.added ? 'Added to compare' : result.reason === 'limit' ? 'Compare limit reached' : 'Already comparing')
+    window.setTimeout(() => setCompareMessage(''), 1800)
   }
 
   return (
@@ -147,6 +155,17 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
 
         <button
           type="button"
+          aria-label={`Compare ${product.name}`}
+          title="Compare product"
+          onClick={(e) => { e.stopPropagation(); handleCompare() }}
+          style={{ backgroundColor: 'var(--shop-surface)', color: 'var(--shop-text)', borderColor: 'var(--shop-border)' }}
+          className="absolute top-[5.5rem] right-2 flex h-8 w-8 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-transform hover:scale-110"
+        >
+          <GitCompareArrows size={16} />
+        </button>
+
+        <button
+          type="button"
           aria-label={canAddToCart ? `Add ${product.name} to cart` : `${product.name} is out of stock`}
           onClick={(e) => {
             e.stopPropagation()
@@ -162,7 +181,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
         {/* Discount Badge */}
         {product.discount && (
           <div className="absolute bottom-2 left-2">
-            <Badge variant="deal">-{product.discount}%</Badge>
+            <Badge variant="deal">{product.discount}% OFF</Badge>
           </div>
         )}
       </div>
@@ -223,6 +242,7 @@ export function ProductCard({ product, onClick, onFavorite }: ProductCardProps) 
           <Clock size={12} />
           <span>{product.deliveryTime}</span>
         </div>
+        {compareMessage && <p className="mt-2 text-xs font-medium text-primary" role="status">{compareMessage}</p>}
 
         {/* Quick Add to Cart */}
         {canAddToCart && (

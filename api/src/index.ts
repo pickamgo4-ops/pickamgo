@@ -59,6 +59,11 @@ import sellerWalletRoutes from './routes/seller-wallet'
 import cancellationRequestRoutes from './routes/cancellation-requests'
 import abandonedCartRoutes from './routes/abandoned-cart'
 import orderHistoryRoutes from './routes/order-history'
+import productQuestionRoutes from './routes/product-questions'
+import stockAlertRoutes from './routes/stock-alerts'
+import priceAlertRoutes from './routes/price-alerts'
+import reservationRoutes from './routes/reservations'
+import offerRoutes from './routes/offers'
 import prisma from './utils/prisma'
 
 const app = express()
@@ -230,6 +235,11 @@ app.use('/api/seller/wallet', sellerWalletRoutes)
 app.use('/api/orders/cancellation-requests', cancellationRequestRoutes)
 app.use('/api/cart/abandoned', abandonedCartRoutes)
 app.use('/api/orders', orderHistoryRoutes)
+app.use('/api/product-questions', productQuestionRoutes)
+app.use('/api/stock-alerts', stockAlertRoutes)
+app.use('/api/price-alerts', priceAlertRoutes)
+app.use('/api/reservations', reservationRoutes)
+app.use('/api/offers', offerRoutes)
 
 if (process.env.ADMIN_BOOTSTRAP_TOKEN?.trim()) {
   app.use('/api/admin/bootstrap', adminBootstrapRoutes)

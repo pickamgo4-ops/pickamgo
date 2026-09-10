@@ -281,6 +281,8 @@ function CheckoutContent() {
         productId: item.productId,
         serviceId: item.serviceId,
         variantId: item.variantId,
+        reservationId: item.reservationId,
+        offerId: item.offerId,
         quantity: item.quantity,
       }));
 
@@ -337,6 +339,8 @@ function CheckoutContent() {
         productId: item.productId,
         serviceId: item.serviceId,
         variantId: item.variantId,
+        reservationId: item.reservationId,
+        offerId: item.offerId,
         quantity: item.quantity,
       }));
 

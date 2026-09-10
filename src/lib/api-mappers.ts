@@ -1,17 +1,27 @@
 import { Product, BeautyService, Shop, Category, Cart, CartItem, CartItemWithRelations, Address, Order, ShopCategory, ProductVariant, SellerVerification, RiderProfile, RiderDelivery } from '../types'
 
+function calculatePercentageOff(originalPrice: unknown, currentPrice: unknown): number | undefined {
+  const original = Number(originalPrice)
+  const current = Number(currentPrice)
+  if (!Number.isFinite(original) || !Number.isFinite(current) || original <= current || original <= 0) return undefined
+  return Math.round(((original - current) / original) * 100)
+}
+
 export function mapApiProductToFrontend(apiProduct: any): Product {
   const activePromotion = apiProduct.promotionItems?.[0]
   const promotionPrice = activePromotion?.finalPrice != null ? Number(activePromotion.finalPrice) : undefined
   const basePrice = Number(apiProduct.price)
   const effectivePrice = promotionPrice != null && promotionPrice > 0 && promotionPrice < basePrice ? promotionPrice : apiProduct.price
-  const promotionDiscount = promotionPrice != null && basePrice > 0 ? Math.round((1 - promotionPrice / basePrice) * 100) : undefined
+  const calculatedDiscount = calculatePercentageOff(
+    promotionPrice != null ? basePrice : apiProduct.originalPrice,
+    effectivePrice,
+  )
   return {
     id: apiProduct.id,
     name: apiProduct.name,
     price: effectivePrice,
     originalPrice: promotionPrice != null ? basePrice : apiProduct.originalPrice,
-    discount: promotionDiscount ?? apiProduct.discount,
+    discount: calculatedDiscount ?? (apiProduct.discount != null ? Number(apiProduct.discount) : undefined),
     promotionName: activePromotion?.promotion?.name,
     promotionType: activePromotion?.promotion?.type,
     image: apiProduct.images?.[0]?.url || apiProduct.image || '',
@@ -48,9 +58,14 @@ export function mapApiProductToFrontend(apiProduct: any): Product {
     isDeal: apiProduct.isDeal,
     isFavorite: apiProduct.isFavorite || false,
     stock: apiProduct.stock ?? 0,
+    availableStock: apiProduct.availableStock,
     sku: apiProduct.sku,
     brand: apiProduct.brand,
     shortDescription: apiProduct.shortDescription,
+    allowOffers: apiProduct.allowOffers === true,
+    minimumOfferAmount: apiProduct.minimumOfferAmount != null ? Number(apiProduct.minimumOfferAmount) : undefined,
+    allowCounteroffers: apiProduct.allowCounteroffers !== false,
+    allowReservations: apiProduct.allowReservations !== false,
     variants: apiProduct.variants?.map((variant: any) => ({
       id: variant.id,
       productId: variant.productId || apiProduct.id,
@@ -59,6 +74,7 @@ export function mapApiProductToFrontend(apiProduct: any): Product {
       price: Number(variant.price) || 0,
       originalPrice: variant.originalPrice ? Number(variant.originalPrice) : undefined,
       stock: variant.stock ?? 0,
+      availableStock: variant.availableStock,
       image: variant.image,
       attributes: typeof variant.attributes === 'string' ? JSON.parse(variant.attributes) : (variant.attributes || {}),
       isActive: variant.isActive !== false,

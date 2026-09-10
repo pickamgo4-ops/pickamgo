@@ -1,5 +1,6 @@
 import { Router } from "express";
 import prisma from "../utils/prisma";
+import { deactivateProductPriceAlerts } from "../services/price-alerts";
 import { authMiddleware, requireRole, AuthenticatedRequest } from "../middleware/auth";
 import { successResponse, errorResponse, validateBody } from "../types/express";
 import { testR2Connection } from "../services/storage";
@@ -120,6 +121,13 @@ router.get(
         totalProducts,
         totalServices,
         totalOrders,
+        totalOffers,
+        pendingOffers,
+        acceptedOffers,
+        rejectedOffers,
+        expiredOffers,
+        activeReservations,
+        reservedUnits,
         totalRevenue,
         pendingOrders,
         completedOrders,
@@ -151,6 +159,13 @@ router.get(
         prisma.product.count({ where: { status: "ACTIVE" } }),
         prisma.service.count({ where: { status: "ACTIVE" } }),
         prisma.order.count({ where: { isTestOrder: false } }),
+        prisma.productOffer.count(),
+        prisma.productOffer.count({ where: { status: 'PENDING' } }),
+        prisma.productOffer.count({ where: { status: 'ACCEPTED' } }),
+        prisma.productOffer.count({ where: { status: 'REJECTED' } }),
+        prisma.productOffer.count({ where: { status: 'EXPIRED' } }),
+        prisma.productReservation.count({ where: { status: 'ACTIVE', expiresAt: { gt: new Date() } } }),
+        prisma.productReservation.aggregate({ where: { status: 'ACTIVE', expiresAt: { gt: new Date() } }, _sum: { quantity: true } }),
         prisma.order.aggregate({
           _sum: { total: true },
           where: { isTestOrder: false, payment: { status: "PAID" } },
@@ -229,6 +244,14 @@ router.get(
         (sum, item) => sum + Number(item._sum.amount || 0),
         0,
       );
+      const [activeStockAlerts, restockDemand] = await Promise.all([
+        prisma.productStockAlert.count({ where: { active: true } }),
+        prisma.productStockAlert.groupBy({ by: ['productId'], where: { active: true }, _count: { id: true }, orderBy: { _count: { id: 'desc' } }, take: 10 }),
+      ]);
+      const [activePriceAlerts, priceDropDemand] = await Promise.all([
+        prisma.productPriceAlert.count({ where: { active: true } }),
+        prisma.productPriceAlert.groupBy({ by: ['productId'], where: { active: true }, _count: { id: true }, orderBy: { _count: { id: 'desc' } }, take: 10 }),
+      ]);
 
       return successResponse(res, {
         stats: {
@@ -241,6 +264,13 @@ router.get(
           totalProducts,
           totalServices,
           totalOrders,
+          totalOffers,
+          pendingOffers,
+          acceptedOffers,
+          rejectedOffers,
+          expiredOffers,
+          activeReservations,
+          reservedUnits: reservedUnits._sum.quantity || 0,
           totalRevenue: Number(totalRevenue._sum.total || 0),
           pendingOrders,
           completedOrders,
@@ -259,6 +289,10 @@ router.get(
           todayOrders,
           todayRevenue: Number(todayRevenue._sum.total || 0),
           platformCommission,
+          activeStockAlerts,
+          topRestockDemand: restockDemand,
+          activePriceAlerts,
+          topPriceDropDemand: priceDropDemand,
         },
         recentOrders,
         recentUsers,
@@ -595,6 +629,7 @@ router.patch(
           category: { select: { id: true, name: true, emoji: true, color: true } },
         },
       });
+      if (updated.status !== 'ACTIVE') await deactivateProductPriceAlerts(prisma, id);
 
       return successResponse(res, updated, undefined, "Product updated successfully");
     } catch (error) {

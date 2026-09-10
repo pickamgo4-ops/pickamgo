@@ -10,6 +10,8 @@ const createCartItemSchema = z.object({
   productId: z.string().optional(),
   serviceId: z.string().optional(),
   variantId: z.string().optional(),
+  offerId: z.string().optional(),
+  reservationId: z.string().optional(),
   quantity: z.number().min(1).default(1),
 })
 
@@ -152,7 +154,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) =
 
 router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema), async (req: AuthenticatedRequest, res) => {
   try {
-    const { productId, serviceId, variantId, quantity } = req.body
+    const { productId, serviceId, variantId, offerId, reservationId, quantity } = req.body
     const userId = req.user?.id
     const sessionId = req.user ? undefined : getSessionId(req)
 
@@ -179,15 +181,26 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
       if (!userId && product.shop.allowGuestCheckout === false) {
         return errorResponse(res, 'This shop requires you to sign in before adding items to your cart.', 403, 'GUEST_CHECKOUT_REQUIRES_AUTH')
       }
+      if (offerId) {
+        const acceptedOffer = await prisma.productOffer.findFirst({ where: { id: offerId, productId, buyerId: userId, status: 'ACCEPTED', expiresAt: { gt: new Date() } } })
+        if (!acceptedOffer) return errorResponse(res, 'This accepted offer is no longer available', 409)
+        itemPrice = Number(acceptedOffer.offerAmount)
+      }
+      if (reservationId) {
+        if (!userId) return errorResponse(res, 'Reservations require a signed-in buyer', 401)
+        const reservation = await prisma.productReservation.findFirst({ where: { id: reservationId, productId, userId, status: 'ACTIVE', expiresAt: { gt: new Date() } } })
+        if (!reservation || reservation.variantId !== (variantId || null) || reservation.quantity !== quantity) return errorResponse(res, 'Reservation is invalid or has expired', 409)
+      }
 
       if (variantId) {
+        if (offerId) return errorResponse(res, 'Offers cannot be combined with a variant', 400)
         const variant = await prisma.productVariant.findUnique({ where: { id: variantId } })
         if (!variant || !variant.isActive || variant.productId !== product.id || variant.stock <= 0) {
           return errorResponse(res, 'Variant not found or unavailable', 404)
         }
         if (variant.stock < quantity) return errorResponse(res, 'Insufficient stock for selected variant', 400)
         itemPrice = Number(variant.price || product.price)
-      } else {
+      } else if (!offerId) {
         if (product.stock < quantity) return errorResponse(res, 'Insufficient stock', 400)
         itemPrice = Number(product.price)
       }
@@ -234,6 +247,8 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         productId: productId || null,
         serviceId: serviceId || null,
         variantId: variantId || null,
+        offerId: offerId || null,
+        reservationId: reservationId || null,
       },
     })
 
@@ -275,6 +290,8 @@ router.post('/items', optionalAuthMiddleware, validateBody(createCartItemSchema)
         productId: productId || null,
         serviceId: serviceId || null,
         variantId: variantId || null,
+        offerId: offerId || null,
+        reservationId: reservationId || null,
         quantity,
         price: itemPrice,
         name: itemName,
@@ -308,6 +325,10 @@ router.patch('/items/:id', optionalAuthMiddleware, validateBody(updateCartItemSc
     if (!item) return errorResponse(res, 'Cart item not found', 404)
 
     if (item.productId) {
+      if (item.reservationId) {
+        const reservation = await prisma.productReservation.findFirst({ where: { id: item.reservationId, userId: req.user?.id, status: 'ACTIVE', expiresAt: { gt: new Date() } }, select: { quantity: true } })
+        if (!reservation || reservation.quantity !== quantity) return errorResponse(res, 'Reserved quantities cannot be changed', 409)
+      }
       const product = await prisma.product.findUnique({ where: { id: item.productId }, select: { stock: true } })
       const variant = item.variantId ? await prisma.productVariant.findUnique({ where: { id: item.variantId }, select: { stock: true } }) : null
       const availableStock = variant?.stock ?? product?.stock ?? 0

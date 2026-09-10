@@ -11,6 +11,7 @@ import { generateOrderNumber } from '../utils/orderNumber'
 import { getAppUrl } from '../utils/url'
 import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, doesPromoApplyToGroup, type PromoValidationResult } from '../services/promo'
 import { findShippingZone, getActiveProductPromotion } from './seller-store'
+import { availableQuantity, expireReservations, lockInventoryRow } from '../services/reservations'
 
 const router = Router()
 
@@ -21,6 +22,8 @@ const checkoutSchema = z.object({
     productId: z.string().optional(),
     serviceId: z.string().optional(),
     variantId: z.string().optional(),
+    offerId: z.string().optional(),
+    reservationId: z.string().optional(),
     quantity: z.number().min(1).default(1),
   })).min(1),
   deliveryAddress: z.string().min(5).optional(),
@@ -369,7 +372,12 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
         return errorResponse(res, `Shop for ${product.name} is not available`, 400)
       }
 
-      if (item.variantId) {
+      if (item.offerId) {
+        if (!req.user?.id) return errorResponse(res, 'Accepted offers require a signed-in buyer', 401)
+        const acceptedOffer = await prisma.productOffer.findFirst({ where: { id: item.offerId, productId: product.id, buyerId: req.user.id, sellerId: product.sellerId, status: 'ACCEPTED', expiresAt: { gt: new Date() } } })
+        if (!acceptedOffer) return errorResponse(res, 'This accepted offer is no longer available', 409)
+        itemPrice = Number(acceptedOffer.offerAmount)
+      } else if (item.variantId) {
         const variant = await prisma.productVariant.findUnique({ where: { id: item.variantId } })
         if (!variant || !variant.isActive || variant.productId !== product.id) {
           return errorResponse(res, 'Variant not found or unavailable', 404)
@@ -430,6 +438,7 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       productId,
       serviceId,
       variantId: item.variantId || null,
+      reservationId: item.reservationId || null,
       sku: variant?.sku || null,
       variantName: variant?.name || null,
       variantAttributes: variant?.attributes || null,
@@ -546,6 +555,15 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
       })
 
       for (const item of group.items) {
+        if (item.productId) {
+          await lockInventoryRow(tx, item.productId, item.variantId || undefined)
+          await expireReservations(tx, item.productId)
+          const reservation = item.reservationId ? await tx.productReservation.findFirst({ where: { id: item.reservationId, productId: item.productId, userId: req.user!.id, status: 'ACTIVE', expiresAt: { gt: new Date() }, variantId: item.variantId || null } }) : null
+          if (item.reservationId && (!reservation || reservation.quantity !== item.quantity)) throw new Error('Reservation is no longer active')
+          const stock = item.variantId ? Number((await tx.productVariant.findUnique({ where: { id: item.variantId }, select: { stock: true } }))?.stock || 0) : Number((await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true } }))?.stock || 0)
+          const available = await availableQuantity(tx, item.productId, stock, item.variantId || undefined, item.reservationId || undefined)
+          if (item.quantity > available) throw new Error('Insufficient available stock')
+        }
         await tx.orderItem.create({
           data: {
             orderId: newOrder.id,
@@ -579,6 +597,9 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
             if (variantStockUpdate.count !== 1) {
               throw new Error('Variant stock changed while creating the order')
             }
+          }
+          if (item.reservationId) {
+            await tx.productReservation.update({ where: { id: item.reservationId }, data: { status: 'CONVERTED', convertedAt: new Date(), orderId: newOrder.id } })
           }
         }
       }

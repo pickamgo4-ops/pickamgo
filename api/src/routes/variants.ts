@@ -3,6 +3,9 @@ import prisma from '../utils/prisma'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse, validateBody } from '../types/express'
 import { z } from 'zod'
+import { notifyRestockTransition } from '../services/stock-alerts'
+import { notifyPriceDrop } from '../services/price-alerts'
+import { reservedQuantity } from '../services/reservations'
 
 const router = Router()
 
@@ -86,6 +89,11 @@ router.patch('/:id', authMiddleware, requireRole(['SELLER']), validateBody(updat
       }
     }
 
+    if (req.body.stock !== undefined) {
+      const reserved = await reservedQuantity(prisma, variant.productId, variant.id)
+      if (req.body.stock < reserved) return errorResponse(res, `Stock cannot be reduced below ${reserved} units currently reserved by buyers`, 409)
+    }
+
     const isLowStock = req.body.stock !== undefined
       ? req.body.stock > 0 && req.body.stock <= 5
       : variant.isLowStock
@@ -97,6 +105,8 @@ router.patch('/:id', authMiddleware, requireRole(['SELLER']), validateBody(updat
         isLowStock,
       },
     })
+    await notifyRestockTransition(prisma, variant.productId, variant.stock, updated.stock, variant.id)
+    if (req.body.price !== undefined) await notifyPriceDrop(prisma, variant.productId, Number(variant.price || variant.product.price), Number(updated.price || variant.product.price), variant.id)
 
     return successResponse(res, updated, undefined, 'Variant updated successfully')
   } catch (error) {

@@ -47,6 +47,10 @@ export default function EditProductPage() {
         status: value.status || 'ACTIVE',
         draft: value.draft || false,
         publishedAt: value.publishedAt || undefined,
+        allowOffers: value.allowOffers === true,
+        minimumOfferAmount: value.minimumOfferAmount || '',
+        allowCounteroffers: value.allowCounteroffers !== false,
+        allowReservations: value.allowReservations !== false,
       })
       const [platformResponse, shop] = await Promise.all([
         api.get<any>('/categories'),
@@ -109,6 +113,10 @@ export default function EditProductPage() {
       originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined,
       stock: Number(form.stock),
       images: parseImages(form.images),
+      allowOffers: Boolean(form.allowOffers),
+      minimumOfferAmount: form.minimumOfferAmount ? Number(form.minimumOfferAmount) : null,
+      allowCounteroffers: Boolean(form.allowCounteroffers),
+      allowReservations: Boolean(form.allowReservations),
     })
     if (response.success) {
       router.push('/seller/products')
@@ -147,6 +155,9 @@ export default function EditProductPage() {
               <Input label="Stock" type="number" min="0" value={form.stock} onChange={e => update('stock', e.target.value)} required />
             </div>
             <Input label="Sale/original price" type="number" min="0" step="0.01" value={form.originalPrice} onChange={e => update('originalPrice', e.target.value)} />
+            <label className="flex items-center gap-3 rounded-xl border border-warm-200 bg-white p-4 text-sm font-medium text-warm-900"><input type="checkbox" checked={form.allowReservations !== false} onChange={e => update('allowReservations', e.target.checked)} /> Allow Reservations</label>
+            <label className="flex items-center gap-3 rounded-xl border border-warm-200 bg-white p-4 text-sm font-medium text-warm-900"><input type="checkbox" checked={form.allowReservations !== false} onChange={e => update('allowReservations', e.target.checked)} /> Allow Reservations</label>
+            <div className="rounded-xl border border-warm-200 bg-white p-4 space-y-3"><label className="flex items-center gap-3 text-sm font-medium text-warm-900"><input type="checkbox" checked={Boolean(form.allowOffers)} onChange={e => update('allowOffers', e.target.checked)} /> Allow Offers</label>{form.allowOffers && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><Input label="Minimum offer amount (optional)" type="number" min="0.01" step="0.01" value={form.minimumOfferAmount || ''} onChange={e => update('minimumOfferAmount', e.target.value)} /><label className="flex items-center gap-3 text-sm font-medium text-warm-900 sm:pt-8"><input type="checkbox" checked={form.allowCounteroffers !== false} onChange={e => update('allowCounteroffers', e.target.checked)} /> Allow Counteroffers</label></div>}</div>
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm font-medium">Category
                 <select value={parentCategoryId} onChange={e => { setParentCategoryId(e.target.value); update('categoryId', e.target.value) }} className="mt-2 w-full rounded-xl border border-warm-200 p-3" required>

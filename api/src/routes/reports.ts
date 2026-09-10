@@ -39,6 +39,7 @@ const targetTypes = [
   "CUSTOMER",
   "RIDER",
   "MESSAGE",
+  "QUESTION",
   "PAYMENT",
   "USER",
   "OTHER",

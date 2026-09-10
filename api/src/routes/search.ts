@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import { successResponse, errorResponse } from '../types/express'
 import { z } from 'zod'
 import { distanceInKm } from '../utils/geo'
+import { withCalculatedProductDiscount } from '../utils/pricing'
 
 const router = Router()
 
@@ -100,7 +101,7 @@ router.get('/', async (req, res) => {
           .filter(product => product.distanceKm === null || product.distanceKm <= radius)
           .sort((a, b) => (a.distanceKm ?? Number.POSITIVE_INFINITY) - (b.distanceKm ?? Number.POSITIVE_INFINITY))
         : products
-      results.products = { items: nearbyProducts, total: productTotal, page, limit, totalPages: Math.ceil(productTotal / limit) }
+      results.products = { items: nearbyProducts.map(product => withCalculatedProductDiscount(product)), total: productTotal, page, limit, totalPages: Math.ceil(productTotal / limit) }
     }
 
     if (type === 'all' || type === 'services') {

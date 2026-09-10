@@ -1,5 +1,7 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma'
+import { notifyRestockTransition } from '../services/stock-alerts'
+import { reservedQuantity } from '../services/reservations'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { successResponse, errorResponse } from '../types/express'
 
@@ -127,10 +129,23 @@ router.patch('/products/:id/visibility', authMiddleware, requireRole(['SELLER'])
 router.patch('/products/:id/stock', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
   const stock = Number(req.body?.stock)
   if (!Number.isInteger(stock) || stock < 0) return errorResponse(res, 'Stock must be a whole number of zero or more', 400)
-  const product = await prisma.product.findFirst({ where: { id: req.params.id, sellerId: req.user!.id } })
-  if (!product) return errorResponse(res, 'Product not found', 404)
-  const updated = await prisma.product.update({ where: { id: product.id }, data: { stock, status: stock === 0 && product.status === 'ACTIVE' ? 'OUT_OF_STOCK' : stock > 0 && product.status === 'OUT_OF_STOCK' ? 'ACTIVE' : product.status } })
-  return successResponse(res, updated, 200, 'Stock updated')
+  try {
+    const { product, updated } = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT "id" FROM "Product" WHERE "id" = ${req.params.id} FOR UPDATE`
+      const current = await tx.product.findFirst({ where: { id: req.params.id, sellerId: req.user!.id } })
+      if (!current) throw Object.assign(new Error('Product not found'), { code: 'NOT_FOUND' })
+      const reserved = await reservedQuantity(tx, current.id)
+      if (stock < reserved) throw Object.assign(new Error(`Stock cannot be reduced below ${reserved} units currently reserved by buyers`), { code: 'RESERVED_STOCK' })
+      const changed = await tx.product.update({ where: { id: current.id }, data: { stock, status: stock === 0 && current.status === 'ACTIVE' ? 'OUT_OF_STOCK' : stock > 0 && current.status === 'OUT_OF_STOCK' ? 'ACTIVE' : current.status } })
+      return { product: current, updated: changed }
+    })
+    await notifyRestockTransition(prisma, product.id, product.stock, updated.stock)
+    return successResponse(res, updated, 200, 'Stock updated')
+  } catch (error: any) {
+    if (error?.code === 'NOT_FOUND') return errorResponse(res, error.message, 404)
+    if (error?.code === 'RESERVED_STOCK') return errorResponse(res, error.message, 409)
+    return errorResponse(res, 'Failed to update stock', 500)
+  }
 })
 
 router.get('/onboarding', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
@@ -358,7 +373,7 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
       return successResponse(res, { shop: null })
     }
 
-    const [totalOrders, totalRevenue, pendingOrders, totalProducts, followersCount, totalReviews, customerOrders] = await Promise.all([
+    const [totalOrders, totalRevenue, pendingOrders, totalProducts, followersCount, totalReviews, customerOrders, offersReceived, offersAccepted, offersRejected, acceptedOfferRevenue, priceAlertInterest] = await Promise.all([
       prisma.order.count({ where: { shopId: shop.id, isTestOrder: false } }),
       prisma.order.aggregate({
         where: { shopId: shop.id, isTestOrder: false, status: { not: 'CANCELLED' } },
@@ -369,6 +384,11 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
       prisma.shopFollow.count({ where: { shopId: shop.id } }),
       prisma.review.count({ where: { targetType: 'SHOP', targetId: shop.id } }),
       prisma.order.findMany({ where: { shopId: shop.id, isTestOrder: false, customerId: { not: null } }, select: { customerId: true }, distinct: ['customerId'] }),
+      prisma.productOffer.count({ where: { sellerId: req.user!.id } }),
+      prisma.productOffer.count({ where: { sellerId: req.user!.id, status: 'ACCEPTED' } }),
+      prisma.productOffer.count({ where: { sellerId: req.user!.id, status: 'REJECTED' } }),
+      prisma.productOffer.aggregate({ where: { sellerId: req.user!.id }, _sum: { offerAmount: true }, _avg: { offerAmount: true } }),
+      prisma.productPriceAlert.count({ where: { active: true, product: { sellerId: req.user!.id } } }),
     ])
 
     const topProducts = await prisma.product.findMany({
@@ -395,6 +415,13 @@ router.get('/analytics', authMiddleware, requireRole(['SELLER']), async (req: Au
         id: shop.id,
         name: shop.name,
         followersCount,
+        offersReceived,
+        offersAccepted,
+        offersRejected,
+        offerAcceptanceRate: offersReceived ? Number(((offersAccepted / offersReceived) * 100).toFixed(2)) : 0,
+        averageOfferAmount: Number(acceptedOfferRevenue._avg.offerAmount || 0),
+        revenueFromAcceptedOffers: Number(acceptedOfferRevenue._sum.offerAmount || 0),
+        activePriceAlertInterest: priceAlertInterest,
         totalCustomers: customerOrders.length,
         rating: shop.rating,
         reviewsCount: shop.reviewsCount,

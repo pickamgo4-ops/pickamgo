@@ -33,9 +33,14 @@ export interface Product {
   isDeal?: boolean;
   isFavorite?: boolean;
   stock: number;
+  availableStock?: number | null;
   sku?: string;
   brand?: string;
   shortDescription?: string;
+  allowOffers?: boolean;
+  minimumOfferAmount?: number;
+  allowCounteroffers?: boolean;
+  allowReservations?: boolean;
   variants?: ProductVariant[];
   createdAt: string;
 }
@@ -179,6 +184,8 @@ export interface OrderItem {
   productId?: string;
   serviceId?: string;
   variantId?: string;
+  offerId?: string;
+  reservationId?: string;
 }
 
 export interface Review {
@@ -205,6 +212,8 @@ export interface CartItem {
   productId?: string;
   serviceId?: string;
   variantId?: string;
+  offerId?: string;
+  reservationId?: string;
   shopId?: string;
   quantity: number;
   price: number;
@@ -225,6 +234,8 @@ export interface CheckoutItem {
   productId?: string;
   serviceId?: string;
   variantId?: string;
+  offerId?: string;
+  reservationId?: string;
   quantity: number;
 }
 
@@ -279,6 +290,7 @@ export interface ProductVariant {
   price: number;
   originalPrice?: number;
   stock: number;
+  availableStock?: number;
   image?: string;
   attributes: Record<string, string>;
   isActive: boolean;

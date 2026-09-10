@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Heart, Share2, MapPin, Star, Truck, ChevronLeft, Store, Clock, MessageCircle, Minus, Plus, ShoppingCart, Flame, Sparkles, Tag, CheckCircle2 } from 'lucide-react'
+import { Heart, Share2, MapPin, Star, Truck, ChevronLeft, Store, Clock, MessageCircle, Minus, Plus, ShoppingCart, Flame, Sparkles, Tag, CheckCircle2, GitCompareArrows } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
+import { Input } from '../../../components/ui/Input'
 import { api } from '../../../lib/api'
 import { Product } from '../../../types'
 import { mapApiProductToFrontend } from '../../../lib/api-mappers'
@@ -15,6 +16,7 @@ import { PaymentSafetyNotice } from '../../../components/ui/PaymentSafetyNotice'
 import { ProductReportModal } from '../../../components/ProductReportModal'
 import { useRole } from '../../../contexts/RoleContext'
 import { defaultShopCustomization, shopCustomizationStyle, themeClass } from '../../../lib/shop-themes'
+import { addComparedProduct } from '../../../lib/comparison'
 
 export default function ProductPage() {
   const params = useParams()
@@ -37,11 +39,36 @@ export default function ProductPage() {
   const [cartSuccess, setCartSuccess] = useState('')
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
+  const [offerOpen, setOfferOpen] = useState(false)
+  const [offerAmount, setOfferAmount] = useState('')
+  const [offerMessage, setOfferMessage] = useState('')
+  const [offerStatus, setOfferStatus] = useState('')
+  const [offerError, setOfferError] = useState('')
+  const [offerSubmitting, setOfferSubmitting] = useState(false)
+  const [compareStatus, setCompareStatus] = useState('')
+  const [alertSubscribed, setAlertSubscribed] = useState(false)
+  const [alertStatus, setAlertStatus] = useState('')
+  const [alertLoading, setAlertLoading] = useState(false)
+  const [reservationOpen, setReservationOpen] = useState(false)
+  const [reservationQuantity, setReservationQuantity] = useState(1)
+  const [reservation, setReservation] = useState<any>(null)
+  const [reservationError, setReservationError] = useState('')
+  const [reservationLoading, setReservationLoading] = useState(false)
+  const [reservationStatus, setReservationStatus] = useState('')
+  const [priceAlertSubscribed, setPriceAlertSubscribed] = useState(false)
+  const [priceAlertStatus, setPriceAlertStatus] = useState('')
+  const [priceAlertLoading, setPriceAlertLoading] = useState(false)
+  const [questions, setQuestions] = useState<any[]>([])
+  const [questionText, setQuestionText] = useState('')
+  const [questionsLoading, setQuestionsLoading] = useState(true)
+  const [questionSubmitting, setQuestionSubmitting] = useState(false)
+  const [questionError, setQuestionError] = useState('')
+  const [questionSuccess, setQuestionSuccess] = useState('')
 
   const activeVariant = product?.variants?.find(v => v.id === selectedVariantId) || null
   const hasVariants = (product?.variants?.length || 0) > 0
-  const selectedVariantStock = activeVariant ? activeVariant.stock : (product?.stock ?? 0)
-  const isOutOfStock = selectedVariantStock <= 0
+  const selectedVariantStock = activeVariant ? (activeVariant.availableStock ?? activeVariant.stock) : (product?.availableStock ?? product?.stock ?? 0)
+  const isOutOfStock = hasVariants ? Boolean(selectedVariantId) && selectedVariantStock <= 0 : selectedVariantStock <= 0
   const variantRequiredButNotSelected = hasVariants && !selectedVariantId
   const canPurchase = !isOutOfStock && !variantRequiredButNotSelected
   const isGuest = typeof window !== 'undefined' && !localStorage.getItem('token')
@@ -59,9 +86,43 @@ export default function ProductPage() {
   }, [productId])
 
   useEffect(() => {
+    if (!productId) return
+    setQuestionsLoading(true)
+    api.getProductQuestions(productId).then(response => {
+      if (response.success) setQuestions(response.data || [])
+      else setQuestionError(response.error || 'Unable to load questions.')
+    }).catch(() => setQuestionError('Something went wrong. Please try again.'))
+      .finally(() => setQuestionsLoading(false))
+  }, [productId])
+
+  useEffect(() => {
     if (!productId || !authInitialized || !user) return
     checkFavoriteStatus()
   }, [productId, authInitialized, user])
+
+  useEffect(() => {
+    if (!productId || !authInitialized || !user) return
+    api.getStockAlerts().then(response => {
+      if (response.success) setAlertSubscribed((response.data || []).some((alert: any) => alert.active && alert.product?.id === productId && (alert.variant?.id || null) === selectedVariantId))
+    }).catch(() => undefined)
+  }, [productId, authInitialized, user, selectedVariantId])
+
+  useEffect(() => {
+    if (!productId || !authInitialized || !user) return
+    api.getPriceAlerts().then(response => {
+      if (response.success) setPriceAlertSubscribed((response.data || []).some((alert: any) => alert.active && alert.product?.id === productId && (alert.variant?.id || null) === selectedVariantId))
+    }).catch(() => undefined)
+  }, [productId, authInitialized, user, selectedVariantId])
+
+  useEffect(() => {
+    if (!productId || !authInitialized || !user) return
+    api.getReservations().then(response => {
+      if (response.success) {
+        const active = (response.data || []).find((item: any) => item.status === 'ACTIVE' && item.product?.id === productId && (item.variant?.id || null) === selectedVariantId && new Date(item.expiresAt) > new Date())
+        setReservation(active || null)
+      }
+    }).catch(() => undefined)
+  }, [productId, authInitialized, user, selectedVariantId])
 
   const checkFavoriteStatus = useCallback(async () => {
     if (!productId || !user) return
@@ -183,6 +244,26 @@ export default function ProductPage() {
     }
   }
 
+  const reserveItem = async () => {
+    if (!product) return
+    if (!localStorage.getItem('token')) {
+      router.push(`/auth/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`)
+      return
+    }
+    setReservationLoading(true)
+    setReservationError('')
+    setReservationStatus('')
+    const response = await api.createReservation({ productId: product.id, variantId: selectedVariantId || undefined, quantity: reservationQuantity })
+    if (response.success) {
+      setReservation(response.data)
+      setReservationOpen(false)
+      setReservationStatus(`Reserved until ${new Date(response.data.expiresAt).toLocaleTimeString()}.`)
+    } else {
+      setReservationError(response.error || 'Unable to reserve this item.')
+    }
+    setReservationLoading(false)
+  }
+
   const handleShareProduct = () => {
     if (!product || typeof window === 'undefined') return
     void shareLink({
@@ -190,6 +271,31 @@ export default function ProductPage() {
       text: `Check out ${product.name} on PickAmGo`,
       url: window.location.href,
     })
+  }
+
+  const submitQuestion = async () => {
+    if (!product || !questionText.trim()) return
+    if (!localStorage.getItem('token')) {
+      router.push(`/auth/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`)
+      return
+    }
+    setQuestionSubmitting(true)
+    setQuestionError('')
+    setQuestionSuccess('')
+    try {
+      const response = await api.askProductQuestion(product.id, questionText.trim())
+      if (!response.success) {
+        setQuestionError(response.error || 'Unable to submit your question.')
+        return
+      }
+      setQuestions(current => [response.data, ...current])
+      setQuestionText('')
+      setQuestionSuccess('Question submitted.')
+    } catch {
+      setQuestionError('Something went wrong. Please try again.')
+    } finally {
+      setQuestionSubmitting(false)
+    }
   }
 
   const images = product
@@ -291,8 +397,53 @@ export default function ProductPage() {
     shortDescription: product.shortDescription,
     variants: product.variants,
     createdAt: product.createdAt,
+    allowOffers: product.allowOffers,
+    minimumOfferAmount: product.minimumOfferAmount,
+    allowCounteroffers: product.allowCounteroffers,
   } as Product
   const customization = { ...defaultShopCustomization, ...(safeProduct.shop?.customization || {}) }
+  const selectedAvailableStock = activeVariant?.availableStock ?? safeProduct.availableStock ?? safeProduct.stock
+  const canReserve = safeProduct.allowReservations !== false && selectedAvailableStock > 0 && (!hasVariants || Boolean(selectedVariantId))
+
+  const submitOffer = async () => {
+    const amount = Number(offerAmount)
+    if (!Number.isFinite(amount) || amount <= 0) { setOfferError('Enter a valid offer amount.'); return }
+    if (!localStorage.getItem('token')) { router.push(`/auth/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`); return }
+    setOfferSubmitting(true); setOfferError(''); setOfferStatus('')
+    const response = await api.createOffer(safeProduct.id, { offerAmount: amount, buyerMessage: offerMessage.trim() || undefined })
+    if (response.success) { setOfferStatus('Offer submitted.'); setOfferAmount(''); setOfferMessage('') }
+    else setOfferError(response.error || 'Unable to submit offer.')
+    setOfferSubmitting(false)
+  }
+
+  const subscribeToRestock = async () => {
+    if (!localStorage.getItem('token')) { router.push(`/auth/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`); return }
+    setAlertLoading(true); setAlertStatus('')
+    const response = await api.subscribeStockAlert(safeProduct.id, selectedVariantId || undefined)
+    if (response.success) { setAlertSubscribed(true); setAlertStatus(response.message || 'You will be notified when this is back in stock.') }
+    else if (response.message?.toLowerCase().includes('already') || response.error?.toLowerCase().includes('already')) { setAlertSubscribed(true); setAlertStatus("You're already on the restock list.") }
+    else setAlertStatus(response.error || 'Something went wrong. Please try again.')
+    setAlertLoading(false)
+  }
+
+  const subscribeToPriceDrop = async () => {
+    if (!localStorage.getItem('token')) { router.push(`/auth/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`); return }
+    setPriceAlertLoading(true); setPriceAlertStatus('')
+    const response = await api.subscribePriceAlert(safeProduct.id, selectedVariantId || undefined)
+    if (response.success) { setPriceAlertSubscribed(true); setPriceAlertStatus(response.message || 'You will be notified if the price drops.') }
+    else if (response.message?.toLowerCase().includes('already') || response.error?.toLowerCase().includes('already')) { setPriceAlertSubscribed(true); setPriceAlertStatus("You're already watching this price.") }
+    else setPriceAlertStatus(response.error || 'Something went wrong. Please try again.')
+    setPriceAlertLoading(false)
+  }
+
+  const createReservation = async () => {
+    if (!localStorage.getItem('token')) { router.push(`/auth/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`); return }
+    setReservationLoading(true); setReservationError('')
+    const response = await api.createReservation({ productId: safeProduct.id, variantId: selectedVariantId || undefined, quantity: reservationQuantity })
+    if (response.success) { setReservation(response.data); setReservationOpen(false) }
+    else setReservationError(response.error || 'Unable to reserve this item.')
+    setReservationLoading(false)
+  }
 
   return (
     <div className={`min-h-screen pb-24 md:pb-8 ${themeClass(customization.theme)}`} style={{ ...shopCustomizationStyle(customization), color: 'var(--shop-text)' }}>
@@ -479,9 +630,11 @@ export default function ProductPage() {
             const activeVariant = safeProduct.variants?.find(v => v.id === selectedVariantId)
             const displayPrice = activeVariant ? (activeVariant.price || safeProduct.price) : safeProduct.price
             const displayOriginalPrice = activeVariant ? (activeVariant.originalPrice || safeProduct.originalPrice) : safeProduct.originalPrice
-            const displayDiscount = activeVariant ? ((activeVariant.originalPrice && activeVariant.price && activeVariant.originalPrice > activeVariant.price) ? Math.round(((activeVariant.originalPrice - activeVariant.price) / activeVariant.originalPrice) * 100) : undefined) : safeProduct.discount
+            const displayDiscount = activeVariant
+              ? ((activeVariant.originalPrice && activeVariant.price && activeVariant.originalPrice > activeVariant.price) ? Math.round(((activeVariant.originalPrice - activeVariant.price) / activeVariant.originalPrice) * 100) : undefined)
+              : safeProduct.discount
             const displayStock = activeVariant ? activeVariant.stock : safeProduct.stock
-            const isOutOfStock = displayStock <= 0
+            const isOutOfStock = hasVariants ? Boolean(selectedVariantId) && displayStock <= 0 : displayStock <= 0
 
             return (
               <>
@@ -496,14 +649,18 @@ export default function ProductPage() {
                   )}
                   {displayDiscount && (
                     <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-                      Save {displayDiscount}%
+                      {displayDiscount}% OFF
                     </span>
                   )}
                 </div>
 
                 {isOutOfStock && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium">
-                    Out of stock
+                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    <p className="font-medium">Out of stock</p>
+                    <button type="button" onClick={subscribeToRestock} disabled={alertLoading || alertSubscribed} className="mt-2 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60">
+                      {alertLoading ? 'Saving...' : alertSubscribed ? "You're already on the restock list." : 'Notify Me'}
+                    </button>
+                    {alertStatus && <p className="mt-2 font-normal" role="status">{alertStatus}</p>}
                   </div>
                 )}
 
@@ -593,7 +750,49 @@ export default function ProductPage() {
            </div>
          </div>
 
+         <section className="mb-8 border-t border-warm-200 pt-6" aria-labelledby="questions-heading">
+           <div className="flex items-center justify-between gap-3 mb-4">
+             <h2 id="questions-heading" className="font-semibold text-lg text-warm-900">Questions &amp; Answers</h2>
+             <span className="text-sm text-warm-800/60">{questions.length} question{questions.length === 1 ? '' : 's'}</span>
+           </div>
+           {questionsLoading ? <p className="text-sm text-warm-800/60">Loading questions...</p> : questions.length === 0 ? (
+             <p className="text-sm text-warm-800/60">No questions yet.</p>
+           ) : (
+             <div className="space-y-4">
+               {questions.map(item => (
+                 <div key={item.id} className="border-b border-warm-100 pb-4 last:border-0">
+                   <div className="flex items-start justify-between gap-3">
+                     <div>
+                       <p className="font-medium text-warm-900">{item.question}</p>
+                       <p className="mt-1 text-xs text-warm-800/50">Asked by {item.buyerName || 'Buyer'} on {new Date(item.createdAt).toLocaleDateString()}</p>
+                     </div>
+                     {item.isOwner && !item.answer && <button type="button" onClick={async () => { const response = await api.deleteProductQuestion(item.id); if (response.success) setQuestions(current => current.filter(question => question.id !== item.id)) }} className="text-xs text-red-600 hover:underline">Delete</button>}
+                   </div>
+                   {item.answer && <p className="mt-2 border-l-2 border-primary pl-3 text-sm text-warm-800/70"><span className="font-semibold text-warm-900">Seller response:</span> {item.answer}</p>}
+                 </div>
+               ))}
+             </div>
+           )}
+           <div className="mt-5">
+             <label htmlFor="product-question" className="sr-only">Ask a question about this product</label>
+             <textarea id="product-question" value={questionText} onChange={event => setQuestionText(event.target.value)} maxLength={500} rows={3} placeholder="Ask a question about this product" className="w-full rounded-xl border border-warm-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary" />
+             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+               <span className="text-xs text-warm-800/50">{questionText.length}/500</span>
+               <Button size="sm" onClick={submitQuestion} disabled={questionSubmitting || questionText.trim().length < 5}>{questionSubmitting ? 'Submitting...' : 'Ask question'}</Button>
+             </div>
+             {(questionError || questionSuccess) && <p className={`mt-2 text-sm ${questionError ? 'text-red-600' : 'text-green-600'}`} role="status">{questionError || questionSuccess}</p>}
+           </div>
+         </section>
+
         {/* Quantity & Actions */}
+        {safeProduct.allowOffers && !isOutOfStock && <Button variant="outline" fullWidth className="mb-3" onClick={() => { setOfferOpen(true); setOfferError(''); setOfferStatus('') }}>Make an Offer</Button>}
+        {canReserve && !reservation && <Button variant="outline" fullWidth className="mb-3" onClick={() => { setReservationOpen(true); setReservationQuantity(Math.min(1, selectedAvailableStock)); setReservationError('') }}><Clock size={17} /> Reserve for 30 minutes</Button>}
+        {reservation && <div className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-primary" role="status">Reserved until {new Date(reservation.expiresAt).toLocaleTimeString()} <button type="button" className="ml-2 underline" onClick={() => router.push('/account/reservations')}>Manage reservation</button></div>}
+        {reservationStatus && !reservation && <p className="-mt-2 mb-3 text-center text-sm text-primary" role="status">{reservationStatus}</p>}
+        <Button variant="ghost" fullWidth className="mb-3" onClick={subscribeToPriceDrop} disabled={priceAlertLoading || priceAlertSubscribed}>{priceAlertLoading ? 'Saving...' : priceAlertSubscribed ? "You're already watching this price." : 'Alert me when the price drops'}</Button>
+        {priceAlertStatus && <p className="-mt-2 mb-3 text-center text-sm text-primary" role="status">{priceAlertStatus}</p>}
+        <Button variant="ghost" fullWidth className="mb-3" onClick={() => { const result = addComparedProduct(safeProduct.id); setCompareStatus(result.added ? 'Added to comparison.' : result.reason === 'limit' ? 'Compare up to 4 products.' : 'This product is already being compared.'); window.setTimeout(() => setCompareStatus(''), 1800) }}><GitCompareArrows size={17} /> Compare</Button>
+        {compareStatus && <p className="-mt-2 mb-3 text-center text-sm text-primary" role="status">{compareStatus}</p>}
         <div className="hidden sm:flex gap-3 sticky bottom-4 md:relative z-10">
           <div className="flex items-center gap-2 bg-white border border-warm-200 rounded-xl px-3">
             <button
@@ -703,6 +902,12 @@ export default function ProductPage() {
           </div>
         </div>
       )}
+      {offerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="offer-heading">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><div className="flex items-start justify-between gap-4"><div><h2 id="offer-heading" className="font-display text-xl font-bold text-warm-900">Make an Offer</h2><p className="mt-1 text-sm text-warm-800/60">{safeProduct.name}</p></div><button type="button" aria-label="Close offer form" onClick={() => setOfferOpen(false)} className="text-2xl text-warm-800/50">×</button></div><p className="mt-5 text-sm text-warm-800/70">Current price <span className="font-semibold text-warm-900">GH₵{Number(safeProduct.price).toFixed(2)}</span></p>{safeProduct.minimumOfferAmount && <p className="mt-1 text-xs text-warm-800/50">Minimum offer: GH₵{Number(safeProduct.minimumOfferAmount).toFixed(2)}</p>}<div className="mt-4 space-y-3"><Input label="Your offer" type="number" min={safeProduct.minimumOfferAmount || 0.01} step="0.01" value={offerAmount} onChange={event => setOfferAmount(event.target.value)} placeholder="0.00" /><label className="block text-sm font-medium text-warm-900">Message (optional)<textarea value={offerMessage} onChange={event => setOfferMessage(event.target.value)} maxLength={500} rows={3} className="mt-2 w-full rounded-xl border border-warm-200 p-3 text-sm" /></label></div>{(offerError || offerStatus) && <p className={`mt-3 text-sm ${offerError ? 'text-red-600' : 'text-green-600'}`} role="status">{offerError || offerStatus}</p>}<div className="mt-5 flex gap-3"><Button fullWidth variant="ghost" onClick={() => setOfferOpen(false)}>Cancel</Button><Button fullWidth onClick={submitOffer} disabled={offerSubmitting}>{offerSubmitting ? 'Submitting...' : 'Submit offer'}</Button></div></div>
+        </div>
+      )}
+      {reservationOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="reservation-heading"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h2 id="reservation-heading" className="font-display text-xl font-bold text-warm-900">Reserve for 30 minutes</h2><p className="mt-2 text-sm text-warm-800/70">Hold this item while you complete checkout. The server confirms availability before reserving.</p><Input className="mt-4" label="Quantity" type="number" min="1" max={selectedVariantStock || safeProduct.availableStock || safeProduct.stock} value={reservationQuantity} onChange={event => setReservationQuantity(Math.max(1, Number(event.target.value) || 1))} />{reservationError && <p className="mt-3 text-sm text-red-600" role="alert">{reservationError}</p>}<div className="mt-5 flex gap-3"><Button variant="ghost" fullWidth onClick={() => setReservationOpen(false)}>Cancel</Button><Button fullWidth onClick={createReservation} disabled={reservationLoading}>{reservationLoading ? 'Reserving...' : 'Reserve Item'}</Button></div></div></div>}
       {reportOpen && <ProductReportModal productId={safeProduct.id} onClose={() => setReportOpen(false)} onSubmit={data => api.submitReport({ ...data, targetType: 'PRODUCT', targetId: safeProduct.id })} />}
 
       {/* Recommendations Section */}

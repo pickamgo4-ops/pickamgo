@@ -2,6 +2,7 @@ import { Router } from 'express'
 import crypto from 'crypto'
 import { z } from 'zod'
 import prisma from '../utils/prisma'
+import { notifyPriceDrop } from '../services/price-alerts'
 import { authMiddleware, requireRole, AuthenticatedRequest } from '../middleware/auth'
 import { errorResponse, successResponse, validateBody } from '../types/express'
 
@@ -80,11 +81,20 @@ router.post('/promotions', authMiddleware, requireRole(['SELLER']), validateBody
   const products = await prisma.product.findMany({ where: { id: { in: req.body.productIds }, shopId: shop.id }, select: { id: true, price: true } }); if (products.length !== req.body.productIds.length) return errorResponse(res, 'Promotions can only contain your shop products', 403)
   const items = products.map(product => { const original = Number(product.price); const final = req.body.discountType === 'PERCENTAGE' ? original * (1 - req.body.discountValue / 100) : original - req.body.discountValue; if (req.body.discountType === 'PERCENTAGE' && req.body.discountValue >= 100) throw new Error('Discount percentage must be below 100'); if (final <= 0 || final >= original) throw new Error('Promotion must produce a positive price below the original price'); return { productId: product.id, originalPrice: original, finalPrice: Math.round(final * 100) / 100 } })
   const promotion = await prisma.productPromotion.create({ data: { shopId: shop.id, name: req.body.name, type: req.body.type, discountType: req.body.discountType, discountValue: req.body.discountValue, startsAt: req.body.startsAt, endsAt: req.body.endsAt, maxQuantity: req.body.maxQuantity || null, bannerUrl: req.body.bannerUrl || null, status: req.body.status, products: { create: items } }, include: { products: true } })
+  if (req.body.status === 'ACTIVE' && req.body.startsAt <= new Date() && req.body.endsAt >= new Date()) {
+    for (const item of promotion.products) await notifyPriceDrop(prisma, item.productId, Number(item.originalPrice), Number(item.finalPrice))
+  }
   return successResponse(res, promotion, 201, 'Promotion created')
 })
 router.patch('/promotions/:id/status', authMiddleware, requireRole(['SELLER']), validateBody(z.object({ status: z.enum(['DRAFT', 'ACTIVE', 'PAUSED', 'EXPIRED']) })), async (req: AuthenticatedRequest, res) => {
   const shop = await sellerShop(req.user!.id); if (!shop) return errorResponse(res, 'Shop not found', 404)
+  const promotion = await prisma.productPromotion.findFirst({ where: { id: req.params.id, shopId: shop.id }, include: { products: true } })
+  if (!promotion) return errorResponse(res, 'Promotion not found', 404)
   const updated = await prisma.productPromotion.updateMany({ where: { id: req.params.id, shopId: shop.id }, data: { status: req.body.status } }); if (!updated.count) return errorResponse(res, 'Promotion not found', 404)
+  const now = new Date()
+  if (req.body.status === 'ACTIVE' && promotion.status !== 'ACTIVE' && promotion.startsAt <= now && promotion.endsAt >= now) {
+    for (const item of promotion.products) await notifyPriceDrop(prisma, item.productId, Number(item.originalPrice), Number(item.finalPrice))
+  }
   return successResponse(res, updated, 200, 'Promotion status updated')
 })
 

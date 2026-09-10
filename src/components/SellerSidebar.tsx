@@ -6,7 +6,7 @@ import {
   Home, LayoutDashboard, Store, Package, Tag, Archive, ShoppingBag, 
   TrendingUp, Star, MessageSquare, Bell, Settings, HelpCircle,
   Palette, CheckCircle, ChevronLeft, LogOut, Calendar,
-   DollarSign, Truck, Ticket, Users, Sparkles, Shield
+  DollarSign, Truck, Ticket, Users, Sparkles, Shield, Clock
 } from 'lucide-react'
 import { useRole } from '@/contexts/RoleContext'
 import { api } from '@/lib/api'
@@ -36,6 +36,9 @@ const shopSections = [
       { href: '/seller/products', label: 'Products', icon: Package },
       { href: '/seller/categories', label: 'Categories', icon: Tag },
       { href: '/seller/inventory', label: 'Inventory', icon: Archive },
+      { href: '/seller/reservations', label: 'Reservations', icon: Clock },
+      { href: '/seller/restock-interest', label: 'Restock Interest', icon: Bell },
+      { href: '/seller/price-interest', label: 'Price-Drop Interest', icon: Tag },
       { href: '/seller/collections', label: 'Collections', icon: Package },
     ],
   },
@@ -43,6 +46,7 @@ const shopSections = [
     title: 'SALES',
     items: [
       { href: '/seller/orders', label: 'Orders', icon: ShoppingBag },
+      { href: '/seller/offers', label: 'Offers', icon: Tag },
       { href: '/seller/bookings', label: 'Bookings', icon: Calendar },
       { href: '/seller/booking-setup', label: 'Booking Setup', icon: Sparkles },
     ],
@@ -64,6 +68,7 @@ const shopSections = [
     items: [
       { href: '/seller/analytics', label: 'Analytics', icon: TrendingUp },
       { href: '/seller/reviews', label: 'Reviews', icon: Star },
+      { href: '/seller/questions', label: 'Questions & Answers', icon: MessageSquare },
       { href: '/seller/promo-codes', label: 'Promo Codes', icon: Ticket },
       { href: '/seller/promotions', label: 'Clearance & Promotions', icon: Sparkles },
       { href: '/seller/qr-code', label: 'QR Code', icon: Store },

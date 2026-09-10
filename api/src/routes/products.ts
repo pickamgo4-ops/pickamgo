@@ -6,6 +6,10 @@ import { successResponse, errorResponse, validateBody, validateQuery } from '../
 import { distanceInKm } from '../utils/geo'
 import { publicProductVisibility } from '../utils/visibility'
 import { assertModerationSafe } from '../utils/moderation'
+import { deactivateProductStockAlerts } from '../services/stock-alerts'
+import { notifyPriceDrop, deactivateProductPriceAlerts } from '../services/price-alerts'
+import { availableQuantity } from '../services/reservations'
+import { calculatePercentageOff, withCalculatedProductDiscount } from '../utils/pricing'
 
 const router = Router()
 const imageUrl = z.string().refine(value => value.startsWith('/') || /^https?:\/\//.test(value), 'Invalid image URL')
@@ -79,6 +83,10 @@ const createProductSchema = z.object({
   isTrending: z.boolean().optional(),
   isNew: z.boolean().optional(),
   isDeal: z.boolean().optional(),
+  allowOffers: z.boolean().optional(),
+  minimumOfferAmount: z.number().positive().optional(),
+  allowCounteroffers: z.boolean().optional(),
+  allowReservations: z.boolean().optional(),
 })
 
 const updateProductSchema = z.object({
@@ -104,6 +112,40 @@ const updateProductSchema = z.object({
   isTrending: z.boolean().optional(),
   isNew: z.boolean().optional(),
   isDeal: z.boolean().optional(),
+  allowOffers: z.boolean().optional(),
+  minimumOfferAmount: z.number().positive().optional().nullable(),
+  allowCounteroffers: z.boolean().optional(),
+  allowReservations: z.boolean().optional(),
+})
+
+const compareProductsQuerySchema = z.object({
+  ids: z.string().min(1),
+})
+
+router.get('/compare', validateQuery(compareProductsQuerySchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const ids = Array.from(new Set(String(req.query.ids).split(',').map(id => id.trim()).filter(Boolean)))
+    if (ids.length > 4) return errorResponse(res, 'Compare up to 4 products.', 400)
+    if (!ids.length) return successResponse(res, [])
+    const products = await prisma.product.findMany({
+      where: { id: { in: ids }, ...publicProductVisibility, shop: { status: 'ACTIVE' } },
+      select: {
+        id: true, name: true, price: true, originalPrice: true, discount: true, stock: true, status: true,
+        condition: true, brand: true, description: true, category: { select: { id: true, name: true } },
+        seller: { select: { id: true, name: true, avatar: true } },
+        shop: { select: { id: true, name: true, slug: true, deliveryAvailable: true, pickupAvailable: true } },
+        images: { select: { url: true }, orderBy: { sortOrder: 'asc' }, take: 1 },
+        variants: { where: { isActive: true }, select: { id: true, name: true, price: true, stock: true, attributes: true }, orderBy: { sortOrder: 'asc' } },
+        allowOffers: true,
+        allowReservations: true,
+      },
+    })
+    const byId = new Map(products.map(product => [product.id, product]))
+    return successResponse(res, ids.flatMap(id => byId.has(id) ? [byId.get(id)] : []))
+  } catch (error) {
+    console.error('Product comparison error:', error)
+    return errorResponse(res, 'Failed to load comparison products', 500)
+  }
 })
 
 router.get('/', validateQuery(listProductsQuerySchema), async (req: AuthenticatedRequest, res) => {
@@ -222,6 +264,9 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
           isTrending: true,
           isNew: true,
           isDeal: true,
+          allowOffers: true,
+          minimumOfferAmount: true,
+          allowCounteroffers: true,
           rating: true,
           reviewsCount: true,
           createdAt: true,
@@ -248,7 +293,8 @@ router.get('/', validateQuery(listProductsQuerySchema), async (req: Authenticate
       ? productsWithDistance.filter(product => product.distanceKm === null || product.distanceKm <= radius)
       : productsWithDistance
 
-    return successResponse(res, { products: nearbyProducts.length >= 3 ? nearbyProducts : productsWithDistance }, 200, undefined)
+    const visibleProducts = nearbyProducts.length >= 3 ? nearbyProducts : productsWithDistance
+    return successResponse(res, { products: visibleProducts.map(product => withCalculatedProductDiscount(product)), total, page, limit, totalPages: Math.ceil(total / limit) }, 200, undefined)
   } catch (error) {
     console.error('Products list error:', error)
     return errorResponse(res, 'Failed to fetch products', 500)
@@ -324,6 +370,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
         isTrending: true,
         isNew: true,
         isDeal: true,
+        allowOffers: true,
+        minimumOfferAmount: true,
+        allowCounteroffers: true,
+        allowReservations: true,
         rating: true,
         reviewsCount: true,
         createdAt: true,
@@ -339,11 +389,16 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
       return errorResponse(res, 'Product not found', 404)
     }
 
-    if (product.status !== 'ACTIVE' || product.stock <= 0 || product.shop?.status !== 'ACTIVE') {
+    if (!['ACTIVE', 'OUT_OF_STOCK'].includes(product.status) || product.shop?.status !== 'ACTIVE') {
       return errorResponse(res, 'Product not found', 404)
     }
 
-    return successResponse(res, product)
+    const variants = await Promise.all(product.variants.map(async variant => ({
+      ...variant,
+      availableStock: await availableQuantity(prisma, product.id, variant.stock, variant.id),
+    })))
+    const availableStock = product.variants.length ? null : await availableQuantity(prisma, product.id, product.stock)
+    return successResponse(res, { ...withCalculatedProductDiscount(product), variants, availableStock })
   } catch (error) {
     return errorResponse(res, 'Failed to fetch product', 500)
   }
@@ -380,6 +435,10 @@ router.post(
         isTrending,
         isNew,
         isDeal,
+        allowReservations,
+        allowOffers,
+        minimumOfferAmount,
+        allowCounteroffers,
       } = req.body
 
       const userId = (req.user as any)?.userId || req.user?.id
@@ -440,7 +499,7 @@ router.post(
           brand,
           price,
           originalPrice,
-          discount,
+          discount: calculatePercentageOff(originalPrice, price),
           stock,
           condition,
           location,
@@ -449,6 +508,10 @@ router.post(
           isTrending: isTrending ?? false,
           isNew: isNew ?? false,
           isDeal: isDeal ?? false,
+          allowOffers: allowOffers ?? false,
+          minimumOfferAmount: minimumOfferAmount ?? null,
+          allowCounteroffers: allowCounteroffers ?? true,
+          allowReservations: allowReservations ?? true,
           draft: draft ?? false,
           publishedAt: publishedAt ? new Date(publishedAt) : null,
           shopId,
@@ -562,6 +625,9 @@ router.patch(
         where: { id },
         data: {
           ...updateData,
+          ...((updateData.price !== undefined || updateData.originalPrice !== undefined)
+            ? { discount: calculatePercentageOff(updateData.originalPrice ?? existingProduct.originalPrice, updateData.price ?? existingProduct.price) }
+            : {}),
           ...(existingProduct.status === 'PENDING' ? { status: updateData.draft ? 'DRAFT' : 'ACTIVE' } : {}),
           ...(hasShopCategoryId ? { shopCategoryId: shopCategoryId || null } : {}),
           ...(updateData.publishedAt ? { publishedAt: new Date(updateData.publishedAt) } : {}),
@@ -585,6 +651,7 @@ router.patch(
         },
         })
       })
+      if (updateData.price !== undefined) await notifyPriceDrop(prisma, id, Number(existingProduct.price), Number(product.price))
 
       return successResponse(res, product)
     } catch (error: any) {
@@ -622,10 +689,12 @@ router.delete(
       }
 
       const orderCount = await prisma.orderItem.count({ where: { productId: id } })
-      await prisma.product.update({
+      const updatedProduct = await prisma.product.update({
         where: { id },
         data: { status: orderCount > 0 ? 'ARCHIVED' : 'DELETED' },
       })
+      if (updatedProduct.status !== 'ACTIVE') await deactivateProductStockAlerts(prisma, id)
+      if (updatedProduct.status !== 'ACTIVE') await deactivateProductPriceAlerts(prisma, id)
 
       return successResponse(res, null, 200, 'Product deleted successfully')
     } catch (error) {

@@ -44,6 +44,10 @@ export default function CreateProductPage() {
     area: '',
     condition: 'new',
     images: '',
+    allowOffers: false,
+    minimumOfferAmount: '',
+    allowCounteroffers: true,
+    allowReservations: true,
   })
 
   const [variants, setVariants] = useState<Variant[]>([])
@@ -158,6 +162,10 @@ export default function CreateProductPage() {
         isActive: !isDraft,
         status: isDraft ? 'DRAFT' : 'ACTIVE',
         draft: isDraft,
+        allowOffers: form.allowOffers,
+        minimumOfferAmount: form.minimumOfferAmount ? parseFloat(form.minimumOfferAmount) : undefined,
+        allowCounteroffers: form.allowCounteroffers,
+        allowReservations: form.allowReservations,
       }
 
       const response = await api.post<any>('/products', productData)
@@ -200,6 +208,12 @@ export default function CreateProductPage() {
               Add Product
             </h1>
             <p className="text-warm-800/60 text-sm">Create a new product for your shop</p>
+          </div>
+          <label className="flex items-center gap-3 rounded-xl border border-warm-200 bg-white p-4 text-sm font-medium text-warm-900"><input type="checkbox" checked={form.allowReservations} onChange={e => setForm(prev => ({ ...prev, allowReservations: e.target.checked }))} /> Allow Reservations</label>
+
+          <div className="rounded-xl border border-warm-200 bg-white p-4 space-y-3">
+            <label className="flex items-center gap-3 text-sm font-medium text-warm-900"><input type="checkbox" checked={form.allowOffers} onChange={e => setForm(prev => ({ ...prev, allowOffers: e.target.checked }))} /> Allow Offers</label>
+            {form.allowOffers && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><Input label="Minimum offer amount (optional)" type="number" min="0.01" step="0.01" value={form.minimumOfferAmount} onChange={e => updateField('minimumOfferAmount', e.target.value)} /><label className="flex items-center gap-3 text-sm font-medium text-warm-900 sm:pt-8"><input type="checkbox" checked={form.allowCounteroffers} onChange={e => setForm(prev => ({ ...prev, allowCounteroffers: e.target.checked }))} /> Allow Counteroffers</label></div>}
           </div>
         </div>
 

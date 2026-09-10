@@ -283,6 +283,7 @@ export const api = {
     productId?: string;
     serviceId?: string;
     variantId?: string;
+    offerId?: string;
     quantity?: number;
   }) => api.post<CartItemWithRelations>("/cart/items", item),
   updateCartItem: (itemId: string, quantity: number) =>
@@ -397,6 +398,32 @@ export const api = {
     return api.uploadFile<{ url: string; filename: string }>("/upload/image", formData);
   },
   trackProductView: (productId: string) => api.post<{ recorded: boolean }>(`/products/${productId}/view`, {}),
+  getStockAlerts: () => api.get<any[]>('/stock-alerts'),
+  subscribeStockAlert: (productId: string, variantId?: string) => api.post<any>(`/stock-alerts/products/${productId}`, { variantId }),
+  removeStockAlert: (alertId: string) => api.delete(`/stock-alerts/${alertId}`),
+  getSellerStockAlerts: () => api.get<any[]>('/stock-alerts/seller'),
+  getPriceAlerts: () => api.get<any[]>('/price-alerts'),
+  subscribePriceAlert: (productId: string, variantId?: string) => api.post<any>(`/price-alerts/products/${productId}`, { variantId }),
+  removePriceAlert: (alertId: string) => api.delete(`/price-alerts/${alertId}`),
+  getReservations: () => api.get<any[]>('/reservations'),
+  createReservation: (data: { productId: string; variantId?: string; quantity: number }) => api.post<any>('/reservations', data),
+  cancelReservation: (id: string) => api.delete(`/reservations/${id}`),
+  addReservationToCart: (id: string) => api.post<any>(`/reservations/${id}/add-to-cart`, {}),
+  getSellerReservations: () => api.get<any[]>('/reservations/seller'),
+  getSellerPriceAlerts: () => api.get<any[]>('/price-alerts/seller'),
+  getCompareProducts: (ids: string[]) => api.get<any[]>(`/products/compare?ids=${encodeURIComponent(ids.join(','))}`),
+  createOffer: (productId: string, data: { offerAmount: number; buyerMessage?: string }) => api.post<any>(`/offers/products/${productId}`, data),
+  getBuyerOffers: () => api.get<any[]>('/offers/buyer'),
+  getSellerOffers: () => api.get<any[]>('/offers/seller'),
+  getOffer: (id: string) => api.get<any>(`/offers/${id}`),
+  respondToOffer: (id: string, data: { action: 'ACCEPTED' | 'REJECTED' | 'COUNTERED'; amount?: number; sellerMessage?: string }) => api.patch<any>(`/offers/${id}/respond`, data),
+  respondToCounterOffer: (id: string, data: { action: 'ACCEPTED' | 'REJECTED' | 'COUNTERED'; amount?: number; buyerMessage?: string }) => api.post<any>(`/offers/${id}/buyer-response`, data),
+  addAcceptedOfferToCart: (id: string) => api.post<any>(`/offers/${id}/add-to-cart`, {}),
+  getProductQuestions: (productId: string) => api.get<any[]>(`/product-questions/product/${productId}`),
+  askProductQuestion: (productId: string, question: string) => api.post<any>(`/product-questions/product/${productId}`, { question }),
+  deleteProductQuestion: (questionId: string) => api.delete(`/product-questions/${questionId}`),
+  getSellerQuestions: () => api.get<any[]>('/product-questions/seller'),
+  answerProductQuestion: (questionId: string, answer: string) => api.patch<any>(`/product-questions/seller/${questionId}/answer`, { answer }),
   trackOrder: (orderNumber: string) => api.get<any>(`/tracking/${orderNumber}`),
   followShop: (shopId: string) => api.post(`/follows/shops/${shopId}/follow`, {}),
   getFollowStatus: (shopId: string) =>

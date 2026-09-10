@@ -71,6 +71,12 @@ model User {
   custodyEvents          OrderCustodyEvent[]
   fraudAlerts            FraudAlert[]
   services               Service[]
+  productQuestions       ProductQuestion[]
+  buyerOffers            ProductOffer[]     @relation("OfferBuyer")
+  sellerOffers           ProductOffer[]     @relation("OfferSeller")
+  stockAlerts            ProductStockAlert[]
+  priceAlerts            ProductPriceAlert[]
+  reservations           ProductReservation[]
   ownedShops             Shop[]                  @relation("ShopOwner")
   followedShops          ShopFollow[]
   roles                  UserRole[]
@@ -352,6 +358,9 @@ model ProductVariant {
   updatedAt     DateTime   @updatedAt
   product       Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems     CartItem[]
+  stockAlerts   ProductStockAlert[]
+  reservations   ProductReservation[] @relation("ProductReservations")
+  priceAlerts   ProductPriceAlert[]
 
   @@index([productId])
   @@index([sku])
@@ -377,6 +386,8 @@ model CartItem {
   productId String?
   serviceId String?
   variantId String?
+  offerId   String?
+  reservationId String?
   quantity  Int             @default(1)
   price     Decimal         @db.Decimal(12, 2)
   name      String
@@ -388,6 +399,7 @@ model CartItem {
   product   Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   service   Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  reservation ProductReservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
 
   @@unique([cartId, productId, serviceId, variantId])
   @@index([cartId])
@@ -578,6 +590,15 @@ model Product {
   promotionItems    PromotionProduct[]
   flashSaleProducts FlashSaleProduct[]
   engagements       ProductEngagement[]
+  questions         ProductQuestion[]
+  offers            ProductOffer[]
+  stockAlerts       ProductStockAlert[]
+  priceAlerts       ProductPriceAlert[]
+  reservations      ProductReservation[]
+  allowReservations Boolean             @default(true)
+  allowOffers       Boolean             @default(false)
+  minimumOfferAmount Decimal?           @db.Decimal(12, 2)
+  allowCounteroffers Boolean             @default(true)
 
   @@index([sellerId])
   @@index([categoryId])
@@ -709,7 +730,7 @@ model ProductImage {
 model Service {
   id                  String                @id @default(cuid())
   shopId              String
-  providerId          String
+  providerId           String
   categoryId          String
   shopCategoryId      String?
   name                String
@@ -1315,6 +1336,118 @@ model ProductEngagement {
 
   @@index([productId, type, createdAt])
   @@index([productId, userId, type])
+}
+
+model ProductQuestion {
+  id          String    @id @default(cuid())
+  productId   String
+  buyerId     String
+  question    String
+  answer      String?
+  answeredAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyer       User      @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt])
+  @@index([buyerId, createdAt])
+  @@index([productId, answer])
+}
+
+model ProductOffer {
+  id                    String        @id @default(cuid())
+  threadId              String
+  parentOfferId         String?
+  productId             String
+  buyerId               String
+  sellerId              String
+  referencePrice        Decimal       @db.Decimal(12, 2)
+  offerAmount           Decimal       @db.Decimal(12, 2)
+  counterOfferAmount    Decimal?      @db.Decimal(12, 2)
+  status                String        @default("PENDING")
+  proposalBy            String        @default("BUYER")
+  buyerMessage          String?
+  sellerMessage         String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  expiresAt             DateTime
+  respondedAt           DateTime?
+  product               Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyer                 User          @relation("OfferBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller                User          @relation("OfferSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  parentOffer           ProductOffer? @relation("OfferChain", fields: [parentOfferId], references: [id], onDelete: SetNull)
+  childOffers           ProductOffer[] @relation("OfferChain")
+
+  @@index([productId, createdAt])
+  @@index([buyerId, status, createdAt])
+  @@index([sellerId, status, createdAt])
+  @@index([threadId, createdAt])
+  @@index([status, expiresAt])
+}
+
+model ProductStockAlert {
+  id          String          @id @default(cuid())
+  productId   String
+  userId      String
+  variantId   String?
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  notifiedAt  DateTime?
+  cancelledAt DateTime?
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([productId, active])
+  @@index([variantId, active])
+  @@index([userId, active, createdAt])
+  @@index([active, notifiedAt])
+}
+
+model ProductPriceAlert {
+  id              String          @id @default(cuid())
+  productId       String
+  userId          String
+  variantId       String?
+  watchedPrice    Decimal         @db.Decimal(12, 2)
+  lastObservedPrice Decimal       @db.Decimal(12, 2)
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  notifiedAt      DateTime?
+  cancelledAt     DateTime?
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([productId, active])
+  @@index([variantId, active])
+  @@index([userId, active, createdAt])
+  @@index([active, notifiedAt])
+}
+
+model ProductReservation {
+  id          String          @id @default(cuid())
+  productId   String
+  variantId   String?
+  userId      String
+  quantity    Int
+  status      String          @default("ACTIVE")
+  createdAt   DateTime        @default(now())
+  expiresAt   DateTime
+  cancelledAt DateTime?
+  convertedAt DateTime?
+  orderId     String?
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant     ProductVariant? @relation("ProductReservations", fields: [variantId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cartItems   CartItem[]
+
+  @@index([productId, status, expiresAt])
+  @@index([variantId, status, expiresAt])
+  @@index([userId, status, expiresAt])
+  @@index([status, expiresAt])
+  @@index([orderId])
 }
 
 model InventoryMovement {
