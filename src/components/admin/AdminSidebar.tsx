@@ -123,6 +123,25 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
           <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
             {navItems.map((item) => {
               const active = isActive(item.href);
+              if (item.href === '/') {
+                return (
+                  <button
+                    key={item.href}
+                    onClick={() => { router.push('/'); onClose(); }}
+                    className={`
+                      flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors w-full text-left
+                      ${
+                        active
+                          ? "bg-primary/10 text-primary"
+                          : "text-warm-800 hover:bg-warm-100 dark:hover:bg-warm-100 dark:text-warm-800"
+                      }
+                    `}
+                  >
+                    <item.icon size={18} className={active ? "text-primary" : "text-warm-800/70"} />
+                    <span className="dark:text-warm-900">{item.label}</span>
+                  </button>
+                );
+              }
               return (
                 <Link
                   key={item.href}
