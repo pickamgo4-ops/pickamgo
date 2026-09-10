@@ -31,11 +31,13 @@ import {
   Megaphone,
   FlaskConical,
   Sparkles,
+  Home,
 } from "lucide-react";
 import { useRole } from "@/contexts/RoleContext";
 import { api } from "@/lib/api";
 
 const navItems = [
+  { href: "/", label: "Home", icon: Home },
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/shops", label: "Sellers", icon: Store },
@@ -79,7 +81,7 @@ export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   const isActive = (href: string) => {
-    if (href === "/admin" || href === "/admin/settings") return pathname === href;
+    if (href === "/" || href === "/admin" || href === "/admin/settings") return pathname === href;
     return pathname.startsWith(href);
   };
 
