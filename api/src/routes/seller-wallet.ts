@@ -16,6 +16,7 @@ router.get('/summary', authMiddleware, requireRole(['SELLER']), async (req: Auth
     _sum: { grossAmount: true, platformFee: true, deliveryFee: true, netAmount: true, promoDiscount: true },
     _count: { id: true },
   })
+  const collaborationAllocations = await prisma.collaborationAllocation.findMany({ where: { sellerId }, select: { grossAmount: true, platformFee: true, netAmount: true, remainingNetAmount: true, status: true } })
 
   const available = await prisma.sellerEarnings.aggregate({
     where: { sellerId, status: 'AVAILABLE' },
@@ -38,13 +39,13 @@ router.get('/summary', authMiddleware, requireRole(['SELLER']), async (req: Auth
   const views = await prisma.productView.count({ where: { product: { sellerId } } })
 
   return successResponse(res, {
-    gross: earnings._sum.grossAmount || 0,
-    commission: earnings._sum.platformFee || 0,
+    gross: Number(earnings._sum.grossAmount || 0) + collaborationAllocations.reduce((sum, item) => sum + Number(item.grossAmount), 0),
+    commission: Number(earnings._sum.platformFee || 0) + collaborationAllocations.reduce((sum, item) => sum + Number(item.platformFee), 0),
     deliveryFee: earnings._sum.deliveryFee || 0,
-    net: earnings._sum.netAmount || 0,
+    net: Number(earnings._sum.netAmount || 0) + collaborationAllocations.reduce((sum, item) => sum + Number(item.netAmount), 0),
     promoDiscount: earnings._sum.promoDiscount || 0,
     orderCount: earnings._count.id || 0,
-    availableBalance: available._sum.netAmount || 0,
+    availableBalance: Number(available._sum.netAmount || 0) + collaborationAllocations.filter(item => ['AVAILABLE', 'PARTIALLY_REFUNDED'].includes(item.status)).reduce((sum, item) => sum + Number(item.remainingNetAmount), 0),
     withdrawnAmount: withdrawn._sum.netAmount || 0,
     pendingPayout: pendingPayout?.amount || 0,
     products,

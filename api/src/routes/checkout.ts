@@ -10,8 +10,9 @@ import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod 
 import { generateOrderNumber } from '../utils/orderNumber'
 import { getAppUrl } from '../utils/url'
 import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, doesPromoApplyToGroup, type PromoValidationResult } from '../services/promo'
-import { findShippingZone, getActiveProductPromotion } from './seller-store'
+import { findShippingZone } from './seller-store'
 import { availableQuantity, expireReservations, lockInventoryRow } from '../services/reservations'
+import { resolveProductPrice } from '../services/product-pricing'
 
 const router = Router()
 
@@ -134,8 +135,10 @@ export async function processPaidOrderForReference(reference: string, paystackPa
       data: { status: 'SUCCESS', reference },
     })
 
-    const existingSellerEarnings = await tx.sellerEarnings.findUnique({ where: { orderId: order.id } })
-    if (!existingSellerEarnings) {
+    const existingSellerEarnings = order.collaborationId ? null : await tx.sellerEarnings.findUnique({ where: { orderId: order.id } })
+    if (order.collaborationId) {
+      await tx.collaborationAllocation.updateMany({ where: { orderId: order.id, status: 'PENDING' }, data: { status: 'AVAILABLE' } })
+    } else if (!existingSellerEarnings) {
       const sellerEarnings = await import('../services/earnings')
       await sellerEarnings.createSellerEarnings(order.id, tx)
     }
@@ -385,10 +388,9 @@ router.post('/', authMiddleware, requireRole(['USER']), validateBody(checkoutSch
         if (variant.stock < item.quantity) {
           return errorResponse(res, `Insufficient stock for selected variant`, 400)
         }
-        itemPrice = Number(variant.price || product.price)
+        itemPrice = (await resolveProductPrice(product, item.variantId)).finalPrice
       } else {
-        const activePromotion = await getActiveProductPromotion(product.id)
-        itemPrice = activePromotion ? Number(activePromotion.finalPrice) : Number(product.price)
+        itemPrice = (await resolveProductPrice(product)).finalPrice
       }
 
       itemName = product.name

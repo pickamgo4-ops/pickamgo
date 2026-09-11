@@ -214,6 +214,8 @@ export interface CartItem {
   variantId?: string;
   offerId?: string;
   reservationId?: string;
+  collaborationId?: string;
+  collaborationProductId?: string;
   shopId?: string;
   quantity: number;
   price: number;

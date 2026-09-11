@@ -10,6 +10,7 @@ import { deactivateProductStockAlerts } from '../services/stock-alerts'
 import { notifyPriceDrop, deactivateProductPriceAlerts } from '../services/price-alerts'
 import { availableQuantity } from '../services/reservations'
 import { calculatePercentageOff, withCalculatedProductDiscount } from '../utils/pricing'
+import { calculateProductPrice } from '../services/product-pricing'
 
 const router = Router()
 const imageUrl = z.string().refine(value => value.startsWith('/') || /^https?:\/\//.test(value), 'Invalid image URL')
@@ -122,6 +123,32 @@ const compareProductsQuerySchema = z.object({
   ids: z.string().min(1),
 })
 
+const comparePricesQuerySchema = z.object({
+  variantId: z.string().min(1).optional(),
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
+})
+
+function normalizeMatchValue(value: unknown): string {
+  return String(value || '').toLowerCase().normalize('NFKC').replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ')
+}
+
+function normalizeAttributes(value: unknown): string {
+  if (!value) return ''
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    if (!parsed || typeof parsed !== 'object') return normalizeMatchValue(value)
+    return Object.entries(parsed as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => `${normalizeMatchValue(key)}:${normalizeMatchValue(item)}`).join('|')
+  } catch {
+    return normalizeMatchValue(value)
+  }
+}
+
+function sameVariant(primary: { sku: string | null; name: string; attributes: string | null }, candidate: { sku: string | null; name: string; attributes: string | null }): boolean {
+  if (primary.sku && candidate.sku && normalizeMatchValue(primary.sku) === normalizeMatchValue(candidate.sku)) return true
+  return normalizeMatchValue(primary.name) === normalizeMatchValue(candidate.name) && normalizeAttributes(primary.attributes) === normalizeAttributes(candidate.attributes)
+}
+
 router.get('/compare', validateQuery(compareProductsQuerySchema), async (req: AuthenticatedRequest, res) => {
   try {
     const ids = Array.from(new Set(String(req.query.ids).split(',').map(id => id.trim()).filter(Boolean)))
@@ -145,6 +172,74 @@ router.get('/compare', validateQuery(compareProductsQuerySchema), async (req: Au
   } catch (error) {
     console.error('Product comparison error:', error)
     return errorResponse(res, 'Failed to load comparison products', 500)
+  }
+})
+
+router.get('/:id/compare-prices', validateQuery(comparePricesQuerySchema), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { variantId, latitude, longitude } = req.query as z.infer<typeof comparePricesQuerySchema>
+    const source = await prisma.product.findFirst({
+      where: { id: req.params.id, ...publicProductVisibility },
+      select: {
+        id: true, shopId: true, name: true, brand: true, categoryId: true, price: true, originalPrice: true, stock: true, status: true,
+        images: { select: { url: true }, orderBy: { sortOrder: 'asc' }, take: 1 },
+        variants: { where: { isActive: true }, select: { id: true, sku: true, name: true, attributes: true, price: true, originalPrice: true, stock: true } },
+        promotionItems: { where: { promotion: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } } }, select: { originalPrice: true, finalPrice: true }, orderBy: { promotion: { endsAt: 'asc' } }, take: 1 },
+        shop: { select: { id: true, name: true, slug: true, logo: true, location: true, latitude: true, longitude: true, deliveryAvailable: true, pickupAvailable: true, platformDeliveryFee: true, sellerDeliveryFee: true, status: true } },
+        category: { select: { id: true, name: true } },
+      },
+    })
+    if (!source) return errorResponse(res, 'Product not found', 404)
+
+    const selectedVariant = variantId ? source.variants.find(variant => variant.id === variantId) : null
+    if (variantId && !selectedVariant) return errorResponse(res, 'Selected variant is not available', 400)
+    if (!source.brand?.trim()) return successResponse(res, { product: { id: source.id, name: source.name }, offers: [], message: 'No other shops currently have this product.' })
+
+    const searchToken = normalizeMatchValue(source.name).split(' ')[0]
+    const candidates = await prisma.product.findMany({
+      where: {
+        ...publicProductVisibility,
+        categoryId: source.categoryId,
+        brand: { equals: source.brand, mode: 'insensitive' },
+        ...(searchToken ? { name: { contains: searchToken, mode: 'insensitive' } } : {}),
+        shopId: { not: source.shopId },
+      },
+      select: {
+        id: true, shopId: true, name: true, brand: true, categoryId: true, price: true, originalPrice: true, stock: true, status: true,
+        images: { select: { url: true }, orderBy: { sortOrder: 'asc' }, take: 1 },
+        variants: { where: { isActive: true }, select: { id: true, sku: true, name: true, attributes: true, price: true, originalPrice: true, stock: true } },
+        promotionItems: { where: { promotion: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } } }, select: { originalPrice: true, finalPrice: true }, orderBy: { promotion: { endsAt: 'asc' } }, take: 1 },
+        shop: { select: { id: true, name: true, slug: true, logo: true, location: true, latitude: true, longitude: true, deliveryAvailable: true, pickupAvailable: true, platformDeliveryFee: true, sellerDeliveryFee: true, status: true } },
+      },
+      take: 100,
+    })
+
+    const matched = candidates.filter(candidate => normalizeMatchValue(candidate.name) === normalizeMatchValue(source.name) && normalizeMatchValue(candidate.brand) === normalizeMatchValue(source.brand))
+    const sourcePromotion = await prisma.promotionProduct.findFirst({ where: { productId: source.id, promotion: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } } }, select: { originalPrice: true, finalPrice: true }, orderBy: { promotion: { endsAt: 'asc' } } })
+    const allProducts = [source, ...matched]
+    const offers = allProducts.flatMap(product => {
+      const variant = product.id === source.id ? selectedVariant : selectedVariant ? product.variants.find(candidate => sameVariant(selectedVariant, candidate)) : null
+      if (variantId && !variant) return []
+      const pricing = calculateProductPrice({ price: product.price, originalPrice: product.originalPrice, variant, promotion: product.id === source.id ? sourcePromotion : product.promotionItems[0] })
+      const stock = variant ? variant.stock : product.stock
+      const distanceKm = latitude !== undefined && longitude !== undefined && product.shop.latitude != null && product.shop.longitude != null
+        ? distanceInKm({ latitude, longitude }, { latitude: product.shop.latitude, longitude: product.shop.longitude })
+        : null
+      return [{
+        productId: product.id, variantId: variant?.id || null, productName: product.name, image: product.images[0]?.url || '',
+        shop: { id: product.shop.id, name: product.shop.name, slug: product.shop.slug, logo: product.shop.logo, location: product.shop.location },
+        finalPrice: pricing.finalPrice, originalPrice: pricing.originalPrice || null, discountPercentage: pricing.discountPercentage || null,
+        stock, inStock: stock > 0, variant: variant ? { id: variant.id, name: variant.name, attributes: variant.attributes } : null,
+        delivery: product.shop.deliveryAvailable ? { available: true, fee: Number(product.shop.platformDeliveryFee || product.shop.sellerDeliveryFee || 0) } : { available: false, fee: null },
+        pickupAvailable: product.shop.pickupAvailable, distanceKm,
+      }]
+    })
+    offers.sort((left, right) => left.finalPrice - right.finalPrice || Number(right.inStock) - Number(left.inStock) || Number(right.delivery.available) - Number(left.delivery.available))
+    const cheapest = offers.filter(offer => offer.inStock).sort((left, right) => left.finalPrice - right.finalPrice)[0] || offers[0]
+    return successResponse(res, { product: { id: source.id, name: source.name, brand: source.brand, category: source.category }, offers: offers.map(offer => ({ ...offer, isBestPrice: cheapest?.productId === offer.productId })) })
+  } catch (error) {
+    console.error('Product price comparison error:', error)
+    return errorResponse(res, 'Failed to load price comparison', 500)
   }
 })
 
@@ -382,6 +477,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
         category: { select: { id: true, name: true, emoji: true, color: true } },
         images: { select: { id: true, url: true, sortOrder: true }, orderBy: { sortOrder: 'asc' } },
         variants: { select: { id: true, productId: true, name: true, sku: true, price: true, originalPrice: true, stock: true, image: true, attributes: true, isActive: true, sortOrder: true, createdAt: true, updatedAt: true }, orderBy: { sortOrder: 'asc' } },
+        promotionItems: { where: { promotion: { status: 'ACTIVE', startsAt: { lte: new Date() }, endsAt: { gte: new Date() } } }, select: { originalPrice: true, finalPrice: true, promotion: { select: { name: true, type: true } } }, orderBy: { promotion: { endsAt: 'asc' } }, take: 1 },
       },
     })
 
@@ -393,12 +489,20 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
       return errorResponse(res, 'Product not found', 404)
     }
 
-    const variants = await Promise.all(product.variants.map(async variant => ({
-      ...variant,
-      availableStock: await availableQuantity(prisma, product.id, variant.stock, variant.id),
-    })))
+    const promotion = product.promotionItems[0]
+    const basePricing = calculateProductPrice({ price: product.price, originalPrice: product.originalPrice, promotion })
+    const variants = await Promise.all(product.variants.map(async variant => {
+      const pricing = calculateProductPrice({ price: product.price, originalPrice: product.originalPrice, variant, promotion })
+      return {
+        ...variant,
+        price: pricing.finalPrice,
+        originalPrice: pricing.originalPrice,
+        discount: pricing.discountPercentage,
+        availableStock: await availableQuantity(prisma, product.id, variant.stock, variant.id),
+      }
+    }))
     const availableStock = product.variants.length ? null : await availableQuantity(prisma, product.id, product.stock)
-    return successResponse(res, { ...withCalculatedProductDiscount(product), variants, availableStock })
+    return successResponse(res, { ...withCalculatedProductDiscount({ ...product, price: basePricing.finalPrice, originalPrice: basePricing.originalPrice, discount: basePricing.discountPercentage }), variants, promotionItems: promotion ? [{ finalPrice: basePricing.finalPrice, promotion: promotion.promotion }] : [], availableStock })
   } catch (error) {
     return errorResponse(res, 'Failed to fetch product', 500)
   }

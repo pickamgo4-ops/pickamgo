@@ -277,6 +277,10 @@ function CheckoutContent() {
     setError("");
 
     try {
+      if (cart.items.some(item => item.collaborationId)) {
+        setError("Shop collaborations require a signed-in customer. Please sign in to continue.");
+        return;
+      }
       const items = cart.items.map((item) => ({
         productId: item.productId,
         serviceId: item.serviceId,
@@ -335,6 +339,29 @@ function CheckoutContent() {
     setError("");
 
     try {
+      const collaborationIds = Array.from(new Set(cart.items.map(item => item.collaborationId).filter(Boolean))) as string[];
+      if (collaborationIds.length > 1 || (collaborationIds.length === 1 && cart.items.some(item => item.collaborationId !== collaborationIds[0]))) {
+        setError("A collaboration bundle must be checked out separately from other cart items.");
+        return;
+      }
+      if (collaborationIds.length === 1) {
+        const response = await api.checkoutCollaboration(collaborationIds[0], {
+          deliveryAddress: selectedAddress?.street || "Pickup from participating shops",
+          deliveryLatitude: selectedAddress?.latitude ?? undefined,
+          deliveryLongitude: selectedAddress?.longitude ?? undefined,
+          deliveryType,
+          fulfillmentMethod: getFulfillmentMethod(),
+          notes: orderNotes,
+        });
+        if (response.success && response.data) {
+          const payment = await api.post<any>("/checkout/paystack/initialize", { orderId: response.data.id });
+          if (!payment.success || !payment.data?.authorizationUrl) throw new Error(payment.error || "Unable to start Paystack payment");
+          window.location.assign(payment.data.authorizationUrl);
+          return;
+        }
+        setError(response.error || response.message || "Checkout failed");
+        return;
+      }
       const items = cart.items.map((item) => ({
         productId: item.productId,
         serviceId: item.serviceId,

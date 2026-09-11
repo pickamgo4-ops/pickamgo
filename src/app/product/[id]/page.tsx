@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Heart, Share2, MapPin, Star, Truck, ChevronLeft, Store, Clock, MessageCircle, Minus, Plus, ShoppingCart, Flame, Sparkles, Tag, CheckCircle2, GitCompareArrows } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { Button } from '../../../components/ui/Button'
@@ -16,11 +16,11 @@ import { PaymentSafetyNotice } from '../../../components/ui/PaymentSafetyNotice'
 import { ProductReportModal } from '../../../components/ProductReportModal'
 import { useRole } from '../../../contexts/RoleContext'
 import { defaultShopCustomization, shopCustomizationStyle, themeClass } from '../../../lib/shop-themes'
-import { addComparedProduct } from '../../../lib/comparison'
 
 export default function ProductPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, authInitialized } = useRole()
   const productId = typeof params?.id === 'string' ? params.id : ''
   const [product, setProduct] = useState<Product | null>(null)
@@ -79,6 +79,11 @@ export default function ProductPage() {
     loadProduct()
     void api.trackProductView(productId)
   }, [productId])
+
+  useEffect(() => {
+    const requestedVariantId = searchParams.get('variantId')
+    if (requestedVariantId && product?.variants?.some(variant => variant.id === requestedVariantId)) setSelectedVariantId(requestedVariantId)
+  }, [product, searchParams])
 
   useEffect(() => {
     if (!productId) return
@@ -791,7 +796,7 @@ export default function ProductPage() {
         {reservationStatus && !reservation && <p className="-mt-2 mb-3 text-center text-sm text-primary" role="status">{reservationStatus}</p>}
         <Button variant="ghost" fullWidth className="mb-3" onClick={subscribeToPriceDrop} disabled={priceAlertLoading || priceAlertSubscribed}>{priceAlertLoading ? 'Saving...' : priceAlertSubscribed ? "You're already watching this price." : 'Alert me when the price drops'}</Button>
         {priceAlertStatus && <p className="-mt-2 mb-3 text-center text-sm text-primary" role="status">{priceAlertStatus}</p>}
-        <Button variant="ghost" fullWidth className="mb-3" onClick={() => { const result = addComparedProduct(safeProduct.id); setCompareStatus(result.added ? 'Added to comparison.' : result.reason === 'limit' ? 'Compare up to 4 products.' : 'This product is already being compared.'); window.setTimeout(() => setCompareStatus(''), 1800) }}><GitCompareArrows size={17} /> Compare</Button>
+        <Button variant="ghost" fullWidth className="mb-3" onClick={() => { if (variantRequiredButNotSelected) { setCompareStatus('Select a variant before comparing prices.'); return }; router.push(`/product/${safeProduct.id}/compare${selectedVariantId ? `?variantId=${encodeURIComponent(selectedVariantId)}` : ''}`) }}><GitCompareArrows size={17} /> Compare prices</Button>
         {compareStatus && <p className="-mt-2 mb-3 text-center text-sm text-primary" role="status">{compareStatus}</p>}
         <div className="hidden sm:flex gap-3 sticky bottom-4 md:relative z-10">
           <div className="flex items-center gap-2 bg-white border border-warm-200 rounded-xl px-3">

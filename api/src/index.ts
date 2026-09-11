@@ -64,6 +64,7 @@ import stockAlertRoutes from './routes/stock-alerts'
 import priceAlertRoutes from './routes/price-alerts'
 import reservationRoutes from './routes/reservations'
 import offerRoutes from './routes/offers'
+import collaborationRoutes from './routes/collaborations'
 import prisma from './utils/prisma'
 
 const app = express()
@@ -240,6 +241,7 @@ app.use('/api/stock-alerts', stockAlertRoutes)
 app.use('/api/price-alerts', priceAlertRoutes)
 app.use('/api/reservations', reservationRoutes)
 app.use('/api/offers', offerRoutes)
+app.use('/api/collaborations', collaborationRoutes)
 
 if (process.env.ADMIN_BOOTSTRAP_TOKEN?.trim()) {
   app.use('/api/admin/bootstrap', adminBootstrapRoutes)

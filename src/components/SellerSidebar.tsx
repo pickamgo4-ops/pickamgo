@@ -40,6 +40,7 @@ const shopSections = [
       { href: '/seller/restock-interest', label: 'Restock Interest', icon: Bell },
       { href: '/seller/price-interest', label: 'Price-Drop Interest', icon: Tag },
       { href: '/seller/collections', label: 'Collections', icon: Package },
+      { href: '/seller/collaborations', label: 'Collaborations', icon: Users },
     ],
   },
   {

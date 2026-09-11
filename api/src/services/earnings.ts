@@ -76,7 +76,7 @@ export async function calculateRiderEarnings(deliveryId: string, client: Prisma.
   if (!delivery) {
     throw new Error('Delivery not found')
   }
-  if (delivery.order.isTestOrder) return { grossAmount: 0, platformFee: 0, netAmount: 0 }
+  if (delivery.order!.isTestOrder) return { grossAmount: 0, platformFee: 0, netAmount: 0 }
 
   const riderRate = parseFloat(process.env.RIDER_EARNING_RATE || '0.80')
   const grossAmount = Number(delivery.fee || 0)
@@ -134,7 +134,7 @@ export async function createRiderEarnings(deliveryId: string, client: Prisma.Tra
   if (!delivery) {
     throw new Error('Delivery not found')
   }
-  if (delivery.order.isTestOrder) return null
+  if (delivery.order!.isTestOrder) return null
 
   const earnings = calculateRiderEarnings(deliveryId, client)
   const { grossAmount, platformFee, netAmount } = await earnings
@@ -155,7 +155,7 @@ export async function createRiderEarnings(deliveryId: string, client: Prisma.Tra
     data: {
       riderId: delivery.riderId,
       deliveryId: delivery.id,
-      orderId: delivery.orderId,
+      orderId: delivery.orderId!,
       grossAmount,
       platformFee,
       netAmount,

@@ -81,6 +81,29 @@ router.get('/deliveries', authMiddleware, requireRole(['RIDER']), async (req: Au
   })
 })
 
+router.get('/collaboration-deliveries', authMiddleware, requireRole(['RIDER']), async (req: AuthenticatedRequest, res) => {
+  const rider = await prisma.rider.findUnique({ where: { userId: req.user!.id } })
+  if (!rider) return errorResponse(res, 'Rider profile not found', 404)
+  const shipments = await prisma.collaborationShipment.findMany({ where: { status: 'PENDING', fulfillmentMethod: 'FIND_IT_NEAR_ME_RIDER', delivery: { status: 'PENDING', riderId: null } }, include: { delivery: true, shop: { select: { id: true, name: true, location: true, logo: true } }, collaboration: { select: { id: true, name: true } }, order: { select: { id: true, orderNumber: true, customer: { select: { id: true, name: true, avatar: true } } } } }, orderBy: { createdAt: 'asc' }, take: 50 })
+  return successResponse(res, { shipments })
+})
+
+router.post('/collaboration-deliveries/:shipmentId/accept', authMiddleware, requireRole(['RIDER']), async (req: AuthenticatedRequest, res) => {
+  const rider = await prisma.rider.findUnique({ where: { userId: req.user!.id } })
+  if (!rider || !rider.isOnline || !rider.isAvailable) return errorResponse(res, 'You must be online and available to accept deliveries', 400)
+  if (!rider.isVerified) return errorResponse(res, 'Complete Ghana Card verification before accepting deliveries', 403)
+  const shipment = await prisma.collaborationShipment.findUnique({ where: { id: req.params.shipmentId }, include: { delivery: true, shop: true, order: { include: { customer: true } } } })
+  if (!shipment?.delivery) return errorResponse(res, 'Collaboration shipment not found', 404)
+  const delivery = await prisma.$transaction(async tx => {
+    const claimed = await tx.delivery.updateMany({ where: { id: shipment.delivery!.id, riderId: null, status: 'PENDING' }, data: { riderId: req.user!.id, status: 'ACCEPTED', acceptedAt: new Date() } })
+    if (claimed.count !== 1) throw new Error('Delivery was assigned by another rider')
+    await tx.collaborationShipment.update({ where: { id: shipment.id }, data: { status: 'ASSIGNED' } })
+    await tx.rider.update({ where: { userId: req.user!.id }, data: { isAvailable: false } })
+    return tx.delivery.findUnique({ where: { id: shipment.delivery!.id }, include: { collaborationShipment: true } })
+  })
+  return successResponse(res, delivery, 201, 'Collaboration delivery accepted')
+})
+
 router.post('/deliveries/:orderId/accept', authMiddleware, requireRole(['RIDER']), async (req: AuthenticatedRequest, res) => {
   const rider = await prisma.rider.findUnique({
     where: { userId: req.user!.id },
@@ -202,10 +225,28 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
           shop: { include: { owner: { select: { id: true, name: true, email: true } } } },
         },
       },
+      collaborationShipment: true,
     },
   })
 
   if (!delivery) return errorResponse(res, 'Delivery not found', 404)
+
+  if (!delivery.order && delivery.collaborationShipment) {
+    const validTransitions: Record<string, string[]> = { PENDING: ['ACCEPTED', 'CANCELLED'], ACCEPTED: ['GOING_TO_PICKUP', 'ARRIVED_AT_PICKUP', 'CANCELLED'], GOING_TO_PICKUP: ['ARRIVED_AT_PICKUP', 'CANCELLED'], ARRIVED_AT_PICKUP: ['PICKED_UP'], PICKED_UP: ['OUT_FOR_DELIVERY', 'IN_TRANSIT'], OUT_FOR_DELIVERY: ['IN_TRANSIT', 'ARRIVED_AT_CUSTOMER'], IN_TRANSIT: ['ARRIVED_AT_CUSTOMER', 'OUT_FOR_DELIVERY'], ARRIVED_AT_CUSTOMER: ['DELIVERED'], DELIVERED: [], CANCELLED: [], FAILED: [] }
+    if (!(validTransitions[delivery.status] || []).includes(status)) return errorResponse(res, `Cannot change status from ${delivery.status} to ${status}`, 400)
+    if (status === 'DELIVERED') {
+      const updated = await prisma.$transaction(async tx => {
+        const next = await tx.delivery.update({ where: { id: delivery.id }, data: { status, deliveredAt: new Date() } })
+        await tx.collaborationShipment.update({ where: { id: delivery.collaborationShipment!.id }, data: { status: 'DELIVERED' } })
+        await tx.riderEarnings.updateMany({ where: { deliveryId: delivery.id }, data: { status: 'AVAILABLE', availableAt: new Date(), deliveredAt: new Date() } })
+        await tx.rider.update({ where: { userId: req.user!.id }, data: { deliveriesCount: { increment: 1 }, earnings: { increment: Number(delivery.riderEarnings) }, isAvailable: true } })
+        return next
+      })
+      return successResponse(res, updated, 200, 'Collaboration delivery completed')
+    }
+    const updated = await prisma.delivery.update({ where: { id: delivery.id }, data: { status, ...(status === 'PICKED_UP' ? { pickedUpAt: new Date() } : {}) } })
+    return successResponse(res, updated)
+  }
 
   const validTransitions: Record<string, string[]> = {
     PENDING: ['ACCEPTED', 'CANCELLED'],
@@ -229,7 +270,7 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
   const updateData: any = { status }
   if (status === 'PICKED_UP') updateData.pickedUpAt = new Date()
   if (status === 'GOING_TO_PICKUP' || status === 'IN_TRANSIT') {
-    if (!delivery.verificationCode && !delivery.order.isTestOrder) {
+    if (!delivery.verificationCode && !delivery.order!.isTestOrder) {
         updateData.verificationCode = crypto.randomInt(1000, 10000).toString()
     }
   }
@@ -238,41 +279,41 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
   const updated = await prisma.$transaction(async tx => {
     const nextDelivery = await tx.delivery.update({ where: { id: req.params.id }, data: updateData })
     if (status === 'PICKED_UP') {
-      await tx.order.update({ where: { id: delivery.orderId }, data: { deliveryStatus: 'PICKED_UP' } })
+      await tx.order.update({ where: { id: delivery.orderId! }, data: { deliveryStatus: 'PICKED_UP' } })
     }
     if (status === 'OUT_FOR_DELIVERY') {
-      await tx.order.update({ where: { id: delivery.orderId }, data: { status: 'OUT_FOR_DELIVERY', deliveryStatus: 'OUT_FOR_DELIVERY' } })
+      await tx.order.update({ where: { id: delivery.orderId! }, data: { status: 'OUT_FOR_DELIVERY', deliveryStatus: 'OUT_FOR_DELIVERY' } })
     }
     if (status === 'IN_TRANSIT') {
-      await tx.order.update({ where: { id: delivery.orderId }, data: { status: 'OUT_FOR_DELIVERY', deliveryStatus: 'IN_TRANSIT' } })
+      await tx.order.update({ where: { id: delivery.orderId! }, data: { status: 'OUT_FOR_DELIVERY', deliveryStatus: 'IN_TRANSIT' } })
     }
     if (status === 'GOING_TO_PICKUP') {
-      await tx.order.update({ where: { id: delivery.orderId }, data: { deliveryStatus: 'GOING_TO_PICKUP' } })
+      await tx.order.update({ where: { id: delivery.orderId! }, data: { deliveryStatus: 'GOING_TO_PICKUP' } })
     }
     if (['ARRIVED_AT_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'ARRIVED_AT_CUSTOMER', 'DELIVERED', 'CANCELLED', 'FAILED'].includes(status)) {
-      await tx.order.update({ where: { id: delivery.orderId }, data: { deliveryStatus: status } })
+      await tx.order.update({ where: { id: delivery.orderId! }, data: { deliveryStatus: status } })
     }
     if (status === 'DELIVERED') {
-      await tx.order.update({ where: { id: delivery.orderId }, data: { status: 'DELIVERED', deliveryStatus: 'DELIVERED', payoutEligible: !delivery.order.isTestOrder } })
-      if (delivery.order.customerId) await tx.notification.create({ data: { userId: delivery.order.customerId, type: 'ORDER_DELIVERED', title: 'Order Delivered', message: 'Your order has been delivered.', data: JSON.stringify({ orderId: delivery.orderId }) } })
-      if (delivery.order.sellerId) await tx.notification.create({ data: { userId: delivery.order.sellerId, type: 'ORDER_DELIVERED', title: 'Order Delivered', message: `Order ${delivery.order.orderNumber} has been delivered.`, data: JSON.stringify({ orderId: delivery.orderId }) } })
+      await tx.order.update({ where: { id: delivery.orderId! }, data: { status: 'DELIVERED', deliveryStatus: 'DELIVERED', payoutEligible: !delivery.order!.isTestOrder } })
+      if (delivery.order!.customerId) await tx.notification.create({ data: { userId: delivery.order!.customerId, type: 'ORDER_DELIVERED', title: 'Order Delivered', message: 'Your order has been delivered.', data: JSON.stringify({ orderId: delivery.orderId }) } })
+      if (delivery.order!.sellerId) await tx.notification.create({ data: { userId: delivery.order!.sellerId, type: 'ORDER_DELIVERED', title: 'Order Delivered', message: `Order ${delivery.order!.orderNumber} has been delivered.`, data: JSON.stringify({ orderId: delivery.orderId }) } })
     }
     return nextDelivery
   })
 
-  const customer = delivery.order.customer
-  const seller = delivery.order.shop?.owner
+  const customer = delivery.order!.customer
+  const seller = delivery.order!.shop?.owner
   if (['ACCEPTED', 'GOING_TO_PICKUP', 'ARRIVED_AT_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'IN_TRANSIT', 'ARRIVED_AT_CUSTOMER', 'DELIVERED', 'CANCELLED', 'FAILED'].includes(status)) {
     const riderName = req.user?.name || 'Your rider'
-    if (customer?.email && !delivery.order.isTestOrder) {
-      sendDeliveryStatusEmail(customer.email, { orderNumber: delivery.order.orderNumber, status, riderName }).catch(err => console.error('Failed to send delivery status email to customer:', err))
+    if (customer?.email && !delivery.order!.isTestOrder) {
+      sendDeliveryStatusEmail(customer.email, { orderNumber: delivery.order!.orderNumber, status, riderName }).catch(err => console.error('Failed to send delivery status email to customer:', err))
     }
-    if (seller?.email && status !== 'CANCELLED' && !delivery.order.isTestOrder) {
-      sendDeliveryStatusEmail(seller.email, { orderNumber: delivery.order.orderNumber, status, riderName }).catch(err => console.error('Failed to send delivery status email to seller:', err))
+    if (seller?.email && status !== 'CANCELLED' && !delivery.order!.isTestOrder) {
+      sendDeliveryStatusEmail(seller.email, { orderNumber: delivery.order!.orderNumber, status, riderName }).catch(err => console.error('Failed to send delivery status email to seller:', err))
     }
   }
 
-  if (status === 'DELIVERED' && !delivery.order.isTestOrder) {
+  if (status === 'DELIVERED' && !delivery.order!.isTestOrder) {
     await prisma.rider.update({
       where: { userId: req.user!.id },
       data: {
@@ -283,7 +324,7 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
     })
 
     const riderEarningsRecord = await prisma.riderEarnings.findFirst({
-      where: { deliveryId: delivery.id, orderId: delivery.orderId },
+      where: { deliveryId: delivery.id, orderId: delivery.orderId! },
       select: { id: true },
     })
     if (riderEarningsRecord) {
@@ -623,13 +664,13 @@ router.post('/deliveries/:id/verify', authMiddleware, requireRole(['RIDER']), va
       })
 
       await tx.order.update({
-        where: { id: delivery.orderId },
-        data: { status: 'DELIVERED', deliveryStatus: 'DELIVERED', payoutEligible: !delivery.order.isTestOrder },
+        where: { id: delivery.orderId! },
+        data: { status: 'DELIVERED', deliveryStatus: 'DELIVERED', payoutEligible: !delivery.order!.isTestOrder },
       })
 
-      if (!delivery.order.isTestOrder) {
+      if (!delivery.order!.isTestOrder) {
         const earningsRecord = await tx.riderEarnings.findFirst({
-          where: { deliveryId: delivery.id, orderId: delivery.orderId },
+          where: { deliveryId: delivery.id, orderId: delivery.orderId! },
           select: { id: true },
         })
         if (earningsRecord) {
@@ -649,10 +690,10 @@ router.post('/deliveries/:id/verify', authMiddleware, requireRole(['RIDER']), va
         })
       }
 
-      if (delivery.order.customerId) {
+      if (delivery.order!.customerId) {
         await tx.notification.create({
           data: {
-            userId: delivery.order.customerId,
+            userId: delivery.order!.customerId,
             type: 'ORDER_DELIVERED',
             title: 'Order Delivered',
             message: 'Your order has been delivered and verified.',
@@ -660,13 +701,13 @@ router.post('/deliveries/:id/verify', authMiddleware, requireRole(['RIDER']), va
           },
         })
       }
-      if (delivery.order.sellerId) {
+      if (delivery.order!.sellerId) {
         await tx.notification.create({
           data: {
-            userId: delivery.order.sellerId,
+            userId: delivery.order!.sellerId,
             type: 'ORDER_DELIVERED',
             title: 'Order Delivered',
-            message: `Order ${delivery.order.orderNumber} has been delivered.`,
+            message: `Order ${delivery.order!.orderNumber} has been delivered.`,
             data: JSON.stringify({ orderId: delivery.orderId }),
           },
         })
@@ -705,7 +746,7 @@ router.post('/deliveries/:id/report', authMiddleware, requireRole(['RIDER']), va
         reporterId: req.user!.id,
         category: 'DELIVERY_PROBLEM',
         targetType: 'ORDER',
-        targetId: delivery.orderId,
+        targetId: delivery.orderId!,
         reason,
         description,
       },
@@ -716,7 +757,7 @@ router.post('/deliveries/:id/report', authMiddleware, requireRole(['RIDER']), va
         userId: req.user!.id,
         type: 'SUPPORT_UPDATE',
         title: 'Problem Reported',
-        message: `Your problem report for order ${delivery.order.orderNumber} has been received.`,
+        message: `Your problem report for order ${delivery.order!.orderNumber} has been received.`,
         data: JSON.stringify({ reportId: report.id, orderId: delivery.orderId }),
       },
     })

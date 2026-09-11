@@ -6,12 +6,14 @@ import { z } from 'zod'
 import { refundTransaction } from '../services/paystack'
 import { sendRefundEmail, sendAdminNotification } from '../services/email'
 import { recordRefundAbuseSignal, resolveRefundAbuseSignals } from '../utils/refundAbuse'
+import { allocateCollaborationRefund } from '../services/collaborations'
 
 const router = Router()
 
 const createRefundSchema = z.object({
   orderId: z.string().min(1),
   amount: z.number().positive(),
+  orderItemId: z.string().optional(),
   reason: z.string().min(1).optional(),
 })
 
@@ -57,16 +59,20 @@ router.get('/order/:orderId', authMiddleware, async (req: AuthenticatedRequest, 
 
 router.post('/', authMiddleware, validateBody(createRefundSchema), async (req: AuthenticatedRequest, res) => {
   try {
-    const { orderId, amount, reason } = req.body
+    const { orderId, amount, orderItemId, reason } = req.body
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { payment: true, seller: true, customer: true },
+      include: { payment: true, seller: true, customer: true, collaborationAllocations: true },
     })
     if (!order) return errorResponse(res, 'Order not found', 404)
 
     const isCustomer = order.customerId === req.user!.id
-    const isSeller = order.sellerId === req.user!.id
+    const selectedAllocation = order.collaborationId && orderItemId
+      ? order.collaborationAllocations.find(allocation => allocation.orderItemId === orderItemId)
+      : null
+    if (order.collaborationId && orderItemId && !selectedAllocation) return errorResponse(res, 'The collaboration order item was not found', 400)
+    const isSeller = order.sellerId === req.user!.id || selectedAllocation?.sellerId === req.user!.id
 
     if (!isCustomer && !isSeller && !req.user!.isAdmin) {
       return errorResponse(res, 'Not authorized to request a refund for this order', 403)
@@ -84,23 +90,27 @@ router.post('/', authMiddleware, validateBody(createRefundSchema), async (req: A
       return errorResponse(res, 'Cannot refund test orders', 400)
     }
 
-    const existingRefund = await prisma.refund.findFirst({
+    const existingRefund = !order.collaborationId ? await prisma.refund.findFirst({
       where: {
         orderId,
         status: { in: ['PENDING', 'APPROVED', 'PROCESSED'] },
       },
-    })
+    }) : null
 
     if (existingRefund) {
       return errorResponse(res, 'A refund is already in progress for this order', 409)
     }
 
     const numericTotal = Number(order.total)
-    if (amount > numericTotal) {
+    if (!order.collaborationId && amount > numericTotal) {
       return errorResponse(res, 'Refund amount exceeds order total', 400)
     }
 
     const refund = await prisma.$transaction(async (tx) => {
+      const currentAllocations = order.collaborationId
+        ? await tx.collaborationAllocation.findMany({ where: { orderId, ...(selectedAllocation ? { id: selectedAllocation.id } : {}) }, orderBy: { id: 'asc' } })
+        : []
+      const refundTargets = order.collaborationId ? allocateCollaborationRefund(amount, currentAllocations) : []
       const created = await tx.refund.create({
         data: {
           orderId,
@@ -112,6 +122,10 @@ router.post('/', authMiddleware, validateBody(createRefundSchema), async (req: A
           status: 'PENDING',
         },
       })
+
+      for (const target of refundTargets) {
+        await tx.collaborationRefundAllocation.create({ data: { refundId: created.id, allocationId: target.allocationId, amount: target.amountCents / 100, sellerPayoutReversal: target.sellerPayoutReversalCents / 100, platformFeeReversal: target.platformFeeReversalCents / 100 } })
+      }
 
       await tx.order.update({
         where: { id: orderId },
@@ -195,6 +209,7 @@ router.patch('/:id/status', authMiddleware, validateBody(updateRefundSchema), as
         order: {
           include: { payment: true, seller: true, customer: true, sellerEarnings: true },
         },
+        collaborationRefundAllocations: { include: { allocation: true } },
       },
     })
     if (!refund) return errorResponse(res, 'Refund not found', 404)
@@ -255,6 +270,12 @@ router.patch('/:id/status', authMiddleware, validateBody(updateRefundSchema), as
             where: { id: refund.order.sellerEarnings.id },
             data: { status: 'REFUNDED' },
           })
+        }
+
+        for (const reversal of refund.collaborationRefundAllocations) {
+          const nextRefunded = Number(reversal.allocation.refundedAmount) + Number(reversal.amount)
+          const nextRemainingNet = Math.max(0, Number(reversal.allocation.remainingNetAmount) - Number(reversal.sellerPayoutReversal))
+          await tx.collaborationAllocation.update({ where: { id: reversal.allocationId }, data: { refundedAmount: nextRefunded, remainingNetAmount: nextRemainingNet, status: nextRefunded >= Number(reversal.allocation.grossAmount) ? 'REFUNDED' : 'PARTIALLY_REFUNDED' } })
         }
 
         await tx.financialLedger.create({

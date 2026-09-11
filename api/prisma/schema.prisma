@@ -63,6 +63,14 @@ model User {
   riderEarnings          RiderEarnings[]
   searchHistory          SearchHistory[]
   sellerEarnings         SellerEarnings[]
+  ownedCollaborations    Collaboration[]        @relation("CollaborationOwnerSeller")
+  collaborationParticipations CollaborationParticipant[]
+  collaborationInvitationsSent CollaborationInvitation[] @relation("CollaborationInvitationInviterSeller")
+  collaborationInvitationsReceived CollaborationInvitation[] @relation("CollaborationInvitationInviteeSeller")
+  collaborationAllocations CollaborationAllocation[]
+  orderItemsAsSeller   OrderItem[] @relation("OrderItemSeller")
+  collaborationProducts CollaborationProduct[]
+  collaborationShipments CollaborationShipment[]
   verification           SellerVerification?
   risk                   SellerRisk?
   payoutFreeze           SellerPayoutFreeze?
@@ -361,6 +369,7 @@ model ProductVariant {
   stockAlerts   ProductStockAlert[]
   reservations   ProductReservation[] @relation("ProductReservations")
   priceAlerts   ProductPriceAlert[]
+  collaborationProducts CollaborationProduct[]
 
   @@index([productId])
   @@index([sku])
@@ -400,9 +409,14 @@ model CartItem {
   service   Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   reservation ProductReservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  collaborationId String?
+  collaboration   Collaboration? @relation(fields: [collaborationId], references: [id], onDelete: SetNull)
+  collaborationProductId String?
+  collaborationProduct CollaborationProduct? @relation(fields: [collaborationProductId], references: [id], onDelete: SetNull)
 
   @@unique([cartId, productId, serviceId, variantId])
   @@index([cartId])
+  @@index([collaborationId])
 }
 
 model Shop {
@@ -453,6 +467,14 @@ model Shop {
   shippingZones           ShippingZone[]
   collections             ProductCollection[]
   promotions              ProductPromotion[]
+  ownedCollaborations     Collaboration[] @relation("CollaborationOwnerShop")
+  collaborationParticipants CollaborationParticipant[]
+  collaborationsInvited   CollaborationInvitation[] @relation("CollaborationInvitationInviteeShop")
+  collaborationsInviting  CollaborationInvitation[] @relation("CollaborationInvitationInviterShop")
+  collaborationAllocations CollaborationAllocation[]
+  collaborationProducts   CollaborationProduct[]
+  orderItemsAsShop        OrderItem[] @relation("OrderItemShop")
+  collaborationShipments CollaborationShipment[]
   qrCode                  SellerQrCode?
 
   @@index([ownerId])
@@ -589,6 +611,7 @@ model Product {
   collectionItems   CollectionProduct[]
   promotionItems    PromotionProduct[]
   flashSaleProducts FlashSaleProduct[]
+  collaborationProducts CollaborationProduct[]
   engagements       ProductEngagement[]
   questions         ProductQuestion[]
   offers            ProductOffer[]
@@ -646,6 +669,102 @@ model ProductCollection {
 
   @@unique([shopId, slug])
   @@index([shopId, isVisible, sortOrder])
+}
+
+model Collaboration {
+  id            String   @id @default(cuid())
+  ownerShopId   String
+  ownerSellerId String
+  name          String
+  description   String?
+  coverImage    String?
+  type          String   @default("BUNDLE")
+  status        String   @default("DRAFT")
+  startsAt      DateTime?
+  endsAt        DateTime?
+  bundlePrice   Decimal? @db.Decimal(12, 2)
+  rules         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  ownerShop     Shop     @relation("CollaborationOwnerShop", fields: [ownerShopId], references: [id], onDelete: Cascade)
+  ownerSeller   User     @relation("CollaborationOwnerSeller", fields: [ownerSellerId], references: [id], onDelete: Cascade)
+  participants  CollaborationParticipant[]
+  invitations   CollaborationInvitation[]
+  products      CollaborationProduct[]
+  cartItems     CartItem[]
+  orders        Order[]
+  orderItems    OrderItem[]
+  allocations   CollaborationAllocation[]
+  shipments     CollaborationShipment[]
+
+  @@index([status, startsAt, endsAt])
+  @@index([ownerShopId, status])
+}
+
+model CollaborationParticipant {
+  id              String   @id @default(cuid())
+  collaborationId String
+  shopId          String
+  sellerId        String
+  status          String   @default("PENDING_ACCEPTANCE")
+  role            String   @default("PARTICIPANT")
+  acceptedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  shop            Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  seller          User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([collaborationId, shopId])
+  @@index([sellerId, status])
+  @@index([shopId, status])
+}
+
+model CollaborationInvitation {
+  id              String   @id @default(cuid())
+  collaborationId String
+  inviterShopId   String
+  inviterSellerId String
+  inviteeShopId   String
+  inviteeSellerId String
+  status          String   @default("PENDING")
+  message         String?
+  respondedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  inviterShop     Shop @relation("CollaborationInvitationInviterShop", fields: [inviterShopId], references: [id], onDelete: Cascade)
+  inviterSeller   User @relation("CollaborationInvitationInviterSeller", fields: [inviterSellerId], references: [id], onDelete: Cascade)
+  inviteeShop     Shop @relation("CollaborationInvitationInviteeShop", fields: [inviteeShopId], references: [id], onDelete: Cascade)
+  inviteeSeller   User @relation("CollaborationInvitationInviteeSeller", fields: [inviteeSellerId], references: [id], onDelete: Cascade)
+
+  @@unique([collaborationId, inviteeShopId])
+  @@index([inviteeSellerId, status])
+  @@index([inviterSellerId, status])
+}
+
+model CollaborationProduct {
+  id              String   @id @default(cuid())
+  collaborationId String
+  productId       String
+  variantId       String?
+  shopId          String
+  sellerId        String
+  quantity        Int      @default(1)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  shop            Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  seller          User @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  allocations     CollaborationAllocation[]
+
+  @@unique([collaborationId, productId, variantId])
+  @@index([productId, variantId])
+  @@index([shopId, collaborationId])
 }
 
 model CollectionProduct {
@@ -926,13 +1045,14 @@ model Order {
   promoCodeId        String?
   promoDiscount      Decimal           @default(0) @db.Decimal(12, 2)
   refundId           String?
+  collaborationId    String?
   conversations      Conversation[]
   delivery           Delivery?
   disputes           Dispute[]
   ledgerEntries      FinancialLedger[]
   customer           User?             @relation("OrderCustomer", fields: [customerId], references: [id], onDelete: SetNull)
   promoCode          PromoCode?        @relation("PromoOrders", fields: [promoCodeId], references: [id])
-  refund             Refund?
+  refunds            Refund[]
   rider              User?             @relation("OrderRider", fields: [riderId], references: [id], onDelete: SetNull)
   seller             User?             @relation("OrderSeller", fields: [sellerId], references: [id], onDelete: SetNull)
   shop               Shop?             @relation(fields: [shopId], references: [id], onDelete: SetNull)
@@ -946,6 +1066,9 @@ model Order {
   fraudAlerts        FraudAlert[]
   moderationEvents   MessageModeration[]
   statusHistory      OrderStatusHistory[]
+  collaboration      Collaboration?      @relation(fields: [collaborationId], references: [id], onDelete: SetNull)
+  collaborationAllocations CollaborationAllocation[]
+  collaborationShipments CollaborationShipment[]
 
   @@index([customerId])
   @@index([shopId])
@@ -954,6 +1077,7 @@ model Order {
   @@index([status])
   @@index([riderId, status])
   @@index([isTestOrder])
+  @@index([collaborationId])
 }
 
 model OrderItem {
@@ -969,11 +1093,25 @@ model OrderItem {
   price             Decimal  @db.Decimal(12, 2)
   name              String
   image             String
+  shopId            String?
+  sellerId          String?
+  collaborationId   String?
+  collaborationProductId String?
+  allocatedPrice    Decimal? @db.Decimal(12, 2)
+  platformCommission Decimal? @db.Decimal(12, 2)
+  sellerPayout      Decimal? @db.Decimal(12, 2)
   order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product           Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   service           Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  shop              Shop?    @relation("OrderItemShop", fields: [shopId], references: [id], onDelete: SetNull)
+  seller            User?    @relation("OrderItemSeller", fields: [sellerId], references: [id], onDelete: SetNull)
+  collaboration     Collaboration? @relation(fields: [collaborationId], references: [id], onDelete: SetNull)
+  collaborationProduct CollaborationProduct? @relation(fields: [collaborationProductId], references: [id], onDelete: SetNull)
+  collaborationAllocation CollaborationAllocation?
 
   @@index([orderId])
+  @@index([shopId, sellerId])
+  @@index([collaborationId])
 }
 
 model Payment {
@@ -1008,7 +1146,7 @@ model PaymentWebhookEvent {
 
 model Refund {
   id          String    @id @default(cuid())
-  orderId     String    @unique
+  orderId     String
   sellerId    String?
   customerId  String?
   amount      Decimal   @db.Decimal(12, 2)
@@ -1023,8 +1161,8 @@ model Refund {
   order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   seller      User?     @relation("RefundSeller", fields: [sellerId], references: [id], onDelete: SetNull)
   customer    User?     @relation("RefundCustomer", fields: [customerId], references: [id], onDelete: SetNull)
-
-  @@index([orderId])
+  collaborationRefundAllocations CollaborationRefundAllocation[] @relation("RefundCollaborationAllocations")
+  @@index([orderId, status, createdAt])
   @@index([sellerId])
   @@index([status])
 }
@@ -1094,7 +1232,8 @@ model Rider {
 
 model Delivery {
   id                  String         @id @default(cuid())
-  orderId             String         @unique
+  orderId             String? @unique
+  collaborationShipmentId String? @unique
   riderId             String?
   pickupLocation      String
   dropoffLocation     String
@@ -1113,7 +1252,8 @@ model Delivery {
   pickedUpAt          DateTime?
   deliveredAt         DateTime?
   createdAt           DateTime       @default(now())
-  order               Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order               Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  collaborationShipment CollaborationShipment? @relation("CollaborationShipmentDelivery", fields: [collaborationShipmentId], references: [id], onDelete: Cascade)
   rider               User?          @relation(fields: [riderId], references: [id], onDelete: SetNull)
   riderEarningsRecord RiderEarnings?
 
@@ -1542,6 +1682,7 @@ model Payout {
   payoutMethod       PayoutMethod? @relation(fields: [payoutMethodId], references: [id], onDelete: SetNull)
   user               User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   sellerEarnings     SellerEarnings[] @relation("SellerPayoutEarnings")
+  collaborationAllocations CollaborationAllocation[] @relation("CollaborationPayoutAllocations")
   riderEarnings      RiderEarnings[] @relation("RiderPayoutEarnings")
 
   @@index([userId])
@@ -1626,6 +1767,78 @@ model SellerEarnings {
   @@index([sellerId])
   @@index([status])
   @@index([sellerId, status, createdAt])
+}
+
+model CollaborationAllocation {
+  id                       String   @id @default(cuid())
+  collaborationId          String
+  orderId                  String
+  orderItemId              String
+  collaborationProductId   String
+  shopId                   String
+  sellerId                 String
+  grossAmount              Decimal  @db.Decimal(12, 2)
+  platformFee              Decimal  @db.Decimal(12, 2)
+  netAmount                Decimal  @db.Decimal(12, 2)
+  remainingNetAmount       Decimal  @default(0) @db.Decimal(12, 2)
+  refundedAmount           Decimal  @default(0) @db.Decimal(12, 2)
+  status                   String   @default("PENDING")
+  payoutId                 String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  collaboration            Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  order                    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem                OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  collaborationProduct     CollaborationProduct @relation(fields: [collaborationProductId], references: [id], onDelete: Cascade)
+  shop                     Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  seller                   User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  payout                   Payout?  @relation("CollaborationPayoutAllocations", fields: [payoutId], references: [id], onDelete: SetNull)
+  refundAllocations        CollaborationRefundAllocation[]
+
+  @@unique([orderItemId])
+  @@index([sellerId, status, createdAt])
+  @@index([shopId, status])
+  @@index([collaborationId, orderId])
+}
+
+model CollaborationRefundAllocation {
+  id           String   @id @default(cuid())
+  refundId     String
+  allocationId String
+  amount       Decimal  @db.Decimal(12, 2)
+  sellerPayoutReversal Decimal @db.Decimal(12, 2)
+  platformFeeReversal  Decimal @db.Decimal(12, 2)
+  createdAt    DateTime @default(now())
+  refund       Refund   @relation("RefundCollaborationAllocations", fields: [refundId], references: [id], onDelete: Cascade)
+  allocation   CollaborationAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+
+  @@unique([refundId, allocationId])
+  @@index([allocationId])
+}
+
+model CollaborationShipment {
+  id              String   @id @default(cuid())
+  collaborationId String
+  orderId         String
+  shopId          String
+  sellerId        String
+  deliveryAddress String
+  deliveryLatitude Float?
+  deliveryLongitude Float?
+  deliveryFee     Decimal  @default(0) @db.Decimal(12, 2)
+  fulfillmentMethod String @default("FIND_IT_NEAR_ME_RIDER")
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  delivery        Delivery? @relation("CollaborationShipmentDelivery")
+  collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shop            Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  seller          User @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, shopId])
+  @@index([shopId, status])
+  @@index([orderId])
 }
 
 model RiderEarnings {

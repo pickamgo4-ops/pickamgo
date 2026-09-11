@@ -412,6 +412,24 @@ export const api = {
   getSellerReservations: () => api.get<any[]>('/reservations/seller'),
   getSellerPriceAlerts: () => api.get<any[]>('/price-alerts/seller'),
   getCompareProducts: (ids: string[]) => api.get<any[]>(`/products/compare?ids=${encodeURIComponent(ids.join(','))}`),
+  getProductPriceComparison: (productId: string, variantId?: string, location?: { latitude: number; longitude: number }) => {
+    const params = new URLSearchParams()
+    if (variantId) params.set('variantId', variantId)
+    if (location) { params.set('latitude', String(location.latitude)); params.set('longitude', String(location.longitude)) }
+    const query = params.toString()
+    return api.get<any>(`/products/${encodeURIComponent(productId)}/compare-prices${query ? `?${query}` : ''}`)
+  },
+  getPublicCollaborations: () => api.get<any[]>('/collaborations/public'),
+  getCollaboration: (id: string) => api.get<any>(`/collaborations/${encodeURIComponent(id)}`),
+  getSellerCollaborations: () => api.get<{ collaborations: any[]; invitations: any[] }>('/collaborations'),
+  getAdminCollaborations: () => api.get<{ collaborations: any[]; summary: any }>('/collaborations/admin'),
+  createCollaboration: (data: any) => api.post<any>('/collaborations', data),
+  inviteToCollaboration: (id: string, data: { shopId: string; message?: string }) => api.post<any>(`/collaborations/${id}/invitations`, data),
+  respondToCollaborationInvitation: (id: string, action: 'ACCEPT' | 'DECLINE') => api.post<any>(`/collaborations/invitations/${id}/respond`, { action }),
+  addCollaborationProduct: (id: string, data: { productId: string; variantId?: string; quantity?: number; sortOrder?: number }) => api.post<any>(`/collaborations/${id}/products`, data),
+  activateCollaboration: (id: string) => api.post<any>(`/collaborations/${id}/activate`, {}),
+  addCollaborationToCart: (id: string) => api.post<any>(`/collaborations/${id}/cart`, {}),
+  checkoutCollaboration: (id: string, data: any) => api.post<any>(`/collaborations/${id}/checkout`, data),
   createOffer: (productId: string, data: { offerAmount: number; buyerMessage?: string }) => api.post<any>(`/offers/products/${productId}`, data),
   getBuyerOffers: () => api.get<any[]>('/offers/buyer'),
   getSellerOffers: () => api.get<any[]>('/offers/seller'),

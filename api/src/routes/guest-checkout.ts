@@ -10,7 +10,8 @@ import { deliveryMethodError, normalizeDeliveryType, normalizeFulfillmentMethod 
 import { generateOrderNumber } from '../utils/orderNumber'
 import { getAppUrl } from '../utils/url'
 import { validatePromoCode, createPromoRedemption, incrementPromoUsage, calculateDiscount, doesPromoApplyToGroup, type PromoValidationResult } from '../services/promo'
-import { findShippingZone, getActiveProductPromotion } from './seller-store'
+import { findShippingZone } from './seller-store'
+import { resolveProductPrice } from '../services/product-pricing'
 
 const router = Router()
 
@@ -181,10 +182,9 @@ router.post('/guest', validateBody(guestCheckoutSchema), async (req: Authenticat
         if (variant.stock < item.quantity) {
           return errorResponse(res, `Insufficient stock for selected variant`, 400)
         }
-        itemPrice = Number(variant.price || product.price)
+        itemPrice = (await resolveProductPrice(product, item.variantId)).finalPrice
       } else {
-        const activePromotion = await getActiveProductPromotion(product.id)
-        itemPrice = activePromotion ? Number(activePromotion.finalPrice) : Number(product.price)
+        itemPrice = (await resolveProductPrice(product)).finalPrice
       }
 
       itemName = product.name
