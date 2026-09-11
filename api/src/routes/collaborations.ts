@@ -54,6 +54,14 @@ router.get('/admin', authMiddleware, requireRole(['ADMIN']), async (_req: Authen
   return successResponse(res, { collaborations, summary: { activeCount, orderCount, platformCommission: commission._sum.platformFee || 0 } })
 })
 
+router.patch('/admin/:id/status', authMiddleware, requireRole(['ADMIN']), validateBody(z.object({ status: z.enum(['PAUSED', 'ACTIVE', 'CANCELLED', 'COMPLETED']) })), async (req: AuthenticatedRequest, res) => {
+  const collaboration = await prisma.collaboration.findUnique({ where: { id: req.params.id } })
+  if (!collaboration) return errorResponse(res, 'Collaboration not found', 404)
+  const updated = await prisma.collaboration.update({ where: { id: collaboration.id }, data: { status: req.body.status } })
+  await prisma.auditLog.create({ data: { actorId: req.user!.id, actorRole: 'ADMIN', action: `COLLABORATION_${req.body.status}`, targetType: 'COLLABORATION', targetId: collaboration.id, metadata: JSON.stringify({ previousStatus: collaboration.status, nextStatus: req.body.status }) } })
+  return successResponse(res, updated)
+})
+
 router.get('/:id', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
   await expireCollaborations()
   const collaboration = await prisma.collaboration.findUnique({ where: { id: req.params.id }, include: publicInclude() })
@@ -242,6 +250,30 @@ router.post('/:id/cancel', authMiddleware, requireRole(['SELLER']), async (req: 
   if (!collaboration) return errorResponse(res, 'Collaboration not found', 404)
   const updated = await prisma.collaboration.update({ where: { id: collaboration.id }, data: { status: 'CANCELLED' } })
   return successResponse(res, updated)
+})
+
+router.patch('/:id/status', authMiddleware, requireRole(['SELLER']), validateBody(z.object({ status: z.enum(['PAUSED', 'ACTIVE', 'COMPLETED', 'CANCELLED']) })), async (req: AuthenticatedRequest, res) => {
+  const collaboration = await prisma.collaboration.findFirst({ where: { id: req.params.id, ownerSellerId: req.user!.id } })
+  if (!collaboration) return errorResponse(res, 'Collaboration not found', 404)
+  if (req.body.status === 'ACTIVE') {
+    try { assertCollaborationActive({ ...collaboration, status: 'ACTIVE' }) } catch (error: any) { return errorResponse(res, error.message, 409) }
+  }
+  const updated = await prisma.collaboration.update({ where: { id: collaboration.id }, data: { status: req.body.status } })
+  return successResponse(res, updated)
+})
+
+router.delete('/:id/participants/:shopId', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {
+  const collaboration = await prisma.collaboration.findFirst({ where: { id: req.params.id, ownerSellerId: req.user!.id } })
+  if (!collaboration) return errorResponse(res, 'Collaboration not found', 404)
+  const participant = await prisma.collaborationParticipant.findFirst({ where: { collaborationId: collaboration.id, shopId: req.params.shopId, role: { not: 'OWNER' } } })
+  if (!participant) return errorResponse(res, 'Participant not found', 404)
+  const contributed = await prisma.collaborationProduct.count({ where: { collaborationId: collaboration.id, shopId: participant.shopId } })
+  if (contributed) return errorResponse(res, 'Remove this shop\'s contributed products before removing the participant', 409)
+  await prisma.$transaction([
+    prisma.collaborationParticipant.delete({ where: { id: participant.id } }),
+    prisma.collaborationInvitation.deleteMany({ where: { collaborationId: collaboration.id, inviteeShopId: participant.shopId } }),
+  ])
+  return successResponse(res, null, 200, 'Participant removed')
 })
 
 router.get('/:id/financials', authMiddleware, requireRole(['SELLER']), async (req: AuthenticatedRequest, res) => {

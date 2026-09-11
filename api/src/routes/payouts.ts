@@ -249,11 +249,12 @@ router.get('/balances', authMiddleware, async (req: AuthenticatedRequest, res) =
       const earnings = await prisma.riderEarnings.findMany({
         where: { riderId: userId },
       })
+      const collaborationEarnings = await prisma.collaborationRiderEarnings.findMany({ where: { riderId: userId } })
 
-      available = earnings.filter(e => e.status === 'AVAILABLE').reduce((sum, e) => sum + Number(e.netAmount), 0)
-      pending = earnings.filter(e => e.status === 'PENDING').reduce((sum, e) => sum + Number(e.netAmount), 0)
-      totalEarnings = earnings.reduce((sum, e) => sum + Number(e.netAmount), 0)
-      totalWithdrawn = earnings.filter(e => e.status === 'WITHDRAWN').reduce((sum, e) => sum + Number(e.netAmount), 0)
+      available = earnings.filter(e => e.status === 'AVAILABLE').reduce((sum, e) => sum + Number(e.netAmount), 0) + collaborationEarnings.filter(e => e.status === 'AVAILABLE').reduce((sum, e) => sum + Number(e.netAmount), 0)
+      pending = earnings.filter(e => e.status === 'PENDING').reduce((sum, e) => sum + Number(e.netAmount), 0) + collaborationEarnings.filter(e => e.status === 'PENDING').reduce((sum, e) => sum + Number(e.netAmount), 0)
+      totalEarnings = earnings.reduce((sum, e) => sum + Number(e.netAmount), 0) + collaborationEarnings.reduce((sum, e) => sum + Number(e.netAmount), 0)
+      totalWithdrawn = earnings.filter(e => e.status === 'WITHDRAWN').reduce((sum, e) => sum + Number(e.netAmount), 0) + collaborationEarnings.filter(e => e.status === 'WITHDRAWN').reduce((sum, e) => sum + Number(e.netAmount), 0)
     }
 
     return successResponse(res, {
@@ -386,7 +387,8 @@ router.post('/withdraw', authMiddleware, validateBody(z.object({
       const earnings = await prisma.riderEarnings.findMany({
         where: { riderId: userId, status: 'AVAILABLE' },
       })
-      availableBalance = earnings.reduce((sum, e) => sum + Number(e.netAmount), 0)
+      const collaborationEarnings = await prisma.collaborationRiderEarnings.findMany({ where: { riderId: userId, status: 'AVAILABLE', payoutId: null } })
+      availableBalance = earnings.reduce((sum, e) => sum + Number(e.netAmount), 0) + collaborationEarnings.reduce((sum, e) => sum + Number(e.netAmount), 0)
     }
 
     if (amount > availableBalance) {
@@ -406,7 +408,8 @@ router.post('/withdraw', authMiddleware, validateBody(z.object({
         ? await tx.sellerEarnings.findMany({ where: { sellerId: userId, status: 'AVAILABLE', payoutId: null }, orderBy: { availableAt: 'asc' } })
         : await tx.riderEarnings.findMany({ where: { riderId: userId, status: 'AVAILABLE', payoutId: null }, orderBy: { availableAt: 'asc' } })
       const availableAllocations = isSeller ? await tx.collaborationAllocation.findMany({ where: { sellerId: userId, status: { in: ['AVAILABLE', 'PARTIALLY_REFUNDED'] }, payoutId: null }, orderBy: { createdAt: 'asc' } }) : []
-      const availableBalance = availableEarnings.reduce((sum, earning) => sum + Number(earning.netAmount), 0) + availableAllocations.reduce((sum, earning) => sum + Number(earning.remainingNetAmount), 0)
+      const availableCollaborationRiderEarnings = isRider ? await tx.collaborationRiderEarnings.findMany({ where: { riderId: userId, status: 'AVAILABLE', payoutId: null }, orderBy: { availableAt: 'asc' } }) : []
+      const availableBalance = availableEarnings.reduce((sum, earning) => sum + Number(earning.netAmount), 0) + availableAllocations.reduce((sum, earning) => sum + Number(earning.remainingNetAmount), 0) + availableCollaborationRiderEarnings.reduce((sum, earning) => sum + Number(earning.netAmount), 0)
       if (amount > availableBalance) throw new Error('INSUFFICIENT_BALANCE')
 
       const created = await tx.payout.create({
@@ -429,6 +432,12 @@ router.post('/withdraw', authMiddleware, validateBody(z.object({
         if (remaining <= 0) break
         const nextRemaining = Math.round((remaining - Number(allocation.remainingNetAmount)) * 100) / 100
         await tx.collaborationAllocation.update({ where: { id: allocation.id }, data: { status: 'WITHDRAWN', payoutId: created.id } })
+        remaining = nextRemaining
+      }
+      for (const earning of availableCollaborationRiderEarnings) {
+        if (remaining <= 0) break
+        const nextRemaining = Math.round((remaining - Number(earning.netAmount)) * 100) / 100
+        await tx.collaborationRiderEarnings.update({ where: { id: earning.id }, data: { status: 'WITHDRAWN', payoutId: created.id, withdrawnAt: new Date() } })
         remaining = nextRemaining
       }
 
@@ -489,6 +498,7 @@ router.post('/withdraw', authMiddleware, validateBody(z.object({
         await tx.payout.update({ where: { id: payout.id }, data: { status: 'FAILED', failureReason: transferError instanceof Error ? transferError.message : 'Transfer failed', processedAt: new Date() } })
         await tx.sellerEarnings.updateMany({ where: { payoutId: payout.id }, data: { status: 'AVAILABLE', payoutId: null, withdrawnAt: null } })
         await tx.collaborationAllocation.updateMany({ where: { payoutId: payout.id }, data: { status: 'AVAILABLE', payoutId: null } })
+        await tx.collaborationRiderEarnings.updateMany({ where: { payoutId: payout.id }, data: { status: 'AVAILABLE', payoutId: null, withdrawnAt: null } })
         await tx.riderEarnings.updateMany({ where: { payoutId: payout.id }, data: { status: 'AVAILABLE', payoutId: null, withdrawnAt: null } })
         await tx.financialLedger.updateMany({ where: { payoutId: payout.id, type: 'PAYOUT' }, data: { status: 'FAILED' } })
         await tx.auditLog.create({ data: { actorId: userId, actorRole: isSeller ? 'SELLER' : 'RIDER', action: 'PAYOUT_FAILED', targetType: 'PAYOUT', targetId: payout.id, reason: transferError instanceof Error ? transferError.message : 'Transfer failed' } })

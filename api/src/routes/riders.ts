@@ -99,6 +99,9 @@ router.post('/collaboration-deliveries/:shipmentId/accept', authMiddleware, requ
     if (claimed.count !== 1) throw new Error('Delivery was assigned by another rider')
     await tx.collaborationShipment.update({ where: { id: shipment.id }, data: { status: 'ASSIGNED' } })
     await tx.rider.update({ where: { userId: req.user!.id }, data: { isAvailable: false } })
+    const fee = Number(shipment.delivery!.fee || 0)
+    const riderRate = Number(process.env.RIDER_EARNING_RATE || '0.80')
+    await tx.collaborationRiderEarnings.create({ data: { deliveryId: shipment.delivery!.id, shipmentId: shipment.id, riderId: req.user!.id, grossAmount: fee, platformFee: Math.round(fee * (1 - riderRate) * 100) / 100, netAmount: Math.round(fee * riderRate * 100) / 100, status: 'PENDING' } })
     return tx.delivery.findUnique({ where: { id: shipment.delivery!.id }, include: { collaborationShipment: true } })
   })
   return successResponse(res, delivery, 201, 'Collaboration delivery accepted')
@@ -234,11 +237,14 @@ router.patch('/deliveries/:id/status', authMiddleware, requireRole(['RIDER']), v
   if (!delivery.order && delivery.collaborationShipment) {
     const validTransitions: Record<string, string[]> = { PENDING: ['ACCEPTED', 'CANCELLED'], ACCEPTED: ['GOING_TO_PICKUP', 'ARRIVED_AT_PICKUP', 'CANCELLED'], GOING_TO_PICKUP: ['ARRIVED_AT_PICKUP', 'CANCELLED'], ARRIVED_AT_PICKUP: ['PICKED_UP'], PICKED_UP: ['OUT_FOR_DELIVERY', 'IN_TRANSIT'], OUT_FOR_DELIVERY: ['IN_TRANSIT', 'ARRIVED_AT_CUSTOMER'], IN_TRANSIT: ['ARRIVED_AT_CUSTOMER', 'OUT_FOR_DELIVERY'], ARRIVED_AT_CUSTOMER: ['DELIVERED'], DELIVERED: [], CANCELLED: [], FAILED: [] }
     if (!(validTransitions[delivery.status] || []).includes(status)) return errorResponse(res, `Cannot change status from ${delivery.status} to ${status}`, 400)
+    if (status === 'GOING_TO_PICKUP' || status === 'IN_TRANSIT') {
+      await prisma.delivery.update({ where: { id: delivery.id }, data: { verificationCode: delivery.verificationCode || crypto.randomInt(1000, 10000).toString() } })
+    }
     if (status === 'DELIVERED') {
       const updated = await prisma.$transaction(async tx => {
         const next = await tx.delivery.update({ where: { id: delivery.id }, data: { status, deliveredAt: new Date() } })
         await tx.collaborationShipment.update({ where: { id: delivery.collaborationShipment!.id }, data: { status: 'DELIVERED' } })
-        await tx.riderEarnings.updateMany({ where: { deliveryId: delivery.id }, data: { status: 'AVAILABLE', availableAt: new Date(), deliveredAt: new Date() } })
+        await tx.collaborationRiderEarnings.updateMany({ where: { deliveryId: delivery.id }, data: { status: 'AVAILABLE', availableAt: new Date(), deliveredAt: new Date() } })
         await tx.rider.update({ where: { userId: req.user!.id }, data: { deliveriesCount: { increment: 1 }, earnings: { increment: Number(delivery.riderEarnings) }, isAvailable: true } })
         return next
       })
@@ -638,11 +644,24 @@ router.post('/deliveries/:id/verify', authMiddleware, requireRole(['RIDER']), va
     const { verificationCode } = req.body
     const delivery = await prisma.delivery.findFirst({
       where: { id: req.params.id, riderId: req.user!.id },
-      include: { order: true },
+      include: { order: true, collaborationShipment: true },
     })
 
     if (!delivery) {
       return errorResponse(res, 'Delivery not found', 404)
+    }
+
+    if (!delivery.order && delivery.collaborationShipment) {
+      if (delivery.status !== 'ARRIVED_AT_CUSTOMER' && delivery.status !== 'IN_TRANSIT') return errorResponse(res, 'Delivery must be at the customer location before verification', 400)
+      if (!delivery.verificationCode || delivery.verificationCode !== verificationCode) return errorResponse(res, 'Invalid verification code', 400)
+      const updated = await prisma.$transaction(async tx => {
+        const next = await tx.delivery.update({ where: { id: delivery.id }, data: { status: 'DELIVERED', deliveredAt: new Date(), verificationCode: null } })
+        await tx.collaborationShipment.update({ where: { id: delivery.collaborationShipment!.id }, data: { status: 'DELIVERED' } })
+        await tx.collaborationRiderEarnings.updateMany({ where: { deliveryId: delivery.id }, data: { status: 'AVAILABLE', availableAt: new Date(), deliveredAt: new Date() } })
+        await tx.rider.update({ where: { userId: req.user!.id }, data: { deliveriesCount: { increment: 1 }, earnings: { increment: Number(delivery.riderEarnings) }, isAvailable: true } })
+        return next
+      })
+      return successResponse(res, updated, undefined, 'Collaboration delivery verified and completed')
     }
 
     if (delivery.status !== 'ARRIVED_AT_CUSTOMER' && delivery.status !== 'IN_TRANSIT') {

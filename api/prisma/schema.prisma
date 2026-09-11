@@ -61,6 +61,7 @@ model User {
   disputeMessages        DisputeMessage[]
   riderProfile           Rider?
   riderEarnings          RiderEarnings[]
+  collaborationRiderEarnings CollaborationRiderEarnings[]
   searchHistory          SearchHistory[]
   sellerEarnings         SellerEarnings[]
   ownedCollaborations    Collaboration[]        @relation("CollaborationOwnerSeller")
@@ -1256,6 +1257,7 @@ model Delivery {
   collaborationShipment CollaborationShipment? @relation("CollaborationShipmentDelivery", fields: [collaborationShipmentId], references: [id], onDelete: Cascade)
   rider               User?          @relation(fields: [riderId], references: [id], onDelete: SetNull)
   riderEarningsRecord RiderEarnings?
+  collaborationRiderEarnings CollaborationRiderEarnings?
 
   @@index([riderId])
   @@index([status])
@@ -1684,6 +1686,7 @@ model Payout {
   sellerEarnings     SellerEarnings[] @relation("SellerPayoutEarnings")
   collaborationAllocations CollaborationAllocation[] @relation("CollaborationPayoutAllocations")
   riderEarnings      RiderEarnings[] @relation("RiderPayoutEarnings")
+  collaborationRiderEarnings CollaborationRiderEarnings[] @relation("CollaborationRiderPayoutEarnings")
 
   @@index([userId])
   @@index([status])
@@ -1831,6 +1834,7 @@ model CollaborationShipment {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   delivery        Delivery? @relation("CollaborationShipmentDelivery")
+  riderEarnings   CollaborationRiderEarnings?
   collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
   order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   shop            Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
@@ -1863,6 +1867,27 @@ model RiderEarnings {
 
   @@index([riderId])
   @@index([status])
+  @@index([riderId, status, availableAt])
+}
+
+model CollaborationRiderEarnings {
+  id          String   @id @default(cuid())
+  riderId     String?
+  deliveryId  String   @unique
+  shipmentId  String   @unique
+  grossAmount Decimal  @db.Decimal(12, 2)
+  platformFee Decimal  @db.Decimal(12, 2)
+  netAmount   Decimal  @db.Decimal(12, 2)
+  status      String   @default("PENDING")
+  availableAt DateTime?
+  deliveredAt DateTime?
+  withdrawnAt DateTime?
+  payoutId    String?
+  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  shipment    CollaborationShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  rider       User? @relation(fields: [riderId], references: [id], onDelete: SetNull)
+  payout      Payout? @relation("CollaborationRiderPayoutEarnings", fields: [payoutId], references: [id], onDelete: SetNull)
+
   @@index([riderId, status, availableAt])
 }
 
