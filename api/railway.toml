@@ -3,6 +3,8 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm run db:deploy && npm start"
+# Keep application startup independent from migration recovery. Run migrations
+# manually after the failed production migration is inspected and resolved.
+startCommand = "npm start"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
